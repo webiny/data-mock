@@ -19,9 +19,7 @@
     "strict": true,
     "skipLibCheck": true,
     "exactOptionalPropertyTypes": true,
-    "noPropertyAccessFromIndexSignature": false,
-    "suppressExcessPropertyErrors": false,
-    "suppressImplicitAnyIndexErrors": false
+    "noPropertyAccessFromIndexSignature": false
   },
   "ts-node": {
     // Do not forget to `npm i -D tsconfig-paths`

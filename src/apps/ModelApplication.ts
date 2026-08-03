@@ -143,9 +143,9 @@ export class ModelApplication implements IModelApplication {
                 }
             `,
             path: "/cms/manage",
-            getResult: createGetCmsContentResult<ApiCmsModel[] | null>(data => {
+            getResult: createGetCmsContentResult<ApiCmsModel[]>(data => {
                 if (!Array.isArray(data)) {
-                    return null;
+                    return [];
                 }
                 return data.filter(model => {
                     if (!model.tags?.length) {
