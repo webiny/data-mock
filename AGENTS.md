@@ -157,11 +157,15 @@ UI entry:
 | Fake data | `@faker-js/faker` | ^10.x |
 | GraphQL tags | `graphql-tag` | ^2.x |
 | HTTP retry | `p-retry` | ^8.x |
-| CLI framework | `yargs` | ^18.x |
+| CLI prompts | `@clack/prompts` | ^0.x |
 | UI framework | `react` + `@mantine/core` | ^19.x + ^7.x |
+| UI state | `mobx` + `mobx-react-lite` | ^6.x + ^4.x |
 | API server | `fastify` | ^5.x |
 | Testing | `vitest` | ^3.x |
 | Validation | `zod` | ^3.x |
+| Dev runner | `concurrently` | ^9.x |
+| UI bundler | `vite` + `@vitejs/plugin-react` | ^6.x |
+| API bundler | `esbuild` | ^0.x |
 | Linting | `oxlint` | ^1.80.x |
 | Formatting | `oxfmt` | ^0.65.x |
 | TypeScript | `typescript` | 7.x |
@@ -172,7 +176,11 @@ UI entry:
 - `better-sqlite3`, `@types/better-sqlite3`, `drizzle-orm`, `drizzle-kit`
 - `zod`
 - `fastify`
+- `@clack/prompts`
 - `react`, `react-dom`, `@mantine/core`, `@mantine/hooks`
+- `mobx`, `mobx-react-lite`
+- `vite`, `@vitejs/plugin-react`, `postcss`, `postcss-preset-mantine` (dev)
+- `esbuild`, `concurrently` (dev)
 - `vitest` (dev)
 
 ### Dependencies to Remove (after migration)
@@ -183,7 +191,7 @@ UI entry:
 - `dotenv` → replaced by `ProcessEnvFeature` from `@webiny/stdlib/node`
 
 ### Dependencies to Keep
-- `@faker-js/faker`, `graphql-tag`, `lodash`, `slugify`, `p-retry`, `yargs`
+- `@faker-js/faker`, `graphql-tag`, `lodash`, `slugify`, `p-retry`
 
 ---
 
