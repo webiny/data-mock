@@ -94,6 +94,19 @@ src/
     └── di/                          # DI utilities
 ```
 
+### Runtime Data Directory
+
+All runtime data lives in `.webiny/` (already gitignored):
+
+```
+.webiny/
+├── data-mock.db          # SQLite database (projects, seed jobs)
+├── cache/                # File cache (API response caching)
+└── logs/                 # Log files (if file logging is enabled)
+```
+
+The database path defaults to `.webiny/data-mock.db`. Cache and logs also go here — nothing runtime gets committed.
+
 ### Database Schema (SQLite)
 
 ```
@@ -242,6 +255,7 @@ See `documentation/research/02-sqlite-patterns-reference.md` for full patterns.
 - **Timestamps:** Integer columns, Unix epoch milliseconds
 - **JSON storage:** Serialized in `text` columns
 - **Migrations:** `drizzle-kit generate` → SQL files in `src/db/migrations/`
+- **Default path:** `.webiny/data-mock.db`
 - **Startup:** `createDatabaseClient(path)` → `runMigrations(db)` → seed defaults → register in container
 
 ---
