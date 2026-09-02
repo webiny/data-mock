@@ -10,23 +10,23 @@ import { createTextField } from "~/apps/utils/fields/text.js";
 import { ICreateFieldDefinition } from "~/apps/utils/fields/createField.js";
 
 export const createAllowedFields = () => {
-    const creators = [
-        createBooleanField,
-        createDatetimeField,
-        createFileField,
-        createJsonField,
-        createLongTextField,
-        createNumberField,
-        createRefField,
-        createRichTextField,
-        createTextField
-    ];
+  const creators = [
+    createBooleanField,
+    createDatetimeField,
+    createFileField,
+    createJsonField,
+    createLongTextField,
+    createNumberField,
+    createRefField,
+    createRichTextField,
+    createTextField,
+  ];
 
-    return creators.reduce<Record<string, ICreateFieldDefinition>>((collection, creator) => {
-        const def = creator();
+  return creators.reduce<Record<string, ICreateFieldDefinition>>((collection, creator) => {
+    const def = creator();
 
-        collection[def.type] = def.definition;
+    collection[def.type] = def.definition;
 
-        return collection;
-    }, {});
+    return collection;
+  }, {});
 };

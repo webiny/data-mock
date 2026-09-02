@@ -1,14 +1,14 @@
 import { ApiCmsModelField } from "~/types.js";
 
 export interface ICreateFieldDefinition {
-    (field: ApiCmsModelField): string;
+  (field: ApiCmsModelField): string;
 }
 
 export interface ICreateFieldParams {
-    type: string;
-    definition: ICreateFieldDefinition;
+  type: string;
+  definition: ICreateFieldDefinition;
 }
 
 export const createField = (params: ICreateFieldParams): (() => ICreateFieldParams) => {
-    return () => params;
+  return () => params;
 };

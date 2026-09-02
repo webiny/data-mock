@@ -6,13 +6,13 @@ import "./fields/index.js";
 import "./validators/index.js";
 
 export interface IGetGeneratorParams {
-    field: ApiCmsModelField;
+  field: ApiCmsModelField;
 }
 
 export const getGenerator = <T extends IGenerator<unknown>>({
-    field
+  field,
 }: IGetGeneratorParams): IRegistryGenerator<T> => {
-    return registry.getGenerator<T>({
-        field
-    });
+  return registry.getGenerator<T>({
+    field,
+  });
 };

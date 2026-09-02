@@ -5,33 +5,33 @@ import { MaximumLengthValidator, MinimumLengthValidator } from "../validators/in
 import type { IGeneratorGenerateParams } from "../types.js";
 
 class LongTextGenerator extends BaseGenerator<string> {
-    public type = "long-text";
+  public type = "long-text";
 
-    public async generate({ getValidator }: IGeneratorGenerateParams): Promise<string> {
-        const min = getValidator(MinimumLengthValidator).getValue(1);
-        const max = getValidator(MaximumLengthValidator).getValue(25);
-        const value = faker.lorem.words({
-            min,
-            max
-        });
+  public async generate({ getValidator }: IGeneratorGenerateParams): Promise<string> {
+    const min = getValidator(MinimumLengthValidator).getValue(1);
+    const max = getValidator(MaximumLengthValidator).getValue(25);
+    const value = faker.lorem.words({
+      min,
+      max,
+    });
 
-        return value.length > max ? value.slice(0, max) : value;
-    }
+    return value.length > max ? value.slice(0, max) : value;
+  }
 }
 
 class MultiLongTextGenerator extends BaseMultiGenerator<string> {
-    public type = "long-text";
+  public type = "long-text";
 
-    public async generate(params: IGeneratorGenerateParams): Promise<string[]> {
-        const { getValidator, field } = params;
-        const total = faker.number.int({
-            min: getValidator(MinimumLengthValidator).getListValue(1),
-            max: getValidator(MaximumLengthValidator).getListValue(5)
-        });
-        return this.iterate(total, async () => {
-            return this.getGenerator(LongTextGenerator).generate(field);
-        });
-    }
+  public async generate(params: IGeneratorGenerateParams): Promise<string[]> {
+    const { getValidator, field } = params;
+    const total = faker.number.int({
+      min: getValidator(MinimumLengthValidator).getListValue(1),
+      max: getValidator(MaximumLengthValidator).getListValue(5),
+    });
+    return this.iterate(total, async () => {
+      return this.getGenerator(LongTextGenerator).generate(field);
+    });
+  }
 }
 
 registry.registerGenerator(LongTextGenerator);

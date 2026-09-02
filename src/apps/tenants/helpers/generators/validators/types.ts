@@ -1,14 +1,14 @@
 export interface DateValidationSettings {
-    value: string;
-    type: "time" | string;
+  value: string;
+  type: "time" | string;
 }
 
 export interface LengthValidationSettings {
-    value: string;
+  value: string;
 }
 
 export interface PatternValidationSettings {
-    preset?: string;
-    regex: string;
-    flags?: string;
+  preset?: string;
+  regex: string;
+  flags?: string;
 }
