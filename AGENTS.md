@@ -190,8 +190,11 @@ UI entry:
 - `fs-extra` → replaced by `DirectoryToolFeature` + `FileToolFeature`
 - `dotenv` → replaced by `ProcessEnvFeature` from `@webiny/stdlib/node`
 
+### Dependencies to Replace
+- `slugify` → `transliteration` (supports transliteration + slugify in one package)
+
 ### Dependencies to Keep
-- `@faker-js/faker`, `graphql-tag`, `lodash`, `slugify`, `p-retry`
+- `@faker-js/faker`, `graphql-tag`, `lodash`, `p-retry`
 
 ---
 
