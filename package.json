@@ -1,7 +1,6 @@
 {
-  "name": "webiny-mock-data",
-  "version": "0.0.1",
-  "main": "dist/index.js",
+  "name": "data-mock",
+  "version": "0.0.0",
   "author": "Bruno Zorić",
   "license": "MIT",
   "type": "module",

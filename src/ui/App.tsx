@@ -16,6 +16,8 @@ import { ProjectListPresentationFeature } from "./presentation/Projects/ProjectL
 import { AddProjectPresentationFeature } from "./presentation/Projects/AddProject/feature.js";
 import { SeedConfigPresentationFeature } from "./presentation/Seeding/SeedConfig/feature.js";
 import { SeedHistoryPresentationFeature } from "./presentation/Seeding/SeedHistory/feature.js";
+import { ProjectDetailPresentationFeature } from "./presentation/Projects/ProjectDetail/feature.js";
+import { TemplatesFeature } from "./features/templates/feature.js";
 import { AppLayout } from "./components/AppLayout.js";
 import { theme } from "./theme/theme.js";
 
@@ -28,7 +30,9 @@ function createAppContainer(): Container {
   TenantsFeature.register(container);
   ModelsFeature.register(container);
   SeedingFeature.register(container);
+  TemplatesFeature.register(container);
   ProjectListPresentationFeature.register(container);
+  ProjectDetailPresentationFeature.register(container);
   AddProjectPresentationFeature.register(container);
   SeedConfigPresentationFeature.register(container);
   SeedHistoryPresentationFeature.register(container);

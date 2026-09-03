@@ -6,6 +6,7 @@ import type { ProjectListPresenter } from "../abstractions/ProjectListPresenter.
 interface ProjectListPageProps {
   presenter: ProjectListPresenter.Interface;
   onAddProject: () => void;
+  onOpenProject?: (projectId: string) => void;
   onSeedProject?: (projectId: string) => void;
   onViewHistory?: (projectId: string) => void;
 }
@@ -13,6 +14,7 @@ interface ProjectListPageProps {
 export const ProjectListPage = observer(function ProjectListPage({
   presenter,
   onAddProject,
+  onOpenProject,
   onSeedProject,
   onViewHistory,
 }: ProjectListPageProps) {
@@ -54,7 +56,13 @@ export const ProjectListPage = observer(function ProjectListPage({
             <Group justify="space-between" align="flex-start">
               <Stack gap={4}>
                 <Group gap="sm">
-                  <Text fw={600} size="lg">
+                  <Text
+                    fw={600}
+                    size="lg"
+                    style={{ cursor: onOpenProject ? "pointer" : undefined }}
+                    td={onOpenProject ? "underline" : undefined}
+                    onClick={onOpenProject ? () => onOpenProject(project.id) : undefined}
+                  >
                     {project.name}
                   </Text>
                   <Badge variant="light" size="sm">

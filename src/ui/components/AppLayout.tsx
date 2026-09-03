@@ -6,10 +6,12 @@ import { useFeature } from "../di/useFeature.js";
 import { Router } from "../features/router/abstractions/Router.js";
 import { ProjectListPresentationFeature } from "../presentation/Projects/ProjectList/feature.js";
 import { AddProjectPresentationFeature } from "../presentation/Projects/AddProject/feature.js";
+import { ProjectDetailPresentationFeature } from "../presentation/Projects/ProjectDetail/feature.js";
 import { SeedConfigPresentationFeature } from "../presentation/Seeding/SeedConfig/feature.js";
 import { SeedHistoryPresentationFeature } from "../presentation/Seeding/SeedHistory/feature.js";
 import { ProjectListPage } from "../presentation/Projects/ProjectList/components/ProjectListPage.js";
 import { AddProjectForm } from "../presentation/Projects/AddProject/components/AddProjectForm.js";
+import { ProjectDetailPage } from "../presentation/Projects/ProjectDetail/components/ProjectDetailPage.js";
 import { SeedConfigPage } from "../presentation/Seeding/SeedConfig/components/SeedConfigPage.js";
 import { SeedHistoryPage } from "../presentation/Seeding/SeedHistory/components/SeedHistoryPage.js";
 
@@ -21,6 +23,7 @@ export const AppLayout = observer(function AppLayout() {
 
   const { presenter: listPresenter } = useFeature(ProjectListPresentationFeature);
   const { presenter: addPresenter } = useFeature(AddProjectPresentationFeature);
+  const { presenter: detailPresenter } = useFeature(ProjectDetailPresentationFeature);
   const { presenter: seedPresenter } = useFeature(SeedConfigPresentationFeature);
   const { presenter: historyPresenter } = useFeature(SeedHistoryPresentationFeature);
 
@@ -36,6 +39,13 @@ export const AppLayout = observer(function AppLayout() {
     setAddModalOpen(false);
     void listPresenter.load();
   }, [listPresenter]);
+
+  const handleOpenProject = useCallback(
+    (projectId: string) => {
+      router.navigate("project-detail", { projectId });
+    },
+    [router],
+  );
 
   const handleSeedProject = useCallback(
     (projectId: string) => {
@@ -81,9 +91,14 @@ export const AppLayout = observer(function AppLayout() {
             <ProjectListPage
               presenter={listPresenter}
               onAddProject={handleOpenAdd}
+              onOpenProject={handleOpenProject}
               onSeedProject={handleSeedProject}
               onViewHistory={handleViewHistory}
             />
+          )}
+
+          {router.currentView === "project-detail" && router.params["projectId"] && (
+            <ProjectDetailPage presenter={detailPresenter} projectId={router.params["projectId"]} />
           )}
 
           {router.currentView === "seed-config" && router.params["projectId"] && (
@@ -107,6 +122,8 @@ function viewLabel(view: string): string {
   switch (view) {
     case "project-list":
       return "Projects";
+    case "project-detail":
+      return "Project Details";
     case "seed-config":
       return "Seed Configuration";
     case "seed-history":
