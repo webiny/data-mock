@@ -102,18 +102,19 @@ src/
 
 ---
 
-## Database Schema (8 tables)
+## Database Schema (9 tables)
 
 | Table | Key columns | Purpose |
 |---|---|---|
 | `projects` | id, name, api_url, api_token (encrypted), tenant, webiny_version | Project connections |
 | `project_tenants` | project_id FK, tenant_id, name | Discovered tenants per project |
 | `project_groups` | project_id FK, slug, name, remote_id | CMS content model groups |
-| `project_models` | project_id FK, model_id, group_slug, fields (JSON) | CMS models + field definitions |
+| `project_models` | project_id FK, model_id, singular_api_name, plural_api_name, group_slug, fields (JSON) | CMS models + field definitions + API names from Webiny |
 | `seed_jobs` | project_id FK, status, config (JSON), result (JSON) | Seeding job tracking |
 | `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations |
-| `seed_entries` | job_id FK, project_id FK, tenant, model_id, entry_data (JSON), http_status, status | Per-entry audit log |
+| `seed_entries` | job_id FK (nullable), project_id FK, tenant, model_id, entry_data (JSON), status | Per-entry audit log (status: created/failed/dry-run/imported/deleted) |
 | `project_files` | project_id FK, tenant, file_key, file_url, file_type | Uploaded file references |
+| `sync_logs` | project_id FK, type, status, message, response (JSON) | Sync operation logs with full GraphQL request/response |
 
 ---
 
@@ -133,7 +134,7 @@ src/
 
 ---
 
-## API Routes (21)
+## API Routes (28)
 
 ### Projects
 | Method | Path | Purpose |
@@ -141,27 +142,30 @@ src/
 | GET | `/api/projects` | List all projects |
 | POST | `/api/projects` | Create a project (Zod-validated) |
 | GET | `/api/projects/:id` | Get project by ID |
+| PUT | `/api/projects/:id` | Update project (partial, at least one field) |
 | DELETE | `/api/projects/:id` | Remove project |
 
 ### Tenants
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/projects/:projectId/tenants` | List project tenants |
-| POST | `/api/projects/:projectId/tenants/sync` | Sync tenants from Webiny |
+| POST | `/api/projects/:projectId/tenants/sync` | Sync tenants from Webiny (logs to sync_logs) |
 
 ### Models
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/projects/:projectId/models` | List local models |
-| POST | `/api/projects/:projectId/models/sync` | Pull models from Webiny |
+| POST | `/api/projects/:projectId/models/sync` | Pull models from Webiny (logs to sync_logs) |
 | GET | `/api/projects/:projectId/models/diff` | Compare local vs remote |
 | POST | `/api/projects/:projectId/models/push` | Push local models to Webiny |
 
 ### Seeding
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/projects/:projectId/seed` | Trigger seeding (supports dry-run) |
+| POST | `/api/projects/:projectId/seed` | Trigger seeding (revisions, publish strategy, dry-run) |
 | GET | `/api/projects/:projectId/seed-jobs` | Seed job history |
+| POST | `/api/projects/:projectId/import` | Import existing entries from Webiny |
+| POST | `/api/projects/:projectId/cleanup` | Delete seeded entries from Webiny (optional jobId filter) |
 
 ### Seed Entries (Audit Log)
 | Method | Path | Purpose |
@@ -184,18 +188,39 @@ src/
 | POST | `/api/projects/:projectId/files/upload` | Upload a file |
 | DELETE | `/api/projects/:projectId/files/:fileId` | Delete file reference |
 
+### Sync Logs
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects/:projectId/sync-logs` | List sync operation logs |
+| DELETE | `/api/projects/:projectId/sync-logs/:logId` | Delete a sync log entry |
+
 ---
 
 ## UI Routes
 
 | URL | Page | Layout |
 |---|---|---|
-| `/` | Project list | Full width |
-| `/projects/:projectId` | Project detail (sidebar nav) | Full width |
-| `/projects/:projectId/seed` | Seed configuration | Full width |
-| `/projects/:projectId/history` | Seed history | Full width |
+| `/` | Project list | Contained |
+| `/projects/:projectId/*` | Project detail shell (sidebar + content) | Full width |
 
-Routes are DI instances — each presentation feature exports a `route.tsx`. The `RouterView` component resolves and renders the matching route. No if-chains.
+The project detail route uses a `/*` wildcard — `subPath` determines the active view:
+
+| Sub-path | View |
+|---|---|
+| (empty) / `tenants` | Tenants tab |
+| `models` | Models & Groups tab |
+| `files` | Files tab |
+| `entries` | Audit Log tab |
+| `history` | Seed History tab |
+| `templates` | Templates tab |
+| `sync-tenants` | Sync Tenants (log table + run button) |
+| `sync-models` | Sync Models (log table + run button) |
+| `seed` | Seed Config (embedded, group accordion) |
+| `import` | Import Entries |
+
+URL is the source of truth for tab selection — no presenter state for active tab.
+
+Sidebar sections: **Data** (6 tabs), **Sync** (2 tabs), **Actions** (Seed Data, Import, Push Models, Cleanup, Edit Project).
 
 ---
 
@@ -216,7 +241,9 @@ Routes are DI instances — each presentation feature exports a `route.tsx`. The
 | Notifications | `@mantine/notifications` | ^9.5.2 |
 | API server | `fastify` | ^5.12.1 |
 | Validation | `zod` | ^4.5.4 |
+| Code viewer | `@monaco-editor/react` | ^4.7.0 |
 | Testing | `vitest` | ^4.1.11 |
+| Coverage | `@vitest/coverage-v8` | latest |
 | Linting | `oxlint` | ^1.80.0 |
 | Formatting | `oxfmt` | ^0.65.0 |
 | Dep checker | `adio` | ^3.0.1 |
@@ -354,10 +381,13 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **104 tests** across 12 files (vitest)
+- **168 tests** across 18 files (vitest)
+- **Coverage**: v8 provider, ~53% statements, ~37% branches, ~56% functions. Thresholds enforced via `vitest.config.ts`.
+- **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. Real DB (temp SQLite), real generators, real cache. Mock only HttpClient.
 - Pass `{ httpClient: mockHttpClient }` to override HTTP. Everything else is production code.
 - API integration tests use `app.inject()` (Fastify's built-in).
+- Run with coverage: `yarn test --coverage`
 
 ---
 
@@ -381,9 +411,9 @@ export const ProjectsFeature = createFeature({
 | 014 | Multi-Tenant Discovery | Implemented |
 | 015 | Versioned API Operations | Implemented |
 | 016 | Model & Group Sync | Implemented |
-| 017 | Project Detail Page | Planned |
-| 018 | File Uploads | Future |
-| 019 | Seed Data Audit Log | Planned |
+| 017 | Project Detail Page | Implemented |
+| 018 | File Uploads | Implemented |
+| 019 | Seed Data Audit Log | Implemented |
 
 ---
 
