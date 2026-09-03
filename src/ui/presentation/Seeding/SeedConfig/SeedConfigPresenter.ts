@@ -133,7 +133,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
         this._tenants = result.value.tenants;
         this._modelStates = result.value.models.map((m) => ({
           model: m,
-          selected: !m.plugin && !m.modelId.startsWith(SYSTEM_MODEL_PREFIX),
+          selected: !m.modelId.startsWith(SYSTEM_MODEL_PREFIX),
           amount: null,
           revisions: null,
           hasOverride: false,

@@ -111,6 +111,102 @@ describe("ModelDependencyResolver", () => {
     }
   });
 
+  it("should find refs nested inside object fields", () => {
+    const tc = createTestContainer();
+    try {
+      const resolver = tc.container.resolve(ModelDependencyResolver);
+
+      const parent = makeModel("parent", [
+        makeField("nested", "object", {
+          fields: [makeField("authorRef", "ref", { models: [{ modelId: "author" }] })],
+        }),
+      ]);
+      const author = makeModel("author", [makeField("name", "text")]);
+
+      const result = resolver.execute({ models: [parent, author] });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const order = result.value.ordered.map((m) => m.modelId);
+        expect(order.indexOf("author")).toBeLessThan(order.indexOf("parent"));
+      }
+    } finally {
+      tc.cleanup();
+    }
+  });
+
+  it("should find refs nested inside dynamic zone templates", () => {
+    const tc = createTestContainer();
+    try {
+      const resolver = tc.container.resolve(ModelDependencyResolver);
+
+      const page = makeModel("page", [
+        makeField("content", "dynamicZone", {
+          templates: [
+            {
+              name: "hero",
+              gqlTypeName: "Hero",
+              fields: [
+                makeField("image", "file"),
+                makeField("cta", "ref", { models: [{ modelId: "link" }] }),
+              ],
+            },
+            {
+              name: "text",
+              gqlTypeName: "Text",
+              fields: [makeField("body", "rich-text")],
+            },
+          ],
+        }),
+      ]);
+      const link = makeModel("link", [makeField("url", "text")]);
+
+      const result = resolver.execute({ models: [page, link] });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const order = result.value.ordered.map((m) => m.modelId);
+        expect(order.indexOf("link")).toBeLessThan(order.indexOf("page"));
+      }
+    } finally {
+      tc.cleanup();
+    }
+  });
+
+  it("should find refs deeply nested (object inside dynamic zone)", () => {
+    const tc = createTestContainer();
+    try {
+      const resolver = tc.container.resolve(ModelDependencyResolver);
+
+      const page = makeModel("page", [
+        makeField("content", "dynamicZone", {
+          templates: [
+            {
+              name: "section",
+              gqlTypeName: "Section",
+              fields: [
+                makeField("wrapper", "object", {
+                  fields: [makeField("ref", "ref", { models: [{ modelId: "category" }] })],
+                }),
+              ],
+            },
+          ],
+        }),
+      ]);
+      const category = makeModel("category", [makeField("title", "text")]);
+
+      const result = resolver.execute({ models: [page, category] });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        const order = result.value.ordered.map((m) => m.modelId);
+        expect(order.indexOf("category")).toBeLessThan(order.indexOf("page"));
+      }
+    } finally {
+      tc.cleanup();
+    }
+  });
+
   it("should ignore refs to models not in the input set", () => {
     const tc = createTestContainer();
     try {

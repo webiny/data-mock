@@ -4,16 +4,34 @@ import type { ProjectModel, ApiCmsModelField } from "~/shared/types.js";
 
 function extractRefModelIds(fields: ApiCmsModelField[]): string[] {
   const refs: string[] = [];
-  for (const field of fields) {
-    if (field.type === "ref" && field.settings?.models) {
-      const models = field.settings.models as Array<{ modelId: string }>;
-      for (const m of models) {
-        if (m.modelId) {
-          refs.push(m.modelId);
+
+  function walk(fieldList: ApiCmsModelField[]): void {
+    for (const field of fieldList) {
+      if (field.type === "ref" && field.settings?.models) {
+        const models = field.settings.models as Array<{ modelId: string }>;
+        for (const m of models) {
+          if (m.modelId) {
+            refs.push(m.modelId);
+          }
+        }
+      }
+
+      if (field.type === "object" && Array.isArray(field.settings?.fields)) {
+        walk(field.settings.fields as ApiCmsModelField[]);
+      }
+
+      if (field.type === "dynamicZone" && Array.isArray(field.settings?.templates)) {
+        const templates = field.settings.templates as Array<{ fields?: ApiCmsModelField[] }>;
+        for (const tpl of templates) {
+          if (Array.isArray(tpl.fields)) {
+            walk(tpl.fields);
+          }
         }
       }
     }
   }
+
+  walk(fields);
   return refs;
 }
 

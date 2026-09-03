@@ -264,19 +264,14 @@ function ModelConfigRow({
     <Card withBorder p="sm">
       <Group justify="space-between" wrap="nowrap">
         <Group gap="sm">
-          <Checkbox
-            label={model.name}
-            checked={model.selected}
-            onChange={onToggle}
-            disabled={model.plugin}
-          />
+          <Checkbox label={model.name} checked={model.selected} onChange={onToggle} />
           {model.plugin && (
             <Badge size="xs" color="gray" variant="outline">
               code model
             </Badge>
           )}
         </Group>
-        {model.selected && !model.plugin && (
+        {model.selected && (
           <Button variant="subtle" size="compact-xs" onClick={onToggleOverride}>
             {model.hasOverride ? "Use global" : "Override"}
           </Button>
