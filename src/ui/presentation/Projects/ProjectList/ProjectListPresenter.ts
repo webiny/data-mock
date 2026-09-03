@@ -11,6 +11,8 @@ import type { ProjectListVM } from "./abstractions/ProjectListPresenter.js";
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _syncingProjectIds = new Set<string>();
+  private _removeProjectId: string | null = null;
+  private _removeProjectName: string | null = null;
 
   public constructor(
     private readonly loadProjectsUseCase: LoadProjectsUseCase.Interface,
@@ -41,6 +43,11 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       projects,
       isLoading: this._isLoading,
       isEmpty: !this._isLoading && projects.length === 0,
+      removeConfirmation: {
+        isOpen: this._removeProjectId !== null,
+        projectId: this._removeProjectId,
+        projectName: this._removeProjectName,
+      },
     };
   }
 
@@ -59,6 +66,27 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
 
   public remove = async (id: string): Promise<void> => {
     await this.deleteProjectUseCase.execute(id);
+  };
+
+  public confirmRemove = (projectId: string, projectName: string): void => {
+    this._removeProjectId = projectId;
+    this._removeProjectName = projectName;
+  };
+
+  public cancelRemove = (): void => {
+    this._removeProjectId = null;
+    this._removeProjectName = null;
+  };
+
+  public executeRemove = async (): Promise<void> => {
+    const id = this._removeProjectId;
+    if (!id) {
+      return;
+    }
+    this._removeProjectId = null;
+    this._removeProjectName = null;
+    await this.deleteProjectUseCase.execute(id);
+    await this.load();
   };
 
   public syncTenants = async (projectId: string): Promise<void> => {

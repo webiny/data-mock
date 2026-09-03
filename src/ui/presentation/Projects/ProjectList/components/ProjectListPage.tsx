@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
-import { Badge, Button, Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Card, Group, Loader, Modal, Stack, Text, Title } from "@mantine/core";
 import type { ProjectListPresenter } from "../abstractions/ProjectListPresenter.js";
 
 interface ProjectListPageProps {
@@ -20,7 +20,7 @@ export const ProjectListPage = observer(function ProjectListPage({
     void presenter.load();
   }, [presenter]);
 
-  const { projects, isLoading, isEmpty } = presenter.vm;
+  const { projects, isLoading, isEmpty, removeConfirmation } = presenter.vm;
 
   if (isLoading) {
     return (
@@ -80,7 +80,7 @@ export const ProjectListPage = observer(function ProjectListPage({
                   variant="subtle"
                   color="red"
                   size="xs"
-                  onClick={() => void presenter.remove(project.id)}
+                  onClick={() => void presenter.confirmRemove(project.id, project.name)}
                 >
                   Remove
                 </Button>
@@ -113,6 +113,23 @@ export const ProjectListPage = observer(function ProjectListPage({
           </Stack>
         </Card>
       ))}
+
+      <Modal
+        opened={removeConfirmation.isOpen}
+        onClose={() => presenter.cancelRemove()}
+        title="Remove Project"
+        centered
+      >
+        <Text>Remove &ldquo;{removeConfirmation.projectName}&rdquo;? This cannot be undone.</Text>
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={() => presenter.cancelRemove()}>
+            Cancel
+          </Button>
+          <Button color="red" onClick={() => void presenter.executeRemove()}>
+            Remove
+          </Button>
+        </Group>
+      </Modal>
     </Stack>
   );
 });

@@ -1,7 +1,7 @@
 # ADR-014: Multi-Tenant Discovery (After Project Create)
 
 **Date:** 2026-09-03
-**Status:** Planned
+**Status:** Implemented
 
 ## Decision
 

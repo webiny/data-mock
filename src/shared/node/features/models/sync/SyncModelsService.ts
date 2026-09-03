@@ -1,13 +1,14 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { SyncProjectGroupsRepository } from "./abstractions/SyncProjectGroupsRepository.js";
 import { SyncProjectModelsRepository } from "./abstractions/SyncProjectModelsRepository.js";
 import { SyncModelsService as Abstraction } from "./abstractions/SyncModelsService.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
 import type { ApiCmsModelField } from "~/shared/types.js";
 
-interface WebinyGroup {
+interface RemoteGroup {
   id: string;
   slug: string;
   name: string;
@@ -15,7 +16,7 @@ interface WebinyGroup {
   icon: string;
 }
 
-interface WebinyModel {
+interface RemoteModel {
   modelId: string;
   name: string;
   description: string;
@@ -27,6 +28,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
     private readonly httpClient: HttpClient.Interface,
+    private readonly operationRegistry: OperationRegistry.Interface,
     private readonly syncProjectGroupsRepository: SyncProjectGroupsRepository.Interface,
     private readonly syncProjectModelsRepository: SyncProjectModelsRepository.Interface,
     private readonly logger: Logger.Interface,
@@ -43,13 +45,28 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
     const project = projectResult.value;
     const baseUrl = project.apiUrl.replace(/\/cms\/manage$/, "");
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      authorization: `Bearer ${project.apiToken}`,
+      "x-tenant": project.tenant,
+    };
 
-    const groupsResult = await this.fetchGroups(baseUrl, project.apiToken, project.tenant);
+    const groupsResult = await this.fetchWithOperation<RemoteGroup[]>(
+      "listContentModelGroups",
+      project.webinyVersion,
+      baseUrl,
+      headers,
+    );
     if (groupsResult.isFail()) {
       return Result.fail(groupsResult.error);
     }
 
-    const modelsResult = await this.fetchModels(baseUrl, project.apiToken, project.tenant);
+    const modelsResult = await this.fetchWithOperation<RemoteModel[]>(
+      "listContentModels",
+      project.webinyVersion,
+      baseUrl,
+      headers,
+    );
     if (modelsResult.isFail()) {
       return Result.fail(modelsResult.error);
     }
@@ -95,120 +112,46 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     return Result.ok({ groups: groups.length, models: models.length });
   }
 
-  private async fetchGroups(
+  private async fetchWithOperation<T>(
+    operationName: string,
+    version: string,
     baseUrl: string,
-    token: string,
-    tenant: string,
-  ): Promise<Result<WebinyGroup[], GraphQLRequestError>> {
-    const query = `{
-      listContentModelGroups {
-        data {
-          id slug name description icon
-        }
-        error { message code }
-      }
-    }`;
+    headers: Record<string, string>,
+  ): Promise<Result<T, GraphQLRequestError>> {
+    const operation = this.operationRegistry.resolve<void, T>(operationName, version);
 
     try {
       const response = await this.httpClient.post(
-        `${baseUrl}/cms/manage`,
-        JSON.stringify({ query }),
-        {
-          "Content-Type": "application/json",
-          authorization: `Bearer ${token}`,
-          "x-tenant": tenant,
-        },
+        `${baseUrl}${operation.path}`,
+        JSON.stringify({ query: operation.query }),
+        headers,
       );
 
       if (response.status !== 200) {
         const text = await response.text().catch(() => "");
         return Result.fail(
           new GraphQLRequestError(
-            `Group fetch failed with status ${response.status}`,
+            `${operationName} failed with status ${response.status}`,
             response.status,
             text,
           ),
         );
       }
 
-      const json = (await response.json()) as {
-        data?: { listContentModelGroups?: { data?: WebinyGroup[]; error?: { message: string } } };
-      };
+      const json = (await response.json()) as Record<string, unknown>;
+      const gqlResult = operation.getResult({
+        data: (json["data"] ?? {}) as Record<string, unknown>,
+      });
 
-      const gqlData = json.data?.listContentModelGroups;
-      if (gqlData?.error) {
-        return Result.fail(new GraphQLRequestError(gqlData.error.message, 200));
+      if (gqlResult.error) {
+        return Result.fail(new GraphQLRequestError(gqlResult.error.message, 200));
       }
 
-      return Result.ok(gqlData?.data ?? []);
+      return Result.ok(gqlResult.data as T);
     } catch (error) {
       return Result.fail(
         new GraphQLRequestError(
-          error instanceof Error ? error.message : "Failed to fetch groups",
-          0,
-        ),
-      );
-    }
-  }
-
-  private async fetchModels(
-    baseUrl: string,
-    token: string,
-    tenant: string,
-  ): Promise<Result<WebinyModel[], GraphQLRequestError>> {
-    const query = `{
-      listContentModels {
-        data {
-          modelId name description
-          group { slug }
-          fields {
-            id fieldId storageId type list
-            settings
-            predefinedValues { enabled values { label value selected } }
-            validation { name message settings }
-            listValidation { name message settings }
-          }
-        }
-        error { message code }
-      }
-    }`;
-
-    try {
-      const response = await this.httpClient.post(
-        `${baseUrl}/cms/manage`,
-        JSON.stringify({ query }),
-        {
-          "Content-Type": "application/json",
-          authorization: `Bearer ${token}`,
-          "x-tenant": tenant,
-        },
-      );
-
-      if (response.status !== 200) {
-        const text = await response.text().catch(() => "");
-        return Result.fail(
-          new GraphQLRequestError(
-            `Model fetch failed with status ${response.status}`,
-            response.status,
-            text,
-          ),
-        );
-      }
-
-      const json = (await response.json()) as {
-        data?: { listContentModels?: { data?: WebinyModel[]; error?: { message: string } } };
-      };
-
-      const gqlData = json.data?.listContentModels;
-      if (gqlData?.error) {
-        return Result.fail(new GraphQLRequestError(gqlData.error.message, 200));
-      }
-
-      return Result.ok(gqlData?.data ?? []);
-    } catch (error) {
-      return Result.fail(
-        new GraphQLRequestError(
-          error instanceof Error ? error.message : "Failed to fetch models",
+          error instanceof Error ? error.message : `Failed to execute ${operationName}`,
           0,
         ),
       );
@@ -221,6 +164,7 @@ export const SyncModelsService = Abstraction.createImplementation({
   dependencies: [
     GetProjectRepository,
     HttpClient,
+    OperationRegistry,
     SyncProjectGroupsRepository,
     SyncProjectModelsRepository,
     Logger,

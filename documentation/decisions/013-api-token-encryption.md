@@ -1,7 +1,7 @@
 # ADR-013: Encrypt API Tokens at Rest
 
 **Date:** 2026-09-03
-**Status:** Planned (not yet implemented)
+**Status:** Implemented
 
 ## Decision
 

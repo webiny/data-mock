@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { AppShell, Group, Title, Text, Container, Modal, Button } from "@mantine/core";
+import { AppShell, Group, Title, Text, Container, Modal } from "@mantine/core";
 import { useFeature } from "../di/useFeature.js";
 import { ProjectListPresentationFeature } from "../presentation/Projects/ProjectList/feature.js";
 import { AddProjectPresentationFeature } from "../presentation/Projects/AddProject/feature.js";

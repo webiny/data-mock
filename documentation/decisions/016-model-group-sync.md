@@ -1,7 +1,7 @@
 # ADR-016: Model & Group Sync with Change Detection
 
 **Date:** 2026-09-03
-**Status:** Planned
+**Status:** Implemented
 
 ## Context
 

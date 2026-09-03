@@ -15,16 +15,26 @@ export interface ProjectItemVM {
   isSyncing: boolean;
 }
 
+export interface RemoveConfirmationVM {
+  isOpen: boolean;
+  projectId: string | null;
+  projectName: string | null;
+}
+
 export interface ProjectListVM {
   projects: ProjectItemVM[];
   isLoading: boolean;
   isEmpty: boolean;
+  removeConfirmation: RemoveConfirmationVM;
 }
 
 export interface IProjectListPresenter {
   readonly vm: ProjectListVM;
   load(): Promise<void>;
   remove(id: string): Promise<void>;
+  confirmRemove(projectId: string, projectName: string): void;
+  cancelRemove(): void;
+  executeRemove(): Promise<void>;
   syncTenants(projectId: string): Promise<void>;
 }
 

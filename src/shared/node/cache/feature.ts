@@ -1,8 +1,8 @@
 import { createFeature, Logger } from "@webiny/stdlib";
 import { FileCache as FileCacheAbstraction } from "./abstractions/FileCache.js";
-import { MemoryCache as MemoryCacheAbstraction } from "~/shared/abstractions/MemoryCache.js";
+import { MemoryCache as MemoryCacheAbstraction } from "./abstractions/MemoryCache.js";
 import { createFileCache } from "./FileCache.js";
-import { createMemoryCache } from "~/shared/MemoryCache.js";
+import { createMemoryCache } from "./MemoryCache.js";
 
 const DEFAULT_CACHE_DIR = "./.webiny/cache/";
 

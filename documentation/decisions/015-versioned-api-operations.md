@@ -1,7 +1,7 @@
 # ADR-015: Versioned API Operations
 
 **Date:** 2026-09-03
-**Status:** Planned
+**Status:** Implemented
 
 ## Context
 

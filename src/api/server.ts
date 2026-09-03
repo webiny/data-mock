@@ -13,6 +13,18 @@ export async function createServer(
 
   createRequestContext(app, container);
 
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+    if (!body || (typeof body === "string" && body.trim().length === 0)) {
+      done(null, undefined);
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
+
   app.setErrorHandler(async (error, _request, reply) => {
     await sendError(reply, error);
   });
