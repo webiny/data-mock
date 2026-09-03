@@ -21,16 +21,9 @@ interface RemoteModel {
   name: string;
   singularApiName: string;
   pluralApiName: string;
-  description: string;
-  group: { id: string; slug: string; name: string } | string;
+  description?: string | null;
+  group: string;
   fields: ApiCmsModelField[];
-}
-
-function resolveGroupSlug(group: RemoteModel["group"]): string {
-  if (typeof group === "string") {
-    return group;
-  }
-  return group.slug;
 }
 
 class SyncModelsServiceImpl implements Abstraction.Interface {
@@ -105,12 +98,12 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,
       models: models.map((m) => ({
-        groupSlug: resolveGroupSlug(m.group),
+        groupSlug: m.group,
         modelId: m.modelId,
         name: m.name,
         singularApiName: m.singularApiName,
         pluralApiName: m.pluralApiName,
-        description: m.description,
+        description: m.description ?? null,
         fields: m.fields,
         remoteId: m.modelId,
       })),

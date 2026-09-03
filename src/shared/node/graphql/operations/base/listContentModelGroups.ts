@@ -2,15 +2,23 @@ import { z } from "zod";
 import { defineOperation } from "../defineOperation.js";
 
 const dataSchema = z.array(
-  z.object({ id: z.string(), name: z.string(), slug: z.string() }).passthrough(),
+  z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      description: z.string().nullable().optional(),
+      icon: z.string().nullable().optional(),
+    })
+    .passthrough(),
 );
 
 interface ContentModelGroup {
   id: string;
   name: string;
   slug: string;
-  description: string;
-  icon: string;
+  description: string | null;
+  icon: string | null;
 }
 
 export const listContentModelGroups = defineOperation<

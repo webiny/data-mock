@@ -1,107 +1,22 @@
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
-import { TenantsGateway } from "~/ui/features/tenants/abstractions/TenantsGateway.js";
-import { ModelsGateway } from "~/ui/features/models/abstractions/ModelsGateway.js";
-import { SeedingGateway } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
-import { TemplatesGateway } from "~/ui/features/templates/abstractions/TemplatesGateway.js";
-import { FilesGateway } from "~/ui/features/files/abstractions/FilesGateway.js";
-import { EntriesGateway } from "~/ui/features/entries/abstractions/EntriesGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
-import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
-import { ModelsRepository } from "~/ui/features/models/abstractions/ModelsRepository.js";
-import { SeedingRepository } from "~/ui/features/seeding/abstractions/SeedingRepository.js";
-import { TemplatesRepository } from "~/ui/features/templates/abstractions/TemplatesRepository.js";
-import { FilesRepository } from "~/ui/features/files/abstractions/FilesRepository.js";
-import { EntriesRepository } from "~/ui/features/entries/abstractions/EntriesRepository.js";
-import { SyncLogsGateway } from "~/ui/features/syncLogs/abstractions/SyncLogsGateway.js";
-import { SyncLogsRepository } from "~/ui/features/syncLogs/abstractions/SyncLogsRepository.js";
 import { LoadProjectDetailUseCase as Abstraction } from "./abstractions/LoadProjectDetailUseCase.js";
 
 class LoadProjectDetailUseCaseImpl implements Abstraction.Interface {
   public constructor(
     private readonly projectsGateway: ProjectsGateway.Interface,
-    private readonly tenantsGateway: TenantsGateway.Interface,
-    private readonly modelsGateway: ModelsGateway.Interface,
-    private readonly seedingGateway: SeedingGateway.Interface,
-    private readonly templatesGateway: TemplatesGateway.Interface,
-    private readonly filesGateway: FilesGateway.Interface,
-    private readonly entriesGateway: EntriesGateway.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
-    private readonly tenantsRepository: TenantsRepository.Interface,
-    private readonly modelsRepository: ModelsRepository.Interface,
-    private readonly seedingRepository: SeedingRepository.Interface,
-    private readonly templatesRepository: TemplatesRepository.Interface,
-    private readonly filesRepository: FilesRepository.Interface,
-    private readonly entriesRepository: EntriesRepository.Interface,
-    private readonly syncLogsGateway: SyncLogsGateway.Interface,
-    private readonly syncLogsRepository: SyncLogsRepository.Interface,
   ) {}
 
   public async execute(input: { projectId: string }): Promise<void> {
-    const [
-      projectResult,
-      tenantsResult,
-      modelsResult,
-      jobsResult,
-      templatesResult,
-      filesResult,
-      entriesResult,
-      syncLogsResult,
-    ] = await Promise.all([
-      this.projectsGateway.getById(input.projectId),
-      this.tenantsGateway.listForProject(input.projectId),
-      this.modelsGateway.listModels(input.projectId),
-      this.seedingGateway.listSeedJobs(input.projectId),
-      this.templatesGateway.listForProject(input.projectId),
-      this.filesGateway.list(input.projectId),
-      this.entriesGateway.list(input.projectId),
-      this.syncLogsGateway.list(input.projectId),
-    ]);
-
-    if (projectResult.isOk()) {
-      this.projectsRepository.addProject(projectResult.value);
-    }
-    if (tenantsResult.isOk()) {
-      this.tenantsRepository.setTenants(input.projectId, tenantsResult.value);
-    }
-    if (modelsResult.isOk()) {
-      this.modelsRepository.setModels(modelsResult.value);
-    }
-    if (jobsResult.isOk()) {
-      this.seedingRepository.setSeedJobs(jobsResult.value);
-    }
-    if (templatesResult.isOk()) {
-      this.templatesRepository.setTemplates(templatesResult.value);
-    }
-    if (filesResult.isOk()) {
-      this.filesRepository.setFiles(filesResult.value);
-    }
-    if (entriesResult.isOk()) {
-      this.entriesRepository.setEntries(entriesResult.value);
-    }
-    if (syncLogsResult.isOk()) {
-      this.syncLogsRepository.setLogs(syncLogsResult.value);
+    const result = await this.projectsGateway.getById(input.projectId);
+    if (result.isOk()) {
+      this.projectsRepository.addProject(result.value);
     }
   }
 }
 
 export const LoadProjectDetailUseCase = Abstraction.createImplementation({
   implementation: LoadProjectDetailUseCaseImpl,
-  dependencies: [
-    ProjectsGateway,
-    TenantsGateway,
-    ModelsGateway,
-    SeedingGateway,
-    TemplatesGateway,
-    FilesGateway,
-    EntriesGateway,
-    ProjectsRepository,
-    TenantsRepository,
-    ModelsRepository,
-    SeedingRepository,
-    TemplatesRepository,
-    FilesRepository,
-    EntriesRepository,
-    SyncLogsGateway,
-    SyncLogsRepository,
-  ],
+  dependencies: [ProjectsGateway, ProjectsRepository],
 });

@@ -5,7 +5,9 @@ import { runMigrations } from "./db/migrate.js";
 import { DatabaseFeature } from "./db/feature.js";
 import { CacheFeature } from "./cache/feature.js";
 import { EncryptionFeature } from "./encryption/feature.js";
+import { EncryptionService } from "./encryption/abstractions/EncryptionService.js";
 import { FetchHttpClient } from "./FetchHttpClient.js";
+import { seedProjectsFromFile } from "./seedProjects.js";
 import { GeneratorFeature } from "./generators/feature.js";
 import { OperationsFeature } from "./graphql/operations/feature.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
@@ -43,5 +45,8 @@ export const AppFeature = createFeature({
     TemplatesFeature.register(container);
     FilesFeature.register(container);
     SyncLogsFeature.register(container);
+
+    const encryptionService = container.resolve(EncryptionService);
+    seedProjectsFromFile(databaseClient, encryptionService);
   },
 });

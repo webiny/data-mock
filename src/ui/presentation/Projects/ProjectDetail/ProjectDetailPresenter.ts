@@ -10,6 +10,7 @@ import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRep
 import { ModelsGateway } from "~/ui/features/models/abstractions/ModelsGateway.js";
 import { ModelsRepository } from "~/ui/features/models/abstractions/ModelsRepository.js";
 import { SeedingRepository } from "~/ui/features/seeding/abstractions/SeedingRepository.js";
+import { TemplatesGateway } from "~/ui/features/templates/abstractions/TemplatesGateway.js";
 import { TemplatesRepository } from "~/ui/features/templates/abstractions/TemplatesRepository.js";
 import { FilesGateway } from "~/ui/features/files/abstractions/FilesGateway.js";
 import { FilesRepository } from "~/ui/features/files/abstractions/FilesRepository.js";
@@ -22,6 +23,19 @@ import { navigate } from "~/ui/features/router/Router.js";
 import { AppRoutes } from "~/ui/features/router/routePaths.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 import type { ModelDiffItem } from "~/shared/responses/models.js";
+
+const VIEW_DATASETS: Record<string, string[]> = {
+  tenants: ["tenants"],
+  models: ["models"],
+  files: ["files"],
+  entries: ["entries"],
+  history: ["seedJobs"],
+  templates: ["templates"],
+  "sync-tenants": ["syncLogs"],
+  "sync-models": ["syncLogs"],
+  seed: ["tenants", "models"],
+  import: ["tenants", "models"],
+};
 
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _projectId: string | null = null;
@@ -37,6 +51,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _showCleanupDialog = false;
   private _isLoadingDiff = false;
   private _modelDiff: ModelDiffItem[] = [];
+  private _loadedDatasets = new Set<string>();
+  private _loadingDatasets = new Set<string>();
+  private _loadingProjectId: string | null = null;
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
@@ -48,6 +65,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly modelsGateway: ModelsGateway.Interface,
     private readonly modelsRepository: ModelsRepository.Interface,
     private readonly seedingRepository: SeedingRepository.Interface,
+    private readonly templatesGateway: TemplatesGateway.Interface,
     private readonly templatesRepository: TemplatesRepository.Interface,
     private readonly filesGateway: FilesGateway.Interface,
     private readonly filesRepository: FilesRepository.Interface,
@@ -182,15 +200,37 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   }
 
   public load = async (projectId: string): Promise<void> => {
+    if (this._loadingProjectId === projectId || this._projectId === projectId) {
+      return;
+    }
+    this._loadingProjectId = projectId;
     this._projectId = projectId;
+    this._loadedDatasets.clear();
+    this._loadingDatasets.clear();
     this._isLoading = true;
     try {
       await this.loadProjectDetailUseCase.execute({ projectId });
     } finally {
       runInAction(() => {
+        this._loadingProjectId = null;
         this._isLoading = false;
       });
     }
+  };
+
+  public activateView = async (view: string): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const datasets = VIEW_DATASETS[view];
+    if (!datasets) {
+      return;
+    }
+    const needed = datasets.filter((d) => !this._loadedDatasets.has(d));
+    if (needed.length === 0) {
+      return;
+    }
+    await Promise.all(needed.map((d) => this.loadDataset(d)));
   };
 
   public loadTemplate = (_templateId: string): void => {
@@ -448,6 +488,92 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  private loadDataset = async (dataset: string): Promise<void> => {
+    if (
+      !this._projectId ||
+      this._loadedDatasets.has(dataset) ||
+      this._loadingDatasets.has(dataset)
+    ) {
+      return;
+    }
+    this._loadingDatasets.add(dataset);
+    const projectId = this._projectId;
+
+    switch (dataset) {
+      case "tenants": {
+        const result = await this.tenantsGateway.listForProject(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.tenantsRepository.setTenants(projectId, result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "models": {
+        const result = await this.modelsGateway.listModels(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.modelsRepository.setModels(result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "files": {
+        const result = await this.filesGateway.list(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.filesRepository.setFiles(result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "entries": {
+        const result = await this.entriesGateway.list(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.entriesRepository.setEntries(result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "seedJobs": {
+        const result = await this.seedingGateway.listSeedJobs(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.seedingRepository.setSeedJobs(result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "templates": {
+        const result = await this.templatesGateway.listForProject(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.templatesRepository.setTemplates(result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "syncLogs": {
+        const result = await this.syncLogsGateway.list(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.syncLogsRepository.setLogs(result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+    }
+    this._loadingDatasets.delete(dataset);
+  };
+
   private reloadSyncLogs = async (): Promise<void> => {
     if (!this._projectId) {
       return;
@@ -473,6 +599,7 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     ModelsGateway,
     ModelsRepository,
     SeedingRepository,
+    TemplatesGateway,
     TemplatesRepository,
     FilesGateway,
     FilesRepository,

@@ -109,6 +109,7 @@ export interface IProjectDetailVM {
 export interface IProjectDetailPresenter {
   readonly vm: IProjectDetailVM;
   load(projectId: string): Promise<void>;
+  activateView(view: string): Promise<void>;
   loadTemplate(templateId: string): void;
   deleteTemplate(templateId: string): Promise<void>;
   syncTenants(): Promise<void>;

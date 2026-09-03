@@ -59,11 +59,15 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
   projectId,
   subPath,
 }: ProjectDetailPageProps) {
+  const activeView = resolveView(subPath);
+
   useEffect(() => {
     void presenter.load(projectId);
   }, [presenter, projectId]);
 
-  const activeView = resolveView(subPath);
+  useEffect(() => {
+    void presenter.activateView(activeView);
+  }, [presenter, activeView]);
 
   const vm = presenter.vm;
   const {
@@ -151,32 +155,32 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 Data
               </Text>
               <NavLink
-                label={`Tenants (${tenants.length})`}
+                label="Tenants"
                 active={activeView === "tenants"}
                 onClick={() => goTo("tenants")}
               />
               <NavLink
-                label={`Models & Groups (${models.length})`}
+                label="Models & Groups"
                 active={activeView === "models"}
                 onClick={() => goTo("models")}
               />
               <NavLink
-                label={`Files (${files.length})`}
+                label="Files"
                 active={activeView === "files"}
                 onClick={() => goTo("files")}
               />
               <NavLink
-                label={`Audit Log (${entries.length})`}
+                label="Audit Log"
                 active={activeView === "entries"}
                 onClick={() => goTo("entries")}
               />
               <NavLink
-                label={`Seed History (${seedJobs.length})`}
+                label="Seed History"
                 active={activeView === "history"}
                 onClick={() => goTo("history")}
               />
               <NavLink
-                label={`Templates (${templates.length})`}
+                label="Templates"
                 active={activeView === "templates"}
                 onClick={() => goTo("templates")}
               />

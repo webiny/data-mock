@@ -56,7 +56,16 @@ describe("GraphQL Operations", () => {
       const result = listContentModels.getResult(
         makeJson({
           listContentModels: {
-            data: [{ modelId: "article", name: "Article", fields: [] }],
+            data: [
+              {
+                modelId: "article",
+                name: "Article",
+                singularApiName: "Article",
+                pluralApiName: "Articles",
+                group: "blog",
+                fields: [],
+              },
+            ],
           },
         }),
       );

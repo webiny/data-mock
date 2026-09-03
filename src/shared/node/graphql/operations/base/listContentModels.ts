@@ -7,7 +7,11 @@ const dataSchema = z.array(
     .object({
       name: z.string(),
       modelId: z.string(),
+      singularApiName: z.string(),
+      pluralApiName: z.string(),
       description: z.string().nullable().optional(),
+      group: z.string(),
+      tags: z.array(z.string()).optional(),
       fields: z.array(z.unknown()),
     })
     .passthrough(),
