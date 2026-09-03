@@ -122,9 +122,7 @@ export const syncLogs = sqliteTable("sync_logs", {
 
 export const seedEntries = sqliteTable("seed_entries", {
   id: text("id").primaryKey().notNull(),
-  jobId: text("job_id")
-    .notNull()
-    .references(() => seedJobs.id, { onDelete: "cascade" }),
+  jobId: text("job_id").references(() => seedJobs.id, { onDelete: "cascade" }),
   projectId: text("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),

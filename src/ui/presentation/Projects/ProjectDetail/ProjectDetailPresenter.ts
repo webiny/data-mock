@@ -15,6 +15,7 @@ import { FilesGateway } from "~/ui/features/files/abstractions/FilesGateway.js";
 import { FilesRepository } from "~/ui/features/files/abstractions/FilesRepository.js";
 import { EntriesGateway } from "~/ui/features/entries/abstractions/EntriesGateway.js";
 import { EntriesRepository } from "~/ui/features/entries/abstractions/EntriesRepository.js";
+import { SeedingGateway } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
 import { SyncLogsGateway } from "~/ui/features/syncLogs/abstractions/SyncLogsGateway.js";
 import { SyncLogsRepository } from "~/ui/features/syncLogs/abstractions/SyncLogsRepository.js";
 import { navigate } from "~/ui/features/router/Router.js";
@@ -28,6 +29,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _isSyncingTenants = false;
   private _isSyncingModels = false;
   private _isPushing = false;
+  private _isImporting = false;
   private _isClearingEntries = false;
   private _showPushDialog = false;
   private _showEditDialog = false;
@@ -49,6 +51,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly filesRepository: FilesRepository.Interface,
     private readonly entriesGateway: EntriesGateway.Interface,
     private readonly entriesRepository: EntriesRepository.Interface,
+    private readonly seedingGateway: SeedingGateway.Interface,
     private readonly syncLogsGateway: SyncLogsGateway.Interface,
     private readonly syncLogsRepository: SyncLogsRepository.Interface,
     private readonly notifications: NotificationService.Interface,
@@ -165,6 +168,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       isSyncingTenants: this._isSyncingTenants,
       isSyncingModels: this._isSyncingModels,
       isPushing: this._isPushing,
+      isImporting: this._isImporting,
       isClearingEntries: this._isClearingEntries,
       showPushDialog: this._showPushDialog,
       showEditDialog: this._showEditDialog,
@@ -381,6 +385,30 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  public importEntries = async (tenant: string, modelIds: string[]): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    this._isImporting = true;
+    try {
+      const result = await this.seedingGateway.importEntries(this._projectId, {
+        tenant,
+        models: modelIds,
+      });
+      runInAction(() => {
+        if (result.isOk()) {
+          this.notifications.success(`Imported ${result.value.imported} entries.`);
+        } else {
+          this.notifications.error(`Import failed: ${result.error.message}`);
+        }
+      });
+    } finally {
+      runInAction(() => {
+        this._isImporting = false;
+      });
+    }
+  };
+
   private reloadSyncLogs = async (): Promise<void> => {
     if (!this._projectId) {
       return;
@@ -411,6 +439,7 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     FilesRepository,
     EntriesGateway,
     EntriesRepository,
+    SeedingGateway,
     SyncLogsGateway,
     SyncLogsRepository,
     NotificationService,

@@ -18,9 +18,18 @@ export interface ITriggerSeedInput {
   dryRun?: boolean | undefined;
 }
 
+export interface IImportResult {
+  imported: number;
+  models: Array<{ modelId: string; count: number }>;
+}
+
 export interface ISeedingGateway {
   triggerSeed(projectId: string, input: ITriggerSeedInput): Promise<Result<SeedJob, HTTPError>>;
   listSeedJobs(projectId: string): Promise<Result<SeedJob[], HTTPError>>;
+  importEntries(
+    projectId: string,
+    input: { tenant: string; models: string[] },
+  ): Promise<Result<IImportResult, HTTPError>>;
 }
 
 export const SeedingGateway = createAbstraction<ISeedingGateway>("Ui/SeedingGateway");

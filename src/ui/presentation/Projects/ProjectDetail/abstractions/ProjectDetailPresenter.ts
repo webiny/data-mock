@@ -96,6 +96,7 @@ export interface IProjectDetailVM {
   isSyncingTenants: boolean;
   isSyncingModels: boolean;
   isPushing: boolean;
+  isImporting: boolean;
   isClearingEntries: boolean;
   showPushDialog: boolean;
   showEditDialog: boolean;
@@ -119,6 +120,7 @@ export interface IProjectDetailPresenter {
   clearEntries(): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
   deleteSyncLog(logId: string): Promise<void>;
+  importEntries(tenant: string, modelIds: string[]): Promise<void>;
 }
 
 export const ProjectDetailPresenter = createAbstraction<IProjectDetailPresenter>(

@@ -151,7 +151,7 @@ export interface SeedJobResult {
   errors: Array<{ message: string; code: string }>;
 }
 
-export type SeedEntryStatus = "created" | "failed" | "dry-run";
+export type SeedEntryStatus = "created" | "failed" | "dry-run" | "imported";
 
 export interface OperationLog {
   name: string;
@@ -176,7 +176,7 @@ export interface SyncLog {
 
 export interface SeedEntry {
   id: string;
-  jobId: string;
+  jobId: string | null;
   projectId: string;
   tenant: string;
   modelId: string;

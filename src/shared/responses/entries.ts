@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const seedEntrySchema = z.object({
   id: z.string(),
-  jobId: z.string(),
+  jobId: z.string().nullable(),
   projectId: z.string(),
   tenant: z.string(),
   modelId: z.string(),
@@ -10,7 +10,7 @@ export const seedEntrySchema = z.object({
   entryData: z.record(z.string(), z.unknown()),
   responseData: z.record(z.string(), z.unknown()).nullable(),
   httpStatus: z.number().nullable(),
-  status: z.enum(["created", "failed", "dry-run"]),
+  status: z.enum(["created", "failed", "dry-run", "imported"]),
   error: z.string().nullable(),
   createdAt: z.number(),
 });

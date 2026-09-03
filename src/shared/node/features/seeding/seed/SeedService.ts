@@ -9,6 +9,7 @@ import { CreateSeedJobRepository } from "~/shared/node/features/seeding/create/a
 import { UpdateSeedJobRepository } from "~/shared/node/features/seeding/update/abstractions/UpdateSeedJobRepository.js";
 import { ModelDependencyResolver } from "~/shared/node/features/seeding/resolve/abstractions/ModelDependencyResolver.js";
 import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entries/abstractions/CreateSeedEntryRepository.js";
+import { ListSeedEntriesRepository } from "~/shared/node/features/seeding/entries/abstractions/ListSeedEntriesRepository.js";
 import { createSingleEntryVariables } from "~/shared/node/generators/createEntryVariables.js";
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
 import { buildCreateEntryQuery } from "~/shared/node/graphql/operations/base/createContentEntry.js";
@@ -58,6 +59,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     private readonly updateSeedJobRepository: UpdateSeedJobRepository.Interface,
     private readonly modelDependencyResolver: ModelDependencyResolver.Interface,
     private readonly createSeedEntryRepository: CreateSeedEntryRepository.Interface,
+    private readonly listSeedEntriesRepository: ListSeedEntriesRepository.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -105,6 +107,8 @@ class SeedServiceImpl implements Abstraction.Interface {
       const orderedContexts = this.orderByDependencies(contexts);
 
       const availableRefs = new Map<string, string[]>();
+
+      await this.preloadImportedRefs(project.id, availableRefs);
 
       for (const ctx of orderedContexts) {
         const modelErrors: string[] = [];
@@ -447,6 +451,32 @@ class SeedServiceImpl implements Abstraction.Interface {
     }
   }
 
+  private async preloadImportedRefs(
+    projectId: string,
+    availableRefs: Map<string, string[]>,
+  ): Promise<void> {
+    const result = await this.listSeedEntriesRepository.execute({
+      projectId,
+      status: "imported",
+    });
+    if (result.isFail()) {
+      return;
+    }
+    for (const entry of result.value.entries) {
+      if (!entry.entryId) {
+        continue;
+      }
+      const refs = availableRefs.get(entry.modelId) ?? [];
+      refs.push(entry.entryId);
+      availableRefs.set(entry.modelId, refs);
+    }
+    if (result.value.entries.length > 0) {
+      this.logger.info(
+        `Pre-loaded ${result.value.entries.length} imported entry ref(s) across ${availableRefs.size} model(s).`,
+      );
+    }
+  }
+
   private async logEntry(
     jobId: string,
     projectId: string,
@@ -517,6 +547,7 @@ export const SeedService = Abstraction.createImplementation({
     UpdateSeedJobRepository,
     ModelDependencyResolver,
     CreateSeedEntryRepository,
+    ListSeedEntriesRepository,
     Logger,
   ],
 });

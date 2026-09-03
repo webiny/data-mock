@@ -4,7 +4,7 @@ import type { SeedEntry, SeedEntryStatus } from "~/shared/types.js";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface ICreateSeedEntryInput {
-  jobId: string;
+  jobId: string | null;
   projectId: string;
   tenant: string;
   modelId: string;

@@ -27,6 +27,7 @@ import { FilesTab } from "./FilesTab.js";
 import { AuditLogTab } from "./AuditLogTab.js";
 import { SyncTenantsTab } from "./SyncTenantsTab.js";
 import { SyncModelsTab } from "./SyncModelsTab.js";
+import { ImportEntriesTab } from "./ImportEntriesTab.js";
 import { EditProjectForm } from "./EditProjectForm.js";
 import { navigate } from "~/ui/features/router/Router.js";
 import { AppRoutes } from "~/ui/features/router/routePaths.js";
@@ -79,6 +80,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
     isSyncingTenants,
     isSyncingModels,
     isPushing,
+    isImporting,
     isClearingEntries,
     showPushDialog,
     showEditDialog,
@@ -203,6 +205,11 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 active={activeView === "seed"}
                 onClick={() => goTo("seed")}
               />
+              <NavLink
+                label="Import Entries"
+                active={activeView === "import"}
+                onClick={() => goTo("import")}
+              />
               <NavLink label="Push Models" onClick={() => void presenter.openPushDialog()} />
               <NavLink label="Edit Project" onClick={() => presenter.openEditDialog()} />
             </Stack>
@@ -248,6 +255,14 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
               />
             )}
             {activeView === "seed" && <EmbeddedSeedConfig projectId={projectId} />}
+            {activeView === "import" && (
+              <ImportEntriesTab
+                tenants={tenants}
+                models={models}
+                isImporting={isImporting}
+                onImport={(tenant, modelIds) => void presenter.importEntries(tenant, modelIds)}
+              />
+            )}
           </Box>
         </Group>
       </Stack>

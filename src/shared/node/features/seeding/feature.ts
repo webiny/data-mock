@@ -8,6 +8,7 @@ import { CreateSeedEntryRepository } from "./entries/CreateSeedEntryRepository.j
 import { ListSeedEntriesRepository } from "./entries/ListSeedEntriesRepository.js";
 import { GetSeedEntryRepository } from "./entries/GetSeedEntryRepository.js";
 import { DeleteProjectEntriesRepository } from "./entries/DeleteProjectEntriesRepository.js";
+import { ImportEntriesService } from "./import/ImportEntriesService.js";
 
 export const SeedingFeature = createFeature({
   name: "Shared/SeedingFeature",
@@ -20,6 +21,7 @@ export const SeedingFeature = createFeature({
     container.register(ListSeedEntriesRepository).inSingletonScope();
     container.register(GetSeedEntryRepository).inSingletonScope();
     container.register(DeleteProjectEntriesRepository).inSingletonScope();
+    container.register(ImportEntriesService).inSingletonScope();
 
     container.register(SeedService);
   },
