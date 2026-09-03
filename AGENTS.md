@@ -45,9 +45,9 @@ src/
 │       ├── cache/                       # FileCache + MemoryCache + CacheKey
 │       ├── encryption/                  # AES-256-GCM EncryptionService + KeyRotationService
 │       ├── graphql/                     # GraphQLClient (retry, batching)
-│       │   └── operations/             # Versioned operation registry
-│       │       ├── base/               # Default operations (v6.0.0)
-│       │       └── overrides/6.4.0/    # Version-specific overrides
+│       │   ├── endpoints/              # DI endpoint clients (CmsManage, CmsRead, CmsPreview, GraphQL)
+│       │   └── operations/             # Operation registry + parseOperationResponse + defineOperation
+│       │       └── base/               # All operations (strict Zod schemas, Zod-inferred types)
 │       ├── generators/                  # 11 field generators + 5 validators + DI registry
 │       │   ├── fields/                 # Text, Number, Boolean, DateTime, LongText, Json, File, RichText, Ref, Object, DynamicZone
 │       │   ├── validators/             # MinLength, MaxLength, Pattern, DateGte, DateLte
@@ -109,12 +109,12 @@ src/
 | `projects` | id, name, api_url, api_token (encrypted), tenant, webiny_version | Project connections |
 | `project_tenants` | project_id FK, tenant_id, name | Discovered tenants per project |
 | `project_groups` | project_id FK, slug, name, remote_id | CMS content model groups |
-| `project_models` | project_id FK, model_id, singular_api_name, plural_api_name, group_slug, fields (JSON) | CMS models + field definitions + API names from Webiny |
+| `project_models` | project_id FK, model_id, singular_api_name, plural_api_name, group_slug, plugin, fields (JSON) | CMS models + field definitions + API names + plugin flag from Webiny |
 | `seed_jobs` | project_id FK, status, config (JSON), result (JSON) | Seeding job tracking |
 | `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations |
 | `seed_entries` | job_id FK (nullable), project_id FK, tenant, model_id, entry_data (JSON), status | Per-entry audit log (status: created/failed/dry-run/imported/deleted) |
 | `project_files` | project_id FK, tenant, file_key, file_url, file_type | Uploaded file references |
-| `sync_logs` | project_id FK, type, status, message, response (JSON) | Sync operation logs with full GraphQL request/response |
+| `sync_logs` | project_id FK, type, status, message, request (JSON), response (JSON) | Sync operation logs with GraphQL request + response stored separately |
 
 ---
 
@@ -134,7 +134,7 @@ src/
 
 ---
 
-## API Routes (28)
+## API Routes (29)
 
 ### Projects
 | Method | Path | Purpose |
@@ -144,6 +144,7 @@ src/
 | GET | `/api/projects/:id` | Get project by ID |
 | PUT | `/api/projects/:id` | Update project (partial, at least one field) |
 | DELETE | `/api/projects/:id` | Remove project |
+| POST | `/api/projects/:id/health` | Check if project's Webiny API is reachable |
 
 ### Tenants
 | Method | Path | Purpose |
@@ -381,7 +382,7 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **168 tests** across 18 files (vitest)
+- **182 tests** across 19 files (vitest)
 - **Coverage**: v8 provider, ~53% statements, ~37% branches, ~56% functions. Thresholds enforced via `vitest.config.ts`.
 - **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.
