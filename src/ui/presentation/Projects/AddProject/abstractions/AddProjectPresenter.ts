@@ -5,6 +5,7 @@ export interface AddProjectVM {
   apiUrl: string;
   apiToken: string;
   tenant: string;
+  webinyVersion: string;
   isSubmitting: boolean;
   error: string | null;
 }
@@ -15,6 +16,7 @@ export interface IAddProjectPresenter {
   setApiUrl(value: string): void;
   setApiToken(value: string): void;
   setTenant(value: string): void;
+  setWebinyVersion(value: string): void;
   submit(): Promise<boolean>;
   reset(): void;
 }

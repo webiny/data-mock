@@ -1,7 +1,22 @@
 import { createAbstraction } from "@webiny/stdlib";
 
+export interface ProjectTenantVM {
+  tenantId: string;
+  name: string;
+}
+
+export interface ProjectItemVM {
+  id: string;
+  name: string;
+  apiUrl: string;
+  tenant: string;
+  webinyVersion: string;
+  tenants: ProjectTenantVM[];
+  isSyncing: boolean;
+}
+
 export interface ProjectListVM {
-  projects: Array<{ id: string; name: string; apiUrl: string; tenant: string }>;
+  projects: ProjectItemVM[];
   isLoading: boolean;
   isEmpty: boolean;
 }
@@ -10,6 +25,7 @@ export interface IProjectListPresenter {
   readonly vm: ProjectListVM;
   load(): Promise<void>;
   remove(id: string): Promise<void>;
+  syncTenants(projectId: string): Promise<void>;
 }
 
 export const ProjectListPresenter =

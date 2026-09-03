@@ -1,28 +1,41 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
+import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
 import { LoadProjectsUseCase } from "./useCases/LoadProjects/abstractions/LoadProjectsUseCase.js";
 import { DeleteProjectUseCase } from "./useCases/DeleteProject/abstractions/DeleteProjectUseCase.js";
+import { LoadTenantsUseCase } from "./useCases/LoadTenants/abstractions/LoadTenantsUseCase.js";
+import { SyncTenantsUseCase } from "./useCases/SyncTenants/abstractions/SyncTenantsUseCase.js";
 import { ProjectListPresenter as Abstraction } from "./abstractions/ProjectListPresenter.js";
 import type { ProjectListVM } from "./abstractions/ProjectListPresenter.js";
 
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
+  private _syncingProjectIds = new Set<string>();
 
   public constructor(
     private readonly loadProjectsUseCase: LoadProjectsUseCase.Interface,
     private readonly deleteProjectUseCase: DeleteProjectUseCase.Interface,
-    private readonly repository: ProjectsRepository.Interface,
+    private readonly loadTenantsUseCase: LoadTenantsUseCase.Interface,
+    private readonly syncTenantsUseCase: SyncTenantsUseCase.Interface,
+    private readonly projectsRepository: ProjectsRepository.Interface,
+    private readonly tenantsRepository: TenantsRepository.Interface,
   ) {
     makeAutoObservable(this);
   }
 
   public get vm(): ProjectListVM {
-    const projects = this.repository.projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      apiUrl: p.apiUrl,
-      tenant: p.tenant,
-    }));
+    const projects = this.projectsRepository.projects.map((p) => {
+      const tenants = this.tenantsRepository.getTenantsByProjectId(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        apiUrl: p.apiUrl,
+        tenant: p.tenant,
+        webinyVersion: p.webinyVersion,
+        tenants: tenants.map((t) => ({ tenantId: t.tenantId, name: t.name })),
+        isSyncing: this._syncingProjectIds.has(p.id),
+      };
+    });
 
     return {
       projects,
@@ -35,6 +48,8 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     this._isLoading = true;
     try {
       await this.loadProjectsUseCase.execute();
+      const projects = this.projectsRepository.projects;
+      await Promise.all(projects.map((p) => this.loadTenantsUseCase.execute(p.id)));
     } finally {
       runInAction(() => {
         this._isLoading = false;
@@ -45,9 +60,27 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   public remove = async (id: string): Promise<void> => {
     await this.deleteProjectUseCase.execute(id);
   };
+
+  public syncTenants = async (projectId: string): Promise<void> => {
+    this._syncingProjectIds.add(projectId);
+    try {
+      await this.syncTenantsUseCase.execute(projectId);
+    } finally {
+      runInAction(() => {
+        this._syncingProjectIds.delete(projectId);
+      });
+    }
+  };
 }
 
 export const ProjectListPresenter = Abstraction.createImplementation({
   implementation: ProjectListPresenterImpl,
-  dependencies: [LoadProjectsUseCase, DeleteProjectUseCase, ProjectsRepository],
+  dependencies: [
+    LoadProjectsUseCase,
+    DeleteProjectUseCase,
+    LoadTenantsUseCase,
+    SyncTenantsUseCase,
+    ProjectsRepository,
+    TenantsRepository,
+  ],
 });

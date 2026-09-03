@@ -1,7 +1,6 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import { Command } from "~/cli/abstractions/Command.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { isCancel } from "@clack/prompts";
@@ -56,7 +55,7 @@ class InitCommandImpl implements Abstraction.Interface {
   }
 }
 
-export const InitCommand = Command.createImplementation({
+export const InitCommand = Abstraction.createImplementation({
   implementation: InitCommandImpl,
   dependencies: [UI, Prompts],
 });

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
-import { Button, Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Card, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import type { ProjectListPresenter } from "../abstractions/ProjectListPresenter.js";
 
 interface ProjectListPageProps {
@@ -46,25 +46,55 @@ export const ProjectListPage = observer(function ProjectListPage({
 
       {projects.map((project) => (
         <Card key={project.id} withBorder padding="md">
-          <Group justify="space-between" align="flex-start">
-            <Stack gap="xs">
-              <Text fw={600}>{project.name}</Text>
-              <Text size="sm" c="dimmed">
-                {project.apiUrl}
+          <Stack gap="sm">
+            <Group justify="space-between" align="flex-start">
+              <Stack gap={4}>
+                <Group gap="sm">
+                  <Text fw={600} size="lg">
+                    {project.name}
+                  </Text>
+                  <Badge variant="light" size="sm">
+                    v{project.webinyVersion}
+                  </Badge>
+                </Group>
+                <Text size="sm" c="dimmed">
+                  {project.apiUrl}
+                </Text>
+              </Stack>
+              <Button
+                variant="subtle"
+                color="red"
+                size="xs"
+                onClick={() => void presenter.remove(project.id)}
+              >
+                Remove
+              </Button>
+            </Group>
+
+            <Group gap="xs">
+              <Text size="xs" fw={500} c="dimmed">
+                Tenants:
               </Text>
-              <Text size="xs" c="dimmed">
-                Tenant: {project.tenant}
-              </Text>
-            </Stack>
-            <Button
-              variant="subtle"
-              color="red"
-              size="xs"
-              onClick={() => void presenter.remove(project.id)}
-            >
-              Remove
-            </Button>
-          </Group>
+              {project.tenants.length === 0 && (
+                <Text size="xs" c="dimmed" fs="italic">
+                  None discovered
+                </Text>
+              )}
+              {project.tenants.map((t) => (
+                <Badge key={t.tenantId} variant="outline" size="xs">
+                  {t.name}
+                </Badge>
+              ))}
+              <Button
+                variant="subtle"
+                size="compact-xs"
+                loading={project.isSyncing}
+                onClick={() => void presenter.syncTenants(project.id)}
+              >
+                Sync
+              </Button>
+            </Group>
+          </Stack>
         </Card>
       ))}
     </Stack>

@@ -5,6 +5,7 @@ import { runMigrations } from "./db/migrate.js";
 import { DatabaseFeature } from "./db/feature.js";
 import { CacheFeature } from "./cache/feature.js";
 import { EncryptionFeature } from "./encryption/feature.js";
+import { FetchHttpClient } from "./FetchHttpClient.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 
@@ -17,9 +18,7 @@ export const AppFeature = createFeature({
     ProcessEnvFeature.register(container);
 
     const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (encryptionKey) {
-      EncryptionFeature.register(container, { encryptionKey });
-    }
+    EncryptionFeature.register(container, { encryptionKey: encryptionKey ?? "" });
 
     const dbPath = process.env.DB_PATH ?? DEFAULT_DB_PATH;
     const databaseClient = createDatabaseClient(dbPath);
@@ -27,6 +26,7 @@ export const AppFeature = createFeature({
 
     DatabaseFeature.register(container, { databaseClient });
     CacheFeature.register(container, {});
+    container.register(FetchHttpClient).inSingletonScope();
     ProjectsFeature.register(container);
     TenantsFeature.register(container);
   },

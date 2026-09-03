@@ -11,7 +11,7 @@ export const AddProjectForm = observer(function AddProjectForm({
   presenter,
   onSuccess,
 }: AddProjectFormProps) {
-  const { name, apiUrl, apiToken, tenant, isSubmitting, error } = presenter.vm;
+  const { name, apiUrl, apiToken, tenant, webinyVersion, isSubmitting, error } = presenter.vm;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +60,13 @@ export const AddProjectForm = observer(function AddProjectForm({
           placeholder="root"
           value={tenant}
           onChange={(e) => presenter.setTenant(e.currentTarget.value)}
+        />
+
+        <TextInput
+          label="Webiny Version"
+          placeholder="6.0.0"
+          value={webinyVersion}
+          onChange={(e) => presenter.setWebinyVersion(e.currentTarget.value)}
         />
 
         <Button type="submit" loading={isSubmitting}>

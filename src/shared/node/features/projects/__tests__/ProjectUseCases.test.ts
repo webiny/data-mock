@@ -119,7 +119,9 @@ describe("Project Use Cases", () => {
       });
 
       expect(createResult.isOk()).toBe(true);
-      if (!createResult.isOk()) {return;}
+      if (!createResult.isOk()) {
+        return;
+      }
 
       const getResult = await getUseCase.execute({ id: createResult.value.id });
 
@@ -198,7 +200,9 @@ describe("Project Use Cases", () => {
       });
 
       expect(createResult.isOk()).toBe(true);
-      if (!createResult.isOk()) {return;}
+      if (!createResult.isOk()) {
+        return;
+      }
 
       const removeResult = await removeUseCase.execute({ id: createResult.value.id });
       expect(removeResult.isOk()).toBe(true);

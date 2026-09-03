@@ -8,9 +8,14 @@ const AUTH_TAG_LENGTH = 16;
 const SEPARATOR = ":";
 
 class EncryptionServiceImpl implements Abstraction.Interface {
-  private readonly keyBuffer: Buffer;
+  private readonly keyBuffer: Buffer | null;
 
   public constructor(private readonly encryptionKey: EncryptionKey.Interface) {
+    if (!encryptionKey.key) {
+      this.keyBuffer = null;
+      return;
+    }
+
     this.keyBuffer = Buffer.from(encryptionKey.key, "hex");
 
     if (this.keyBuffer.length !== 32) {
@@ -18,9 +23,17 @@ class EncryptionServiceImpl implements Abstraction.Interface {
     }
   }
 
+  private ensureKey(): Buffer {
+    if (!this.keyBuffer) {
+      throw new Error("ENCRYPTION_KEY is not configured. Run 'yarn cli init' to generate one.");
+    }
+    return this.keyBuffer;
+  }
+
   public encrypt(plaintext: string): string {
+    const keyBuffer = this.ensureKey();
     const iv = randomBytes(IV_LENGTH);
-    const cipher = createCipheriv(ALGORITHM, this.keyBuffer, iv, {
+    const cipher = createCipheriv(ALGORITHM, keyBuffer, iv, {
       authTagLength: AUTH_TAG_LENGTH,
     });
 
@@ -33,6 +46,7 @@ class EncryptionServiceImpl implements Abstraction.Interface {
   }
 
   public decrypt(ciphertext: string): string {
+    const keyBuffer = this.ensureKey();
     const parts = ciphertext.split(SEPARATOR);
     if (parts.length !== 3) {
       throw new Error("Invalid encrypted value format.");
@@ -43,7 +57,7 @@ class EncryptionServiceImpl implements Abstraction.Interface {
     const authTag = Buffer.from(authTagBase64!, "base64");
     const encrypted = Buffer.from(encryptedBase64!, "base64");
 
-    const decipher = createDecipheriv(ALGORITHM, this.keyBuffer, iv, {
+    const decipher = createDecipheriv(ALGORITHM, keyBuffer, iv, {
       authTagLength: AUTH_TAG_LENGTH,
     });
     decipher.setAuthTag(authTag);

@@ -9,6 +9,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
   private _apiUrl = "";
   private _apiToken = "";
   private _tenant = "root";
+  private _webinyVersion = "6.0.0";
   private _isSubmitting = false;
   private _error: string | null = null;
 
@@ -22,6 +23,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
       apiUrl: this._apiUrl,
       apiToken: this._apiToken,
       tenant: this._tenant,
+      webinyVersion: this._webinyVersion,
       isSubmitting: this._isSubmitting,
       error: this._error,
     };
@@ -46,12 +48,17 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     this._tenant = value;
   };
 
+  public setWebinyVersion = (value: string): void => {
+    this._webinyVersion = value;
+  };
+
   public submit = async (): Promise<boolean> => {
     const parsed = createProjectBodySchema.safeParse({
       name: this._name.trim(),
       apiUrl: this._apiUrl.trim(),
       apiToken: this._apiToken.trim(),
       tenant: this._tenant.trim() || "root",
+      webinyVersion: this._webinyVersion.trim() || "6.0.0",
     });
 
     if (!parsed.success) {
@@ -86,6 +93,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     this._apiUrl = "";
     this._apiToken = "";
     this._tenant = "root";
+    this._webinyVersion = "6.0.0";
     this._isSubmitting = false;
     this._error = null;
   };
