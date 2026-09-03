@@ -2,6 +2,7 @@
 .webpack
 .artifacts
 .env*
+!.env.example
 .npmrc
 htpasswd
 lerna-debug.log
