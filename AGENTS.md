@@ -384,7 +384,7 @@ export const ProjectsFeature = createFeature({
 - **168 tests** across 18 files (vitest)
 - **Coverage**: v8 provider, ~53% statements, ~37% branches, ~56% functions. Thresholds enforced via `vitest.config.ts`.
 - **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
-- **`createTestContainer()`** — fully-wired DI container for tests. Real DB (temp SQLite), real generators, real cache. Mock only HttpClient.
+- **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.
 - Pass `{ httpClient: mockHttpClient }` to override HTTP. Everything else is production code.
 - API integration tests use `app.inject()` (Fastify's built-in).
 - Run with coverage: `yarn test --coverage`

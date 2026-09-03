@@ -19,10 +19,10 @@ afterEach(() => {
 });
 
 describe("createDatabaseClient", () => {
-  it("should create a database with WAL mode", () => {
+  it("should create an in-memory database", () => {
     const { databaseClient } = setup();
     const result = databaseClient.db.all<{ journal_mode: string }>(sql`PRAGMA journal_mode`);
-    expect(result[0]?.journal_mode).toBe("wal");
+    expect(result[0]?.journal_mode).toBe("memory");
   });
 
   it("should have foreign keys enabled", () => {

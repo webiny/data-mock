@@ -5,10 +5,15 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { DatabaseClient } from "./abstractions/DatabaseClient.js";
 
 export function createDatabaseClient(dbPath: string): DatabaseClient.Interface {
-  mkdirSync(dirname(dbPath), { recursive: true });
+  const isMemory = dbPath === ":memory:";
+  if (!isMemory) {
+    mkdirSync(dirname(dbPath), { recursive: true });
+  }
 
   const sqlite = new Database(dbPath);
-  sqlite.pragma("journal_mode = WAL");
+  if (!isMemory) {
+    sqlite.pragma("journal_mode = WAL");
+  }
   sqlite.pragma("busy_timeout = 5000");
   sqlite.pragma("foreign_keys = ON");
 

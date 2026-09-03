@@ -1,7 +1,5 @@
 import { Container } from "@webiny/di";
-import { join } from "node:path";
-import { mkdirSync, rmSync } from "node:fs";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { PinoLoggerFeature, ProcessEnvFeature } from "@webiny/stdlib/node";
 import { createDatabaseClient } from "~/shared/node/db/client.js";
 import { runMigrations } from "~/shared/node/db/migrate.js";
@@ -22,8 +20,6 @@ import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQ
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 
-const TEST_DIR = join(process.cwd(), ".webiny", "test");
-
 interface TestContainerOptions {
   httpClient?: HttpClient.Interface;
 }
@@ -31,28 +27,20 @@ interface TestContainerOptions {
 interface TestContainer {
   container: Container;
   databaseClient: DatabaseClient.Interface;
-  dbPath: string;
   cleanup(): void;
 }
 
 export function createTestContainer(options: TestContainerOptions = {}): TestContainer {
-  const testId = randomUUID();
-  const testDir = join(TEST_DIR, testId);
-  mkdirSync(testDir, { recursive: true });
-
-  const dbPath = join(testDir, "test.sqlite");
-  const cacheDir = join(testDir, "cache");
-
   const container = new Container();
 
   PinoLoggerFeature.register(container);
   ProcessEnvFeature.register(container);
 
-  const databaseClient = createDatabaseClient(dbPath);
+  const databaseClient = createDatabaseClient(":memory:");
   runMigrations(databaseClient.db);
   DatabaseFeature.register(container, { databaseClient });
 
-  CacheFeature.register(container, { cacheDir });
+  CacheFeature.register(container, { cacheDir: "" });
 
   EncryptionFeature.register(container, { encryptionKey: randomBytes(32).toString("hex") });
 
@@ -85,10 +73,7 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   return {
     container,
     databaseClient,
-    dbPath,
-    cleanup() {
-      rmSync(testDir, { recursive: true, force: true });
-    },
+    cleanup() {},
   };
 }
 
