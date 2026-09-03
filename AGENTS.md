@@ -1,408 +1,409 @@
-# AGENTS.md — Refactoring Guide for webiny-mock-data
+# AGENTS.md — webiny-mock-data
 
-This document is the single source of truth for agents refactoring this project. Every agent and skill references it. Read it before writing any code.
+Single source of truth. Every agent and skill references this file.
 
-## Vision
+## Overview
 
-Transform `webiny-mock-data` from a single-project CLI tool into a multi-project tool with:
-- **SQLite database** for project configuration (replacing `.env`)
-- **Web UI** for managing projects, selecting models, configuring seeding, and monitoring progress
-- **Webiny DI** (`@webiny/di` + `@webiny/stdlib`) replacing manual wiring
-- **Clean architecture** with abstractions, features, and the Result pattern
-
-## Current State
-
-The legacy single-project CLI (`src/apps/`, `src/base/`, `src/errors/`, `src/index.ts`,
-`src/logger.ts`, `index.js`) has been fully removed. Everything now runs on the DI
-architecture described below. See `documentation/research/01-current-architecture.md` for
-historical context on the code that was migrated away from.
-
-**What was ported (and where it lives now):**
-- Field generator registry (11 types + recursive object/dynamicZone) → `src/shared/node/generators/`
-- Validation-aware generation → `src/shared/node/generators/validators/`
-- GraphQL field selection builders → `src/shared/node/fields/`
-- `createEntryVariables` (generator registry → CMS entry values bridge) → `src/shared/node/generators/createEntryVariables.ts`
-- FileCache + MemoryCache → `src/shared/node/cache/` (FileCache, Node-only) and `src/shared/MemoryCache.ts` (platform-agnostic)
-- GraphQL HTTP client with retry/batching → `src/shared/node/graphql/GraphQLClient.ts`
-
-**What was replaced (not ported — superseded by the new architecture):**
-- `.env` for project config → SQLite database (`src/shared/node/db/`)
-- Manual constructor wiring in `Application.ts` → DI container (`@webiny/di`)
-- Boolean-flag CLI routing → proper commands via DI (`src/cli/commands/`)
-- Hardcoded model definitions (`src/apps/cms/` blog/cars demo data) → dynamic model fetching
-  from the connected Webiny project (not yet built — CRUD for project configs exists today)
-- Global singleton generator registry → DI-scoped `GeneratorRegistry` (`src/shared/node/generators/feature.ts`)
-- The `logger` singleton (`pino`) → the `Logger` abstraction from `@webiny/stdlib`, injected as
-  a constructor dependency and registered via `PinoLoggerFeature` in `AppFeature`
+A multi-project tool for generating and seeding mock data into Webiny CMS projects. Manages project connections (encrypted), syncs models/groups/tenants from live Webiny instances, generates realistic fake data respecting CMS field validation rules, and sends entries via GraphQL. Includes a CLI, REST API (Fastify), and web UI (React + Mantine).
 
 ---
 
-## Target Architecture
+## Quick Start
 
-### Directory Structure
+```bash
+yarn install
+yarn cli init            # generate .env (encryption key + ports)
+yarn cli add-project     # add a Webiny project connection
+yarn cli sync-models     # pull models from Webiny
+yarn cli seed            # generate + send mock data
+yarn dev                 # start API (port 4000) + UI (port 4001)
+```
 
-This is the actual, current structure (not aspirational). Folder boundaries are enforced:
-`src/shared/` is platform-agnostic (importable by CLI, API, and UI). `src/shared/node/` is
-Node.js-only, shared between CLI and API — **UI must never import from `src/shared/node/`**.
-`src/api/`, `src/cli/`, `src/ui/` hold layer-only code.
+---
+
+## Directory Structure
 
 ```
 src/
-├── shared/                          # Platform-agnostic cross-layer code (UI-safe)
-│   ├── types.ts                     # Domain types (Project, SeedJob, ApiCmsModel, GenericRecord, ...)
-│   ├── errors.ts                    # BaseError subclasses (namespaced codes)
-│   ├── MemoryCache.ts               # In-memory ICache implementation
-│   ├── abstractions/                # Interfaces only — no Node.js deps
-│   │   ├── HttpClient.ts            # HTTP client abstraction (impl differs per layer)
-│   │   └── MemoryCache.ts
-│   ├── responses/                   # Zod response schemas (projects, ...)
-│   ├── routes/                      # Typed route definitions shared by API + UI gateways
-│   ├── routing/                     # defineRoute/defineTypedRoutes helpers
-│   │
-│   └── node/                        # Node.js-only — shared by CLI + API, NOT UI
-│       ├── feature.ts               # AppFeature — root bootstrap for CLI + API (registers
-│       │                             # PinoLoggerFeature, so `Logger` from `@webiny/stdlib`
-│       │                             # can be injected as a constructor dependency anywhere)
-│       ├── FetchHttpClient.ts       # fetch()-based HttpClient implementation
-│       ├── db/                      # SQLite database layer (Drizzle + better-sqlite3)
-│       │   ├── schema.ts
-│       │   ├── client.ts            # createDatabaseClient()
-│       │   ├── migrate.ts           # runMigrations()
-│       │   ├── migrations/          # SQL migration files (drizzle-kit generate)
-│       │   ├── abstractions/DatabaseClient.ts
-│       │   └── feature.ts           # DatabaseFeature
-│       ├── cache/                   # File-backed cache (Node fs)
-│       │   ├── FileCache.ts
-│       │   ├── CacheKey.ts
-│       │   ├── types.ts
-│       │   ├── abstractions/FileCache.ts
-│       │   └── feature.ts           # CacheFeature — registers FileCache + MemoryCache
-│       ├── graphql/                 # Webiny CMS GraphQL client (retry/batching via p-retry)
-│       │   ├── GraphQLClient.ts
-│       │   ├── abstractions/{GraphQLClient,GraphQLConfig}.ts
-│       │   └── feature.ts           # GraphQLFeature
-│       ├── generators/              # Field value generators (DI-scoped registry, not a singleton)
-│       │   ├── fields/               # Per-type generators
-│       │   ├── validators/           # Per-rule validators
-│       │   ├── registry.ts           # GeneratorRegistry implementation
-│       │   ├── createEntryVariables.ts # Bridges GeneratorRegistry → CMS entry values
-│       │   ├── abstractions/GeneratorRegistry.ts
-│       │   └── feature.ts           # GeneratorFeature
-│       ├── fields/                  # GraphQL field-selection builders (per CMS field type)
-│       │   ├── createField.ts
-│       │   ├── createModelFields.ts # Builds a GraphQL selection set from model fields
-│       │   └── {text,number,boolean,datetime,json,file,ref,richText,longText}.ts
+├── shared/                              # Platform-agnostic (CLI, API, UI can all import)
+│   ├── types.ts                         # Domain types (Project, SeedJob, ProjectModel, etc.)
+│   ├── errors.ts                        # BaseError subclasses with statusCode
+│   ├── abstractions/
+│   │   └── HttpClient.ts               # HTTP client interface
+│   ├── responses/                       # Zod response schemas (projects, tenants, models, seeding, entries, files, templates)
+│   ├── routes/                          # Typed route definitions (shared by API + UI)
+│   └── routing/                         # defineRoute, defineTypedRoutes, interpolatePath
+│
+│   └── node/                            # Node.js only — shared by CLI + API. UI must NEVER import.
+│       ├── feature.ts                   # AppFeature — root bootstrap
+│       ├── FetchHttpClient.ts           # fetch()-based HttpClient
+│       ├── db/                          # SQLite (better-sqlite3 + drizzle-orm)
+│       │   ├── schema.ts               # 8 tables
+│       │   ├── client.ts               # createDatabaseClient()
+│       │   ├── migrate.ts              # runMigrations()
+│       │   └── migrations/             # SQL migrations (drizzle-kit)
+│       ├── cache/                       # FileCache + MemoryCache + CacheKey
+│       ├── encryption/                  # AES-256-GCM EncryptionService + KeyRotationService
+│       ├── graphql/                     # GraphQLClient (retry, batching)
+│       │   └── operations/             # Versioned operation registry
+│       │       ├── base/               # Default operations (v6.0.0)
+│       │       └── overrides/6.4.0/    # Version-specific overrides
+│       ├── generators/                  # 11 field generators + 5 validators + DI registry
+│       │   ├── fields/                 # Text, Number, Boolean, DateTime, LongText, Json, File, RichText, Ref, Object, DynamicZone
+│       │   ├── validators/             # MinLength, MaxLength, Pattern, DateGte, DateLte
+│       │   └── createEntryVariables.ts # Generator→entry bridge
+│       ├── fields/                      # GraphQL field-selection builders (per CMS field type)
 │       ├── testing/
-│       │   └── createTestContainer.ts # Fully-wired DI container for tests
+│       │   └── createTestContainer.ts  # Fully-wired DI container for tests
 │       └── features/
-│           └── projects/            # Shared "projects" feature — used by CLI + API
-│               ├── create/          # CreateProjectUseCase + CreateProjectRepository
-│               ├── get/             # GetProjectUseCase + GetProjectRepository
-│               ├── list/            # ListProjectsUseCase + ListProjectsRepository
-│               ├── remove/          # RemoveProjectUseCase + RemoveProjectRepository
-│               └── feature.ts       # ProjectsFeature — registers all of the above
-│                                     # (each use case / repository has ONE method: execute())
+│           ├── projects/               # CRUD (create/get/list/remove — 1 use case + 1 repo each)
+│           ├── tenants/                # Sync + list + verify access
+│           ├── models/                 # Sync + list + get + push + compare
+│           ├── seeding/                # Seed service + job CRUD + entry audit log + dependency resolver
+│           ├── templates/              # Seed template CRUD
+│           └── files/                  # File upload + list + delete
 │
-├── cli/                             # CLI layer
-│   ├── entry.ts                     # Container → AppFeature → CliFeature → dispatch command
-│   ├── feature.ts                   # CliFeature — composes command features + services
-│   ├── abstractions/                # CLI-specific abstractions (Prompts, UI, Command)
-│   └── commands/
-│       ├── addProject/              # Resolves CreateProjectUseCase (shared/node)
-│       ├── listProjects/            # Resolves ListProjectsUseCase (shared/node)
-│       └── removeProject/           # Resolves ListProjectsUseCase + RemoveProjectUseCase
+├── cli/                                 # CLI layer (@clack/prompts)
+│   ├── entry.ts                        # Bootstrap + command dispatch
+│   ├── feature.ts                      # CliFeature
+│   ├── abstractions/                   # Prompts, UI, Command
+│   └── commands/                       # 9 commands (see below)
 │
-├── api/                             # Local API server (backend for UI)
-│   ├── entry.ts                     # Container → AppFeature → ApiFeature → listen()
-│   ├── server.ts                    # createServer() — Fastify instance + route registration
-│   ├── feature.ts                   # ApiFeature — API-only bindings (cross-layer bindings
-│   │                                 # live in AppFeature / ProjectsFeature instead)
-│   ├── routing/                     # routeFactory, sendTyped, sendError, request context
-│   └── routes/
-│       └── projects/                # Thin route handlers resolving use cases from shared/node
+├── api/                                 # Fastify API server (localhost:4000)
+│   ├── entry.ts                        # Bootstrap + listen
+│   ├── server.ts                       # createServer()
+│   ├── feature.ts                      # ApiFeature
+│   ├── routing/                        # routeFactory, sendTyped, sendError, createRequestContext
+│   └── routes/                         # 21 route handlers (see below)
 │
-└── ui/                              # Web UI (must not import from src/shared/node/)
-    ├── App.tsx / main.tsx           # UI entry: Container + DI providers + render
-    ├── di/                          # DI utilities (DiContainerProvider, createFeature, useFeature)
-    ├── infrastructure/httpClient/   # Browser fetch()-based HTTPClient implementation
-    ├── features/                    # Headless (Gateway + Repository), e.g. projects/
-    ├── presentation/                # Presentation (Presenter + useCases + React), e.g. Projects/
-    ├── components/                  # Shared components + wrappers
-    └── theme/                       # Design tokens + theme builder
+└── ui/                                  # React + Mantine + MobX (port 4001)
+    ├── App.tsx, main.tsx               # Entry + DI container setup
+    ├── di/                             # DiContainerProvider, useFeature, createFeature
+    ├── features/
+    │   ├── router/                     # Route registry, RouterView, defineRoute, navigate()
+    │   ├── notifications/              # Mantine notifications service
+    │   ├── projects/                   # Gateway + Repository
+    │   ├── tenants/                    # Gateway + Repository
+    │   ├── models/                     # Gateway + Repository
+    │   ├── seeding/                    # Gateway + Repository
+    │   └── templates/                  # Gateway + Repository
+    ├── infrastructure/httpClient/      # FetchHTTPClient for browser
+    ├── presentation/
+    │   ├── Projects/
+    │   │   ├── ProjectList/            # List page + use cases (load, delete, sync tenants/models)
+    │   │   ├── ProjectDetail/          # Detail page (sidebar: tenants, models, history, templates)
+    │   │   └── AddProject/             # Modal form + use case
+    │   └── Seeding/
+    │       ├── SeedConfig/             # Seed configuration page
+    │       └── SeedHistory/            # Seed history page
+    ├── components/                     # AppLayout
+    └── theme/                          # Mantine theme tokens
 ```
 
-### Runtime Data Directory
+---
 
-All runtime data lives in `.webiny/` (already gitignored):
+## Database Schema (8 tables)
 
-```
-.webiny/
-├── data-mock.db          # SQLite database (projects, seed jobs)
-├── cache/                # File cache (API response caching)
-└── logs/                 # Log files (if file logging is enabled)
-```
+| Table | Key columns | Purpose |
+|---|---|---|
+| `projects` | id, name, api_url, api_token (encrypted), tenant, webiny_version | Project connections |
+| `project_tenants` | project_id FK, tenant_id, name | Discovered tenants per project |
+| `project_groups` | project_id FK, slug, name, remote_id | CMS content model groups |
+| `project_models` | project_id FK, model_id, group_slug, fields (JSON) | CMS models + field definitions |
+| `seed_jobs` | project_id FK, status, config (JSON), result (JSON) | Seeding job tracking |
+| `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations |
+| `seed_entries` | job_id FK, project_id FK, tenant, model_id, entry_data (JSON), http_status, status | Per-entry audit log |
+| `project_files` | project_id FK, tenant, file_key, file_url, file_type | Uploaded file references |
 
-The database path defaults to `.webiny/data-mock.db`. Cache and logs also go here — nothing runtime gets committed.
+---
 
-### Database Schema (SQLite)
+## CLI Commands (9)
 
-```
-projects
-├── id          TEXT PK
-├── name        TEXT NOT NULL
-├── api_url     TEXT NOT NULL
-├── api_token   TEXT NOT NULL
-├── tenant      TEXT DEFAULT 'root'
-├── created_at  INTEGER NOT NULL
-└── updated_at  INTEGER NOT NULL
+| Command | Description |
+|---|---|
+| `yarn cli init` | Generate .env with encryption key + port config |
+| `yarn cli add-project` | Add a Webiny project (prompts for name, URL, token, version, tenant) |
+| `yarn cli list-projects` | Show all configured projects |
+| `yarn cli remove-project` | Select + confirm + remove a project |
+| `yarn cli sync-models` | Pull models/groups from a Webiny project into local DB |
+| `yarn cli push-models` | Push local models/groups to a Webiny project |
+| `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
+| `yarn cli rotate-key` | Rotate the API token encryption key |
+| `yarn cli upload-files` | Upload files to a Webiny project's file manager |
 
-seed_jobs
-├── id          TEXT PK
-├── project_id  TEXT FK → projects.id ON DELETE CASCADE
-├── status      TEXT NOT NULL (pending | running | completed | failed)
-├── config      TEXT NOT NULL (JSON: { models: [{ modelId, amount }] })
-├── result      TEXT (JSON: { created, errors })
-├── started_at  INTEGER
-├── finished_at INTEGER
-└── created_at  INTEGER NOT NULL
-```
+---
 
-### DI Bootstrapping
+## API Routes (21)
 
-`AppFeature` (`src/shared/node/feature.ts`) is the shared bootstrap composed by both CLI and
-API entry points. It registers logging, env, the database, the file/memory cache, and the
-`projects` feature (use cases + repositories) — anything both layers need. `GraphQLFeature` and
-`GeneratorFeature` exist and are fully wired (see `src/shared/node/testing/createTestContainer.ts`
-for an example), but are not yet composed into `AppFeature` — they'll be added once the seeding
-feature (Phase 4/5) needs them.
+### Projects
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects` | List all projects |
+| POST | `/api/projects` | Create a project (Zod-validated) |
+| GET | `/api/projects/:id` | Get project by ID |
+| DELETE | `/api/projects/:id` | Remove project |
 
-```
-CLI entry (src/cli/entry.ts):
-  Container → AppFeature (Logger, Env, Database, Cache, Projects) → CliFeature → resolve(Command)
+### Tenants
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects/:projectId/tenants` | List project tenants |
+| POST | `/api/projects/:projectId/tenants/sync` | Sync tenants from Webiny |
 
-API entry (src/api/entry.ts):
-  Container → AppFeature (Logger, Env, Database, Cache, Projects) → ApiFeature → start server
+### Models
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects/:projectId/models` | List local models |
+| POST | `/api/projects/:projectId/models/sync` | Pull models from Webiny |
+| GET | `/api/projects/:projectId/models/diff` | Compare local vs remote |
+| POST | `/api/projects/:projectId/models/push` | Push local models to Webiny |
 
-UI entry (src/ui/main.tsx):
-  Container → UiFeature → features + presentation → render App
-```
+### Seeding
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/projects/:projectId/seed` | Trigger seeding (supports dry-run) |
+| GET | `/api/projects/:projectId/seed-jobs` | Seed job history |
+
+### Seed Entries (Audit Log)
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects/:projectId/entries` | List seeded entries (paginated, filterable) |
+| GET | `/api/projects/:projectId/entries/:entryId` | Get single entry |
+| DELETE | `/api/projects/:projectId/entries` | Clear audit log |
+
+### Templates
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects/:projectId/templates` | List seed templates |
+| POST | `/api/projects/:projectId/templates` | Save template |
+| DELETE | `/api/projects/:projectId/templates/:templateId` | Delete template |
+
+### Files
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects/:projectId/files` | List uploaded files |
+| POST | `/api/projects/:projectId/files/upload` | Upload a file |
+| DELETE | `/api/projects/:projectId/files/:fileId` | Delete file reference |
+
+---
+
+## UI Routes
+
+| URL | Page | Layout |
+|---|---|---|
+| `/` | Project list | Full width |
+| `/projects/:projectId` | Project detail (sidebar nav) | Full width |
+| `/projects/:projectId/seed` | Seed configuration | Full width |
+| `/projects/:projectId/history` | Seed history | Full width |
+
+Routes are DI instances — each presentation feature exports a `route.tsx`. The `RouterView` component resolves and renders the matching route. No if-chains.
 
 ---
 
 ## Technology Stack
 
-| Concern | Library | Version |
+| Concern | Package | Version |
 |---|---|---|
 | DI container | `@webiny/di` | ^1.0.2 |
-| Stdlib (Result, BaseError, etc.) | `@webiny/stdlib` | ^0.0.17 |
-| SQLite driver | `better-sqlite3` | ^13.x |
-| Query builder | `drizzle-orm` | ^0.45.x |
-| Migration CLI | `drizzle-kit` | ^0.31.x |
-| Fake data | `@faker-js/faker` | ^10.x |
-| GraphQL tags | `graphql-tag` | ^2.x |
-| HTTP retry | `p-retry` | ^8.x |
-| CLI prompts | `@clack/prompts` | ^0.x |
-| UI framework | `react` + `@mantine/core` | ^19.x + ^7.x |
-| UI state | `mobx` + `mobx-react-lite` | ^6.x + ^4.x |
-| API server | `fastify` | ^5.x |
-| Testing | `vitest` | ^3.x |
-| Validation | `zod` | ^3.x |
-| Dev runner | `concurrently` | ^9.x |
-| UI bundler | `vite` + `@vitejs/plugin-react` | ^6.x |
-| API bundler | `esbuild` | ^0.x |
-| Linting | `oxlint` | ^1.80.x |
-| Formatting | `oxfmt` | ^0.65.x |
-| TypeScript | `typescript` | 7.x |
-| Package manager | `yarn` | 4.x (Berry) |
-
-### Dependencies to Add
-- `@webiny/di`, `@webiny/stdlib`
-- `better-sqlite3`, `@types/better-sqlite3`, `drizzle-orm`, `drizzle-kit`
-- `zod`
-- `fastify`
-- `@clack/prompts`
-- `react`, `react-dom`, `@mantine/core`, `@mantine/hooks`
-- `mobx`, `mobx-react-lite`
-- `vite`, `@vitejs/plugin-react`, `postcss`, `postcss-preset-mantine` (dev)
-- `esbuild`, `concurrently` (dev)
-- `vitest` (dev)
-
-### Dependencies to Remove (after migration)
-- `pino`, `pino-pretty` → replaced by `PinoLoggerFeature` from `@webiny/stdlib/node`
-- `nanoid` → replaced by `generateId` from `@webiny/stdlib`
-- `write-json-file` → replaced by `JsonFileToolFeature` from `@webiny/stdlib/node`
-- `fs-extra` → replaced by `DirectoryToolFeature` + `FileToolFeature`
-- `dotenv` → replaced by `ProcessEnvFeature` from `@webiny/stdlib/node`
-
-### Dependencies to Keep
-- `@faker-js/faker`, `lodash`, `p-retry`
+| Stdlib | `@webiny/stdlib` | ^0.0.17 |
+| SQLite | `better-sqlite3` | ^13.0.3 |
+| Query builder | `drizzle-orm` | ^0.45.2 |
+| Migrations | `drizzle-kit` | ^0.31.10 |
+| Fake data | `@faker-js/faker` | ^10.6.0 |
+| HTTP retry | `p-retry` | ^8.0.0 |
+| CLI prompts | `@clack/prompts` | ^1.7.0 |
+| UI framework | `react` + `@mantine/core` | ^19.2.8 + ^9.5.2 |
+| UI state | `mobx` + `mobx-react-lite` | ^7.0.3 + ^5.0.3 |
+| Notifications | `@mantine/notifications` | ^9.5.2 |
+| API server | `fastify` | ^5.12.1 |
+| Validation | `zod` | ^4.5.4 |
+| Testing | `vitest` | ^4.1.11 |
+| Linting | `oxlint` | ^1.80.0 |
+| Formatting | `oxfmt` | ^0.65.0 |
+| Dep checker | `adio` | ^3.0.1 |
+| TypeScript | `typescript` | 7.0.2 |
+| Dev runner | `concurrently` | ^10.0.5 |
+| UI bundler | `vite` + `@vitejs/plugin-react` | ^8.2.2 + ^6.1.1 |
+| Package manager | `yarn` | 4.18.0 |
 
 ---
 
 ## DI Conventions
 
-Full details in the `project-architecture` skill. Summary:
-
-### Abstractions
+### Abstraction (one per file, in `abstractions/` directory)
 ```ts
-// abstractions/ProjectRepository.ts
 import { createAbstraction } from "@webiny/stdlib";
 
-export interface IProjectRepository { ... }
-export const ProjectRepository = createAbstraction<IProjectRepository>("Feature/ProjectRepository");
-export namespace ProjectRepository {
-  export type Interface = IProjectRepository;
+interface IListProjectsRepository {
+  execute(input: ListProjectsRepository.Input): Promise<Result<ListProjectsRepository.Output, ListProjectsRepository.Error>>;
+}
+
+export const ListProjectsRepository = createAbstraction<IListProjectsRepository>("Projects/ListProjectsRepository");
+
+export namespace ListProjectsRepository {
+  export type Interface = IListProjectsRepository;
+  export type Input = { /* ... */ };
+  export type Output = { projects: Project[] };
+  export type Error = ProjectPersistenceError;
 }
 ```
 
-### Implementations
+### Implementation (separate file, same directory as feature — NOT in `abstractions/`)
 ```ts
-// ProjectRepository.ts (separate file, NOT in abstractions/)
-class ProjectRepositoryImpl implements ProjectRepository.Interface { ... }
-export const ProjectRepository = Abstraction.createImplementation({
-  implementation: ProjectRepositoryImpl,
+import { ListProjectsRepository as Abstraction } from "./abstractions/ListProjectsRepository.js";
+
+class ListProjectsRepositoryImpl implements Abstraction.Interface {
+  public constructor(private readonly databaseClient: DatabaseClient.Interface) {}
+  public async execute(input: Abstraction.Input): Promise<Result<Abstraction.Output, Abstraction.Error>> { /* ... */ }
+}
+
+export const ListProjectsRepository = Abstraction.createImplementation({
+  implementation: ListProjectsRepositoryImpl,
   dependencies: [DatabaseClient],
 });
 ```
 
-### Features
+### Feature (registers implementations into DI container)
 ```ts
-// feature.ts
 export const ProjectsFeature = createFeature({
   name: "Projects/ProjectsFeature",
   register(container) {
-    container.register(ProjectRepository).inSingletonScope();
-    container.register(CreateProjectUseCase);
+    container.register(ListProjectsRepository).inSingletonScope();
+    container.register(CreateProjectRepository).inSingletonScope();
+    // ...
   },
 });
 ```
 
-### Rules
-- Abstractions and implementations in **separate files, separate directories**
-- Implementation classes have `Impl` suffix, exported consts do NOT
-- All operations return `Result<T, E>` — never throw for expected failures
-- Errors extend `BaseError` with namespaced `code` (e.g., `"Project/NotFound"`)
-- All user input validated with Zod
-- No `as` type casts — fix types at source
-- Constructor deps are `private readonly`
-- All class methods have explicit access modifiers
+### Import convention
+- Abstraction imported as `Abstraction`: `import { Xxx as Abstraction } from "./abstractions/Xxx.js"`
+- Implementation imported unaliased: `import { Xxx } from "./Xxx.js"`
+
+---
+
+## Key Rules
+
+1. **Single responsibility** — one `execute()` per use case and repository. No multi-method classes.
+2. **Folder boundaries** — `src/shared/` is platform-agnostic. `src/shared/node/` is CLI+API only. UI must NEVER import from `src/shared/node/`, `src/api/`, or `src/cli/`.
+3. **Abstractions separate from implementations** — always in `abstractions/` subdirectory, separate file.
+4. **Never export Impl classes** — only the `createImplementation` result is exported.
+5. **Result pattern** — all operations return `Result<T, E>`, never throw for expected failures.
+6. **Errors extend BaseError** — with namespaced `code` and `statusCode`.
+7. **All user input validated with Zod** — at every boundary (CLI, API, UI, repository).
+8. **No `as` casts** — fix types at source. Only acceptable at JSON parse boundaries.
+9. **Thin routes** — resolve use case, call execute, send result. No business logic.
+10. **Routes as DI instances** — features register their own routes. No centralized if/switch.
+11. **`registerInstance` only for pre-built infrastructure** — DatabaseClient, GraphQLConfig, EncryptionKey, BaseUrl. Everything else via `createImplementation`.
+12. **Constructor deps are `private readonly`** with explicit access modifiers on all methods.
 
 ### Scoping
-| Layer | Scope |
+| Type | Scope |
 |---|---|
 | UseCase | Transient (default) |
-| Service / Repository / Gateway | `.inSingletonScope()` |
+| Repository / Service / Gateway | `.inSingletonScope()` |
 | Presenter | Transient |
 | Command (CLI) | `.inSingletonScope()` |
 
 ---
 
-## SQLite Conventions
-
-See `documentation/research/02-sqlite-patterns-reference.md` for full patterns.
-
-- **Driver:** `better-sqlite3` with WAL mode, busy_timeout=5000, foreign_keys=ON
-- **Schema:** Drizzle `sqliteTable()` in `src/shared/node/db/schema.ts`
-- **IDs:** Text, generated via `generateId()` from `@webiny/stdlib`
-- **Timestamps:** Integer columns, Unix epoch milliseconds
-- **JSON storage:** Serialized in `text` columns
-- **Migrations:** `drizzle-kit generate` → SQL files in `src/shared/node/db/migrations/`
-- **Default path:** `.webiny/data-mock.db`
-- **Startup:** `createDatabaseClient(path)` → `runMigrations(db)` → seed defaults → register in container
-
----
-
-## Agents
-
-| Agent | Layer | Responsibility |
-|---|---|---|
-| `api-developer` | `src/api/`, `src/shared/`, `src/shared/node/` (db, graphql, generators, cache, fields) | Backend: API routes, SQLite, GraphQL client, generator system |
-| `ui-developer` | `src/ui/` | Frontend: Gateway → Repository → UseCase → Presenter → React |
-| `ui-designer` | `src/ui/theme/`, `src/ui/components/`, `*.tsx` | Visual: tokens, theme, component styles, page composition |
-
-All agents reference this file. All follow `project-architecture` skill patterns.
-
----
-
-## Skills
-
-| Skill | When to Use |
-|---|---|
-| `project-architecture` | Before writing any feature code in any layer |
-| `cli-developer` | Before writing CLI commands |
-| `api-developer` | Before writing API routes or server code |
-| `ui-developer` | Before writing UI features |
-| `ui-design` | Before making visual/style changes |
-| `handoff` | End of session — writes handoff doc for next agent |
-| `review-fix-loop` | Iterative review + fix cycles |
-
----
-
-## Refactoring Phases
-
-### Phase 1: Foundation — done
-1. Added new dependencies (`@webiny/di`, `@webiny/stdlib`, `better-sqlite3`, `drizzle-orm`, `drizzle-kit`, `zod`)
-2. Created `src/shared/node/db/` — schema, client, migrations, DatabaseClient abstraction
-3. Created `src/shared/` — types, errors, shared abstractions (platform-agnostic)
-4. Created root feature composition (`AppFeature` in `src/shared/node/feature.ts`)
-
-### Phase 2: Extract Core Services — done
-1. Extracted `GraphQLApplication` → `src/shared/node/graphql/` with abstraction + DI
-2. Ported generators to `src/shared/node/generators/` — wired registry through DI (not a global singleton)
-3. Ported cache system — `src/shared/node/cache/` (FileCache) + `src/shared/MemoryCache.ts`, registered via DI
-4. Replaced the `logger` singleton with the `Logger` abstraction from `@webiny/stdlib`
-   (`PinoLoggerFeature`, registered in `AppFeature`, injected as a constructor dependency)
-5. Ported GraphQL field-selection builders → `src/shared/node/fields/`
-6. Ported the generator-registry → CMS-entry bridge → `src/shared/node/generators/createEntryVariables.ts`
-7. Deleted all legacy code (`src/apps/`, `src/base/`, `src/errors/`, `src/types.ts`, `src/index.ts`,
-   `src/logger.ts`, `index.js`) — the hardcoded demo model/group/entry definitions in
-   `src/apps/cms/` were **not** ported; they're superseded by the (not yet built) dynamic
-   model-fetching feature described in the Vision section
-
-### Phase 3: CLI Refactor — mostly done
-1. Created `src/cli/` with proper command structure
-2. Added commands: `add-project`, `list-projects`, `remove-project` — each resolves the
-   corresponding use case from `src/shared/node/features/projects/` (never the repository
-   directly)
-3. Wired all through the DI container
-4. Not yet done: `seed-entries` / `fetch-entries` commands (depend on the not-yet-wired
-   GraphQL + Generator features and the not-yet-built model-fetching feature)
-
-### Phase 4: API Layer — projects CRUD done
-1. Created `src/api/` — local server for UI backend
-2. Project CRUD routes (`src/api/routes/projects/`) — thin handlers resolving use cases from
-   `src/shared/node/features/projects/`
-3. Not yet done: model listing (proxy to Webiny CMS), seeding job trigger/status routes
-
-### Phase 5: UI — projects CRUD done
-1. Created `src/ui/` with React + DI
-2. Project management pages (list, add)
-3. Not yet done: model selection + seeding configuration, seeding dashboard
-4. Seeding dashboard with progress
-
----
-
 ## Tooling
 
-```bash
-yarn lint          # oxlint check
-yarn lint:check    # oxlint check (alias)
-yarn lint:fix      # oxlint auto-fix
-yarn format        # oxfmt format
-yarn format:check  # oxfmt check
-yarn format:fix    # oxfmt format (alias)
-yarn typecheck     # tsc --noEmit
-yarn test          # vitest run
-```
+| Script | Command | Purpose |
+|---|---|---|
+| `yarn cli` | `tsx src/cli/entry.ts` | CLI tool |
+| `yarn api:dev` | `tsx --watch src/api/entry.ts` | API server (port 4000) |
+| `yarn ui:dev` | `vite dev` | UI dev server (port 4001) |
+| `yarn dev` | `concurrently` | API + UI together |
+| `yarn build:ui` | `vite build` | Production UI build |
+| `yarn typecheck` | `tsc --noEmit` | Type checking |
+| `yarn test` | `vitest run` | Run tests |
+| `yarn test:watch` | `vitest` | Watch mode |
+| `yarn lint` | `oxlint --deny-warnings src/` | Lint check |
+| `yarn lint:fix` | `oxlint --fix` | Lint auto-fix |
+| `yarn format:check` | `oxfmt --check src/` | Format check |
+| `yarn format:fix` | `oxfmt src/` | Format fix |
+| `yarn db:generate` | `drizzle-kit generate` | Generate migration |
+| `yarn db:migrate` | `drizzle-kit migrate` | Run migrations |
+| `yarn deps:check` | `adio` | Check unused/missing deps |
 
 **Before every commit:** `yarn lint && yarn format:check && yarn typecheck && yarn test`
 
 ---
 
-## Research Documents
+## Agents
 
-- `documentation/research/01-current-architecture.md` — full analysis of current codebase
-- `documentation/research/02-sqlite-patterns-reference.md` — SQLite patterns from dependency-upgrader
-- `documentation/research/03-webiny-di-and-stdlib.md` — @webiny/di and @webiny/stdlib API reference
-- `documentation/research/04-skills-inventory.md` — skills copied and adaptations made
-- `documentation/research/05-agents-inventory.md` — agents copied and adaptations made
+| Agent | Model | Scope |
+|---|---|---|
+| `api-developer` | sonnet | `src/api/`, `src/shared/`, `src/shared/node/` |
+| `ui-developer` | sonnet | `src/ui/` |
+| `ui-designer` | sonnet | `src/ui/theme/`, `src/ui/components/`, `*.tsx` visual only |
+
+## Skills
+
+| Skill | When to use |
+|---|---|
+| `project-architecture` | Before writing any feature code |
+| `dependency-injection` | Before writing any DI-related code |
+| `cli-developer` | Before writing CLI commands |
+| `api-developer` | Before writing API routes |
+| `ui-developer` | Before writing UI features |
+| `ui-design` | Before visual/style changes |
+| `handoff` | End of session |
+| `review-fix-loop` | Iterative review + fix cycles |
+
+---
+
+## Testing
+
+- **104 tests** across 12 files (vitest)
+- **`createTestContainer()`** — fully-wired DI container for tests. Real DB (temp SQLite), real generators, real cache. Mock only HttpClient.
+- Pass `{ httpClient: mockHttpClient }` to override HTTP. Everything else is production code.
+- API integration tests use `app.inject()` (Fastify's built-in).
+
+---
+
+## Architecture Decision Records (19)
+
+| # | Title | Status |
+|---|---|---|
+| 001 | Technology Stack | Accepted |
+| 002 | Runtime Data Directory (.webiny/) | Accepted |
+| 003 | Single Central Database | Accepted |
+| 004 | DI Package (@webiny/di) | Accepted |
+| 005 | MobX for UI State | Accepted |
+| 006 | No Auth, Localhost Only | Accepted |
+| 007 | Single Package with Path Aliases | Accepted |
+| 008 | Clean Break Migration | Accepted |
+| 009 | Dev Serving Pattern | Accepted |
+| 010 | Generators Reuse + DI Rewrite | Accepted |
+| 011 | Thin Routes | Accepted |
+| 012 | Test Container Pattern | Accepted |
+| 013 | API Token Encryption (AES-256-GCM) | Implemented |
+| 014 | Multi-Tenant Discovery | Implemented |
+| 015 | Versioned API Operations | Implemented |
+| 016 | Model & Group Sync | Implemented |
+| 017 | Project Detail Page | Planned |
+| 018 | File Uploads | Future |
+| 019 | Seed Data Audit Log | Planned |
+
+---
+
+## Runtime Data
+
+All runtime data in `.webiny/` (gitignored):
+```
+.webiny/
+├── data-mock.db    # SQLite database
+├── cache/          # File cache
+└── logs/           # Log files
+```
+
+Default DB path: `.webiny/data-mock.db`. Override via `DB_PATH` in `.env`.
+
+## Environment Variables
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `ENCRYPTION_KEY` | Yes (except for `init`) | — | 64-char hex string for AES-256-GCM |
+| `API_PORT` | No | 4000 | Fastify server port |
+| `UI_PORT` | No | 4001 | Vite dev server port |
+| `DB_PATH` | No | .webiny/data-mock.db | SQLite database path |
