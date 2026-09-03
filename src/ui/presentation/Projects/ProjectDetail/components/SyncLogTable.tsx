@@ -28,6 +28,13 @@ function extractOperations(response: unknown): OperationEntry[] {
   return [];
 }
 
+function formatJson(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value, null, 2);
+}
+
 interface SyncLogTableProps {
   logs: ISyncLogVM[];
   onDelete: (logId: string) => void;
@@ -49,15 +56,19 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
   };
 
   const showResponse = (op: OperationEntry) => {
-    const value =
-      typeof op.response === "string" ? op.response : JSON.stringify(op.response, null, 2);
-    setViewer({ title: `Response — ${op.name}`, value, language: "json" });
+    setViewer({
+      title: `Response — ${op.name}`,
+      value: formatJson(op.response),
+      language: "json",
+    });
   };
 
   const showRawResponse = (log: ISyncLogVM) => {
-    const value =
-      typeof log.response === "string" ? log.response : JSON.stringify(log.response, null, 2);
-    setViewer({ title: "Raw Response", value: value ?? "null", language: "json" });
+    setViewer({
+      title: "Response",
+      value: log.response != null ? formatJson(log.response) : "null",
+      language: "json",
+    });
   };
 
   if (logs.length === 0) {
@@ -76,7 +87,8 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
             <Table.Th>Date</Table.Th>
             <Table.Th>Status</Table.Th>
             <Table.Th>Message</Table.Th>
-            <Table.Th>Details</Table.Th>
+            <Table.Th>Request</Table.Th>
+            <Table.Th>Response</Table.Th>
             <Table.Th />
           </Table.Tr>
         </Table.Thead>
@@ -100,30 +112,39 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
                   {operations.length > 0 ? (
                     <Stack gap={4}>
                       {operations.map((op) => (
-                        <Group key={op.name} gap={4}>
-                          <Text size="xs" fw={500} c="dimmed">
-                            {op.name}
-                          </Text>
-                          <Button
-                            variant="subtle"
-                            size="compact-xs"
-                            onClick={() => showRequest(op)}
-                          >
-                            Request
-                          </Button>
-                          <Button
-                            variant="subtle"
-                            size="compact-xs"
-                            onClick={() => showResponse(op)}
-                          >
-                            Response
-                          </Button>
-                        </Group>
+                        <Button
+                          key={op.name}
+                          variant="light"
+                          size="compact-xs"
+                          onClick={() => showRequest(op)}
+                        >
+                          {op.name}
+                        </Button>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Text size="sm" c="dimmed">
+                      —
+                    </Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  {operations.length > 0 ? (
+                    <Stack gap={4}>
+                      {operations.map((op) => (
+                        <Button
+                          key={op.name}
+                          variant="light"
+                          size="compact-xs"
+                          onClick={() => showResponse(op)}
+                        >
+                          {op.name}
+                        </Button>
                       ))}
                     </Stack>
                   ) : log.response != null ? (
-                    <Button variant="subtle" size="compact-xs" onClick={() => showRawResponse(log)}>
-                      View Response
+                    <Button variant="light" size="compact-xs" onClick={() => showRawResponse(log)}>
+                      View
                     </Button>
                   ) : (
                     <Text size="sm" c="dimmed">

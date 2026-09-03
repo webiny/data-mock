@@ -5,32 +5,31 @@ interface Tenant {
   name: string;
 }
 
+interface WbyTenantEntry {
+  entryId: string;
+  name: string;
+}
+
 export const listTenants: IGraphQLOperation<void, Tenant[]> = {
   name: "listTenants",
-  path: "/graphql",
+  path: "/cms/manage",
   query: `
-    query ListTenants {
-      tenancy {
-        listTenants {
-          data {
-            id
-            name
-          }
-          error {
-            message
-            code
-            data
-          }
+    query ListWbyTenants {
+      listWbyTenants {
+        data {
+          entryId
+          name
+        }
+        error {
+          message
+          code
+          data
         }
       }
     }
   `,
   getResult(json) {
-    const tenancy = json.data["tenancy"] as Record<string, unknown> | undefined;
-    if (!tenancy) {
-      return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };
-    }
-    const result = tenancy["listTenants"] as Record<string, unknown> | undefined;
+    const result = json.data["listWbyTenants"] as Record<string, unknown> | undefined;
     if (!result) {
       return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };
     }
@@ -44,6 +43,9 @@ export const listTenants: IGraphQLOperation<void, Tenant[]> = {
         },
       };
     }
-    return { data: result["data"] as Tenant[] };
+    const entries = result["data"] as WbyTenantEntry[];
+    return {
+      data: entries.map((e) => ({ id: e.entryId, name: e.name })),
+    };
   },
 };
