@@ -6,11 +6,15 @@ import type { ProjectListPresenter } from "../abstractions/ProjectListPresenter.
 interface ProjectListPageProps {
   presenter: ProjectListPresenter.Interface;
   onAddProject: () => void;
+  onSeedProject?: (projectId: string) => void;
+  onViewHistory?: (projectId: string) => void;
 }
 
 export const ProjectListPage = observer(function ProjectListPage({
   presenter,
   onAddProject,
+  onSeedProject,
+  onViewHistory,
 }: ProjectListPageProps) {
   useEffect(() => {
     void presenter.load();
@@ -61,14 +65,26 @@ export const ProjectListPage = observer(function ProjectListPage({
                   {project.apiUrl}
                 </Text>
               </Stack>
-              <Button
-                variant="subtle"
-                color="red"
-                size="xs"
-                onClick={() => void presenter.remove(project.id)}
-              >
-                Remove
-              </Button>
+              <Group gap="xs">
+                {onSeedProject && (
+                  <Button variant="filled" size="xs" onClick={() => onSeedProject(project.id)}>
+                    Seed Data
+                  </Button>
+                )}
+                {onViewHistory && (
+                  <Button variant="light" size="xs" onClick={() => onViewHistory(project.id)}>
+                    History
+                  </Button>
+                )}
+                <Button
+                  variant="subtle"
+                  color="red"
+                  size="xs"
+                  onClick={() => void presenter.remove(project.id)}
+                >
+                  Remove
+                </Button>
+              </Group>
             </Group>
 
             <Group gap="xs">

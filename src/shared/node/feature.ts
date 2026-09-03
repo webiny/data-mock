@@ -6,10 +6,12 @@ import { DatabaseFeature } from "./db/feature.js";
 import { CacheFeature } from "./cache/feature.js";
 import { EncryptionFeature } from "./encryption/feature.js";
 import { FetchHttpClient } from "./FetchHttpClient.js";
+import { GeneratorFeature } from "./generators/feature.js";
 import { OperationsFeature } from "./graphql/operations/feature.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
+import { SeedingFeature } from "./features/seeding/feature.js";
 
 const DEFAULT_DB_PATH = "./.webiny/data-mock.db";
 
@@ -29,9 +31,11 @@ export const AppFeature = createFeature({
     DatabaseFeature.register(container, { databaseClient });
     CacheFeature.register(container, {});
     container.register(FetchHttpClient).inSingletonScope();
+    GeneratorFeature.register(container);
     OperationsFeature.register(container);
     ProjectsFeature.register(container);
     TenantsFeature.register(container);
     ModelsFeature.register(container);
+    SeedingFeature.register(container);
   },
 });

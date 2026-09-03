@@ -12,3 +12,5 @@ export {
   syncProjectModelsRoute,
   diffProjectModelsRoute,
 } from "./models.js";
+
+export { triggerSeedRoute, listSeedJobsRoute } from "./seeding.js";

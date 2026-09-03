@@ -16,3 +16,6 @@ export type {
   ModelDiffItem,
   ModelSyncResult,
 } from "./models.js";
+
+export { seedJobSchema, triggerSeedBodySchema } from "./seeding.js";
+export type { SeedJobResponse, TriggerSeedBody } from "./seeding.js";
