@@ -70,7 +70,6 @@
     "ui:dev": "vite dev",
     "dev": "concurrently \"yarn api:dev\" \"yarn ui:dev\"",
     "build:ui": "vite build",
-    "compile": "tsc",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "test": "vitest run",
