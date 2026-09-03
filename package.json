@@ -6,6 +6,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@clack/prompts": "^0.11.0",
     "@faker-js/faker": "^10.6.0",
     "@webiny/api-aco": "6.4.9",
     "@webiny/api-headless-cms": "6.4.9",
@@ -50,6 +51,7 @@
     "format": "oxfmt src/",
     "format:check": "oxfmt --check src/",
     "format:fix": "oxfmt src/",
+    "cli": "tsx src/cli/entry.ts",
     "compile": "tsc",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",

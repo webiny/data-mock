@@ -1,0 +1,83 @@
+import { isCancel } from "@clack/prompts";
+import type { Prompts } from "~/cli/abstractions/Prompts.js";
+import type { UI } from "~/cli/abstractions/UI.js";
+import type { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { AddProjectCommand as Abstraction } from "./abstractions/AddProjectCommand.js";
+
+class AddProjectCommandImpl implements Abstraction.Interface {
+  public readonly name = "add-project";
+  public readonly description = "Add a new Webiny project connection";
+
+  public constructor(
+    private readonly prompts: Prompts.Interface,
+    private readonly ui: UI.Interface,
+    private readonly projectRepository: ProjectRepository.Interface,
+  ) {}
+
+  public async execute(): Promise<void> {
+    this.ui.intro("Add Project");
+
+    const name = await this.prompts.text({
+      message: "Project name",
+      placeholder: "my-webiny-project",
+      validate: (value) => (value.trim().length === 0 ? "Name is required" : undefined),
+    });
+    if (isCancel(name)) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+
+    const apiUrl = await this.prompts.text({
+      message: "Webiny GraphQL API URL",
+      placeholder: "https://your-webiny-api.com",
+      validate: (value) => {
+        if (value.trim().length === 0) {
+          return "URL is required";
+        }
+        if (!value.startsWith("http://") && !value.startsWith("https://")) {
+          return "URL must start with http:// or https://";
+        }
+        return undefined;
+      },
+    });
+    if (isCancel(apiUrl)) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+
+    const apiToken = await this.prompts.text({
+      message: "API token",
+      placeholder: "your-api-token",
+      validate: (value) => (value.trim().length === 0 ? "Token is required" : undefined),
+    });
+    if (isCancel(apiToken)) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+
+    const tenant = await this.prompts.text({
+      message: "Default tenant",
+      defaultValue: "root",
+    });
+    if (isCancel(tenant)) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+
+    const result = await this.projectRepository.create({
+      name: name as string,
+      apiUrl: apiUrl as string,
+      apiToken: apiToken as string,
+      tenant: (tenant as string) || "root",
+    });
+
+    if (result.isFail()) {
+      this.ui.log.error(`Failed to save project: ${result.error.message}`);
+      return;
+    }
+
+    this.ui.outro(`Project "${result.value.name}" added successfully.`);
+  }
+}
+
+export { AddProjectCommandImpl };
