@@ -45,3 +45,10 @@ export const modelSyncResultSchema = z.object({
 });
 
 export type ModelSyncResult = z.infer<typeof modelSyncResultSchema>;
+
+export const modelPushResultSchema = z.object({
+  pushed: z.object({ groups: z.number(), models: z.number() }),
+  skipped: z.object({ groups: z.number(), models: z.number() }),
+});
+
+export type ModelPushResult = z.infer<typeof modelPushResultSchema>;

@@ -92,11 +92,24 @@ export interface ProjectModel {
   updatedAt: number;
 }
 
+export interface SeedTemplateConfig {
+  tenant: string;
+  models: Array<{ modelId: string; amount: number }>;
+}
+
+export interface SeedTemplate {
+  id: string;
+  projectId: string;
+  name: string;
+  config: SeedTemplateConfig;
+  createdAt: number;
+}
+
 export interface SeedJobConfig {
   models: Array<{ modelId: string; amount: number }>;
 }
 
-export type SeedJobStatus = "pending" | "running" | "completed" | "failed";
+export type SeedJobStatus = "pending" | "running" | "completed" | "failed" | "dry-run";
 
 export interface SeedJob {
   id: string;

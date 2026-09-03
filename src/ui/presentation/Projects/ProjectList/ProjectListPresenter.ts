@@ -6,12 +6,14 @@ import { LoadProjectsUseCase } from "./useCases/LoadProjects/abstractions/LoadPr
 import { DeleteProjectUseCase } from "./useCases/DeleteProject/abstractions/DeleteProjectUseCase.js";
 import { LoadTenantsUseCase } from "./useCases/LoadTenants/abstractions/LoadTenantsUseCase.js";
 import { SyncTenantsUseCase } from "./useCases/SyncTenants/abstractions/SyncTenantsUseCase.js";
+import { SyncModelsUseCase } from "./useCases/SyncModels/abstractions/SyncModelsUseCase.js";
 import { ProjectListPresenter as Abstraction } from "./abstractions/ProjectListPresenter.js";
 import type { ProjectListVM } from "./abstractions/ProjectListPresenter.js";
 
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _syncingProjectIds = new Set<string>();
+  private _syncingModelsProjectIds = new Set<string>();
   private _removeProjectId: string | null = null;
   private _removeProjectName: string | null = null;
 
@@ -20,6 +22,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     private readonly deleteProjectUseCase: DeleteProjectUseCase.Interface,
     private readonly loadTenantsUseCase: LoadTenantsUseCase.Interface,
     private readonly syncTenantsUseCase: SyncTenantsUseCase.Interface,
+    private readonly syncModelsUseCase: SyncModelsUseCase.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
     private readonly tenantsRepository: TenantsRepository.Interface,
     private readonly notificationService: NotificationService.Interface,
@@ -38,6 +41,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         webinyVersion: p.webinyVersion,
         tenants: tenants.map((t) => ({ tenantId: t.tenantId, name: t.name })),
         isSyncing: this._syncingProjectIds.has(p.id),
+        isSyncingModels: this._syncingModelsProjectIds.has(p.id),
       };
     });
 
@@ -106,6 +110,20 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       });
     }
   };
+
+  public syncModels = async (projectId: string): Promise<void> => {
+    this._syncingModelsProjectIds.add(projectId);
+    try {
+      await this.syncModelsUseCase.execute(projectId);
+      this.notificationService.success("Models synced successfully.");
+    } catch {
+      this.notificationService.error("Failed to sync models.");
+    } finally {
+      runInAction(() => {
+        this._syncingModelsProjectIds.delete(projectId);
+      });
+    }
+  };
 }
 
 export const ProjectListPresenter = Abstraction.createImplementation({
@@ -115,6 +133,7 @@ export const ProjectListPresenter = Abstraction.createImplementation({
     DeleteProjectUseCase,
     LoadTenantsUseCase,
     SyncTenantsUseCase,
+    SyncModelsUseCase,
     ProjectsRepository,
     TenantsRepository,
     NotificationService,

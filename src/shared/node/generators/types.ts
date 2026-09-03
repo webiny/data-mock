@@ -34,6 +34,7 @@ export interface IGetValidator {
 export interface IGeneratorGenerateParams<T extends ApiCmsModelField = ApiCmsModelField> {
   field: T;
   getValidator: IGetValidator;
+  availableRefs?: Map<string, string[]>;
 }
 export interface IGenerator<T> {
   type: string;
@@ -42,7 +43,10 @@ export interface IGenerator<T> {
 }
 
 export interface IRegistryGenerator<T extends IGenerator<unknown>> {
-  generate(field: ApiCmsModelField): ReturnType<T["generate"]>;
+  generate(
+    field: ApiCmsModelField,
+    availableRefs?: Map<string, string[]>,
+  ): ReturnType<T["generate"]>;
 }
 
 export interface IFieldRegistryGenerator<T extends IGenerator<unknown>> {

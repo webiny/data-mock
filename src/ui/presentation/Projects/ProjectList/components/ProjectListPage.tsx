@@ -107,7 +107,15 @@ export const ProjectListPage = observer(function ProjectListPage({
                 loading={project.isSyncing}
                 onClick={() => void presenter.syncTenants(project.id)}
               >
-                Sync
+                Sync Tenants
+              </Button>
+              <Button
+                variant="subtle"
+                size="compact-xs"
+                loading={project.isSyncingModels}
+                onClick={() => void presenter.syncModels(project.id)}
+              >
+                Sync Models
               </Button>
             </Group>
           </Stack>

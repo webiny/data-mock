@@ -10,9 +10,16 @@ export interface ITenantSyncInput {
   projectId: string;
 }
 
+export interface ITenantSyncDiff {
+  added: Array<{ tenantId: string; name: string }>;
+  removed: Array<{ tenantId: string; name: string }>;
+  unchanged: Array<{ tenantId: string; name: string }>;
+}
+
 export interface ITenantSyncOutput {
   tenants: Array<{ tenantId: string; name: string }>;
   synced: number;
+  diff: ITenantSyncDiff;
 }
 
 export interface ITenantSyncService {

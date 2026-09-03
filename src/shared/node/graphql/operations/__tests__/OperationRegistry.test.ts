@@ -109,4 +109,24 @@ describe("OperationRegistry", () => {
     }
     tc.cleanup();
   });
+
+  it("should resolve 6.4.0 override for listContentModels when requesting 6.4.9", () => {
+    const tc = createTestContainer();
+    const registry = tc.container.resolve(OperationRegistry);
+
+    const op = registry.resolve("listContentModels", "6.4.9");
+    expect(op.name).toBe("listContentModels");
+    expect(op.query).toContain("description");
+    tc.cleanup();
+  });
+
+  it("should resolve base listContentModels for version 6.1.0 (no override)", () => {
+    const tc = createTestContainer();
+    const registry = tc.container.resolve(OperationRegistry);
+
+    const op = registry.resolve("listContentModels", "6.1.0");
+    expect(op.name).toBe("listContentModels");
+    expect(op.query).not.toContain("description");
+    tc.cleanup();
+  });
 });

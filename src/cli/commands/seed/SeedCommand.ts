@@ -6,6 +6,9 @@ import { ListProjectsUseCase } from "~/shared/node/features/projects/list/abstra
 import { ListProjectTenantsRepository } from "~/shared/node/features/tenants/list/abstractions/ListProjectTenantsRepository.js";
 import { ListProjectModelsRepository } from "~/shared/node/features/models/list/abstractions/ListProjectModelsRepository.js";
 import { SeedService } from "~/shared/node/features/seeding/seed/abstractions/SeedService.js";
+import { ListSeedTemplatesRepository } from "~/shared/node/features/templates/list/abstractions/ListSeedTemplatesRepository.js";
+import { CreateSeedTemplateRepository } from "~/shared/node/features/templates/create/abstractions/CreateSeedTemplateRepository.js";
+import type { ProjectModel, SeedTemplateConfig } from "~/shared/types.js";
 
 class SeedCommandImpl implements Command.Interface {
   public readonly name = "seed";
@@ -18,6 +21,8 @@ class SeedCommandImpl implements Command.Interface {
     private readonly listTenantsRepository: ListProjectTenantsRepository.Interface,
     private readonly listModelsRepository: ListProjectModelsRepository.Interface,
     private readonly seedService: SeedService.Interface,
+    private readonly listTemplatesRepository: ListSeedTemplatesRepository.Interface,
+    private readonly createTemplateRepository: CreateSeedTemplateRepository.Interface,
   ) {}
 
   public async execute(): Promise<void> {
@@ -87,6 +92,121 @@ class SeedCommandImpl implements Command.Interface {
       return;
     }
 
+    const templateResult = await this.loadTemplateOrManual(
+      selectedProject.id,
+      selectedTenant,
+      models,
+    );
+    if (!templateResult) {
+      return;
+    }
+    const { modelConfigs, dryRun, templateName: usedTemplateName } = templateResult;
+    const tenantsToSeed =
+      selectedTenant === "__all__" ? tenants.map((t) => t.tenantId) : [selectedTenant];
+
+    const spinner = this.ui.spinner();
+
+    for (const tenantId of tenantsToSeed) {
+      spinner.start(`${dryRun ? "[DRY RUN] " : ""}Seeding tenant "${tenantId}"...`);
+
+      const result = await this.seedService.execute({
+        projectId: selectedProject.id,
+        tenant: tenantId,
+        models: modelConfigs,
+        dryRun,
+      });
+
+      if (result.isFail()) {
+        spinner.stop(`Failed for tenant "${tenantId}": ${result.error.message}`);
+        continue;
+      }
+
+      const { created, errors, dryRun: wasDryRun } = result.value;
+      const prefix = wasDryRun ? "[DRY RUN] " : "";
+      spinner.stop(
+        `${prefix}Tenant "${tenantId}": ${created} entries ${wasDryRun ? "generated" : "created"}` +
+          (errors.length > 0 ? `, ${errors.length} errors` : ""),
+      );
+
+      if (errors.length > 0) {
+        for (const err of errors.slice(0, 5)) {
+          this.ui.log.warn(`  ${err.modelId}: ${err.message}`);
+        }
+        if (errors.length > 5) {
+          this.ui.log.warn(`  ...and ${errors.length - 5} more errors`);
+        }
+      }
+    }
+
+    this.ui.outro(dryRun ? "Dry run complete." : "Seeding complete.");
+
+    if (!usedTemplateName) {
+      const saveTemplate = await this.prompts.confirm({
+        message: "Save this configuration as a template?",
+      });
+
+      if (!isCancel(saveTemplate) && saveTemplate) {
+        const nameInput = await this.prompts.text({
+          message: "Template name",
+          validate: (v) => (!v || v.trim().length === 0 ? "Name is required" : undefined),
+        });
+
+        if (!isCancel(nameInput)) {
+          const config: SeedTemplateConfig = {
+            tenant: selectedTenant as string,
+            models: modelConfigs,
+          };
+          const saveResult = await this.createTemplateRepository.execute({
+            projectId: selectedProject.id,
+            name: nameInput,
+            config,
+          });
+          if (saveResult.isOk()) {
+            this.ui.log.success(`Template "${nameInput}" saved.`);
+          }
+        }
+      }
+    }
+  }
+
+  private async loadTemplateOrManual(
+    projectId: string,
+    selectedTenant: string | symbol,
+    models: ProjectModel[],
+  ): Promise<{
+    modelConfigs: Array<{ modelId: string; amount: number }>;
+    dryRun: boolean;
+    templateName: string | null;
+  } | null> {
+    const templatesResult = await this.listTemplatesRepository.execute({ projectId });
+    const templates = templatesResult.isOk() ? templatesResult.value : [];
+
+    if (templates.length > 0) {
+      const source = await this.prompts.select({
+        message: "Configuration source",
+        options: [
+          { value: "manual" as const, label: "Configure manually" },
+          ...templates.map((t) => ({ value: t.id, label: `Template: ${t.name}` })),
+        ],
+      });
+
+      if (isCancel(source)) {
+        this.ui.cancel("Cancelled.");
+        return null;
+      }
+
+      if (source !== "manual") {
+        const template = templates.find((t) => t.id === source);
+        if (template) {
+          const dryRun = await this.askDryRun();
+          if (dryRun === null) {
+            return null;
+          }
+          return { modelConfigs: template.config.models, dryRun, templateName: template.name };
+        }
+      }
+    }
+
     const selectedModels = await this.prompts.multiselect({
       message: "Select models to seed",
       options: models.map((m) => ({
@@ -98,7 +218,7 @@ class SeedCommandImpl implements Command.Interface {
     });
     if (isCancel(selectedModels)) {
       this.ui.cancel("Cancelled.");
-      return;
+      return null;
     }
 
     const amountInput = await this.prompts.text({
@@ -117,48 +237,31 @@ class SeedCommandImpl implements Command.Interface {
     });
     if (isCancel(amountInput)) {
       this.ui.cancel("Cancelled.");
-      return;
+      return null;
     }
 
     const amount = parseInt(amountInput, 10);
     const modelConfigs = selectedModels.map((m) => ({ modelId: m.modelId, amount }));
 
-    const tenantsToSeed =
-      selectedTenant === "__all__" ? tenants.map((t) => t.tenantId) : [selectedTenant];
-
-    const spinner = this.ui.spinner();
-
-    for (const tenantId of tenantsToSeed) {
-      spinner.start(`Seeding tenant "${tenantId}"...`);
-
-      const result = await this.seedService.execute({
-        projectId: selectedProject.id,
-        tenant: tenantId,
-        models: modelConfigs,
-      });
-
-      if (result.isFail()) {
-        spinner.stop(`Failed for tenant "${tenantId}": ${result.error.message}`);
-        continue;
-      }
-
-      const { created, errors } = result.value;
-      spinner.stop(
-        `Tenant "${tenantId}": ${created} entries created` +
-          (errors.length > 0 ? `, ${errors.length} errors` : ""),
-      );
-
-      if (errors.length > 0) {
-        for (const err of errors.slice(0, 5)) {
-          this.ui.log.warn(`  ${err.modelId}: ${err.message}`);
-        }
-        if (errors.length > 5) {
-          this.ui.log.warn(`  ...and ${errors.length - 5} more errors`);
-        }
-      }
+    const dryRun = await this.askDryRun();
+    if (dryRun === null) {
+      return null;
     }
 
-    this.ui.outro("Seeding complete.");
+    return { modelConfigs, dryRun, templateName: null };
+  }
+
+  private async askDryRun(): Promise<boolean | null> {
+    const dryRunChoice = await this.prompts.confirm({
+      message: "Dry run? (generate entries without sending to Webiny)",
+      active: "Yes",
+      inactive: "No",
+    });
+    if (isCancel(dryRunChoice)) {
+      this.ui.cancel("Cancelled.");
+      return null;
+    }
+    return dryRunChoice === true;
   }
 }
 
@@ -171,5 +274,7 @@ export const SeedCommand = Command.createImplementation({
     ListProjectTenantsRepository,
     ListProjectModelsRepository,
     SeedService,
+    ListSeedTemplatesRepository,
+    CreateSeedTemplateRepository,
   ],
 });

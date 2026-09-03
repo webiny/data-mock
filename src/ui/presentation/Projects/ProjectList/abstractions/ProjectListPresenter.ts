@@ -13,6 +13,7 @@ export interface ProjectItemVM {
   webinyVersion: string;
   tenants: ProjectTenantVM[];
   isSyncing: boolean;
+  isSyncingModels: boolean;
 }
 
 export interface RemoveConfirmationVM {
@@ -36,6 +37,7 @@ export interface IProjectListPresenter {
   cancelRemove(): void;
   executeRemove(): Promise<void>;
   syncTenants(projectId: string): Promise<void>;
+  syncModels(projectId: string): Promise<void>;
 }
 
 export const ProjectListPresenter =

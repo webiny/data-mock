@@ -4,6 +4,7 @@ import {
   projectModelSchema,
   modelDiffItemSchema,
   modelSyncResultSchema,
+  modelPushResultSchema,
 } from "../responses/models.js";
 
 export const listProjectModelsRoute = defineListRoute("models", {
@@ -19,6 +20,14 @@ export const syncProjectModelsRoute = defineOneRoute("sync", {
   description: "Sync models from Webiny for a project",
   params: z.object({ projectId: z.string() }),
   item: modelSyncResultSchema,
+});
+
+export const pushProjectModelsRoute = defineOneRoute("push", {
+  method: "POST",
+  path: "/api/projects/:projectId/models/push",
+  description: "Push local models to Webiny for a project",
+  params: z.object({ projectId: z.string() }),
+  item: modelPushResultSchema,
 });
 
 export const diffProjectModelsRoute = defineListRoute("diff", {

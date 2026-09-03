@@ -8,6 +8,7 @@ import { LoadProjectsUseCase } from "./useCases/LoadProjects/LoadProjectsUseCase
 import { DeleteProjectUseCase } from "./useCases/DeleteProject/DeleteProjectUseCase.js";
 import { LoadTenantsUseCase } from "./useCases/LoadTenants/LoadTenantsUseCase.js";
 import { SyncTenantsUseCase } from "./useCases/SyncTenants/SyncTenantsUseCase.js";
+import { SyncModelsUseCase } from "./useCases/SyncModels/SyncModelsUseCase.js";
 
 interface ProjectListExports {
   presenter: ProjectListPresenterAbstraction.Interface;
@@ -21,6 +22,7 @@ export const ProjectListPresentationFeature = createFeature<void, ProjectListExp
     container.register(DeleteProjectUseCase);
     container.register(LoadTenantsUseCase);
     container.register(SyncTenantsUseCase);
+    container.register(SyncModelsUseCase);
     container.register(ProjectListPresenter);
   },
   resolve(container) {

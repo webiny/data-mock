@@ -29,6 +29,13 @@
       "when": 1788425243559,
       "tag": "0003_curly_post",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788428255208,
+      "tag": "0004_opposite_green_goblin",
+      "breakpoints": true
     }
   ]
 }

@@ -19,3 +19,10 @@ export type {
 
 export { seedJobSchema, triggerSeedBodySchema } from "./seeding.js";
 export type { SeedJobResponse, TriggerSeedBody } from "./seeding.js";
+
+export {
+  seedTemplateSchema,
+  seedTemplateConfigSchema,
+  createSeedTemplateBodySchema,
+} from "./templates.js";
+export type { SeedTemplateResponse, CreateSeedTemplateBody } from "./templates.js";

@@ -94,13 +94,17 @@ class GeneratorRegistryImpl implements IGeneratorRegistry {
 
   private createRegistryGenerator<T extends IGenerator<unknown>>(generator: T) {
     return {
-      generate: (field: ApiCmsModelField): ReturnType<T["generate"]> => {
+      generate: (
+        field: ApiCmsModelField,
+        availableRefs?: Map<string, string[]>,
+      ): ReturnType<T["generate"]> => {
         // @ts-expect-error - type narrowing for generate params
         return generator.generate({
           field,
           getValidator: <V>(validatorConstructor: IValidatorConstructor<V>): IValidator<V> => {
             return this.getValidator(field, validatorConstructor);
           },
+          availableRefs,
         });
       },
     };

@@ -7,11 +7,13 @@ import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { CreateSeedJobRepository } from "~/shared/node/features/seeding/create/abstractions/CreateSeedJobRepository.js";
 import { UpdateSeedJobRepository } from "~/shared/node/features/seeding/update/abstractions/UpdateSeedJobRepository.js";
+import { ModelDependencyResolver } from "~/shared/node/features/seeding/resolve/abstractions/ModelDependencyResolver.js";
 import { createEntryVariables } from "~/shared/node/generators/createEntryVariables.js";
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
 import { buildCreateEntryQuery } from "~/shared/node/graphql/operations/base/createContentEntry.js";
 import { SeedingError } from "~/shared/errors.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
+import type { ProjectModel } from "~/shared/types.js";
 
 class SeedServiceImpl implements Abstraction.Interface {
   public constructor(
@@ -22,6 +24,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     private readonly httpClient: HttpClient.Interface,
     private readonly createSeedJobRepository: CreateSeedJobRepository.Interface,
     private readonly updateSeedJobRepository: UpdateSeedJobRepository.Interface,
+    private readonly modelDependencyResolver: ModelDependencyResolver.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -47,6 +50,8 @@ class SeedServiceImpl implements Abstraction.Interface {
     const job = jobResult.value;
     let totalCreated = 0;
     const errors: Array<{ modelId: string; message: string }> = [];
+    const isDryRun = input.dryRun === true;
+    const generatedEntries: Array<{ modelId: string; entries: Record<string, unknown>[] }> = [];
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -55,27 +60,62 @@ class SeedServiceImpl implements Abstraction.Interface {
     };
 
     try {
-      for (const modelConfig of input.models) {
-        const modelResult = await this.getProjectModelRepository.execute({
+      const allModels: ProjectModel[] = [];
+      const configByModelId = new Map<string, { modelId: string; amount: number }>();
+      for (const mc of input.models) {
+        configByModelId.set(mc.modelId, mc);
+        const r = await this.getProjectModelRepository.execute({
           projectId: project.id,
-          modelId: modelConfig.modelId,
+          modelId: mc.modelId,
         });
+        if (r.isFail()) {
+          errors.push({ modelId: mc.modelId, message: r.error.message });
+          continue;
+        }
+        allModels.push(r.value);
+      }
 
-        if (modelResult.isFail()) {
-          errors.push({ modelId: modelConfig.modelId, message: modelResult.error.message });
+      const depResult = this.modelDependencyResolver.execute({ models: allModels });
+      const orderedModels = depResult.isOk() ? depResult.value.ordered : allModels;
+      if (depResult.isOk() && depResult.value.circular.length > 0) {
+        for (const cycle of depResult.value.circular) {
+          this.logger.warn(
+            `Circular dependency detected: ${cycle.join(" → ")}. Ref fields in these models will be null.`,
+          );
+        }
+      }
+
+      const availableRefs = new Map<string, string[]>();
+
+      for (const model of orderedModels) {
+        const modelConfig = configByModelId.get(model.modelId);
+        if (!modelConfig) {
           continue;
         }
 
-        const model = modelResult.value;
-
-        this.logger.info(`Generating ${modelConfig.amount} entries for model "${model.name}"...`);
+        this.logger.info(
+          `${isDryRun ? "[DRY RUN] " : ""}Generating ${modelConfig.amount} entries for model "${model.name}"...`,
+        );
 
         const entries = await createEntryVariables(
           this.generatorRegistry,
           this.logger,
           { fields: model.fields },
           modelConfig.amount,
+          { availableRefs },
         );
+
+        if (isDryRun) {
+          generatedEntries.push({
+            modelId: modelConfig.modelId,
+            entries: entries.map((e) => e.values as Record<string, unknown>),
+          });
+          totalCreated += entries.length;
+          this.logger.info(
+            `[DRY RUN] Generated ${entries.length} entries for model "${model.name}" (not sent).`,
+          );
+          continue;
+        }
 
         const fieldSelection = createModelFields(model.fields);
         const mutation = buildCreateEntryQuery({
@@ -117,6 +157,15 @@ class SeedServiceImpl implements Abstraction.Interface {
               });
             } else {
               totalCreated++;
+              const data = result.data as Record<string, unknown> | undefined;
+              if (data) {
+                const entryId = (data as Record<string, unknown>)["id"] as string | undefined;
+                if (entryId) {
+                  const existing = availableRefs.get(model.modelId) ?? [];
+                  existing.push(entryId);
+                  availableRefs.set(model.modelId, existing);
+                }
+              }
             }
           } catch (err) {
             errors.push({
@@ -131,7 +180,13 @@ class SeedServiceImpl implements Abstraction.Interface {
         );
       }
 
-      const status = errors.length === 0 ? "completed" : totalCreated > 0 ? "completed" : "failed";
+      const status = isDryRun
+        ? "dry-run"
+        : errors.length === 0
+          ? "completed"
+          : totalCreated > 0
+            ? "completed"
+            : "failed";
 
       await this.updateSeedJobRepository.execute({
         id: job.id,
@@ -146,6 +201,8 @@ class SeedServiceImpl implements Abstraction.Interface {
         jobId: job.id,
         created: totalCreated,
         errors,
+        dryRun: isDryRun,
+        generatedEntries: isDryRun ? generatedEntries : undefined,
       });
     } catch (err) {
       await this.updateSeedJobRepository.execute({
@@ -172,6 +229,7 @@ export const SeedService = Abstraction.createImplementation({
     HttpClient,
     CreateSeedJobRepository,
     UpdateSeedJobRepository,
+    ModelDependencyResolver,
     Logger,
   ],
 });

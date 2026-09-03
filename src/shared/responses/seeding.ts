@@ -3,7 +3,7 @@ import { z } from "zod";
 export const seedJobSchema = z.object({
   id: z.string(),
   projectId: z.string(),
-  status: z.enum(["pending", "running", "completed", "failed"]),
+  status: z.enum(["pending", "running", "completed", "failed", "dry-run"]),
   config: z.object({
     models: z.array(z.object({ modelId: z.string(), amount: z.number() })),
   }),
@@ -28,6 +28,7 @@ export const triggerSeedBodySchema = z.object({
       amount: z.number().int().min(1),
     }),
   ),
+  dryRun: z.boolean().optional().default(false),
 });
 
 export type TriggerSeedBody = z.infer<typeof triggerSeedBodySchema>;

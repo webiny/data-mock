@@ -69,30 +69,39 @@ class FileCache implements ICache {
 
   public async getOrSet<T>(input: ICacheKeyInput, cb: () => Promise<T>): Promise<T> {
     const cacheKey = createCacheKey(input);
-    const existing = this.get<T>(cacheKey);
+    const existing = this.read<T>(cacheKey);
     if (existing) {
       return existing;
     }
     const value = await cb();
-    return this.set<T>(cacheKey, value);
+    this.write<T>(cacheKey, value);
+    return value;
   }
 
-  public clear(cacheKey?: ICacheKeyInput) {
-    if (!cacheKey) {
-      cacheKey = this.keys;
+  public clear(input?: ICacheKeyInput) {
+    if (!input) {
+      for (const key of this.keys) {
+        this.deleteKey(key);
+      }
+      this.keys.clear();
+      return;
     }
-    if (Array.isArray(cacheKey)) {
-      for (const key of cacheKey) {
-        this.delete(key);
+
+    if (Array.isArray(input)) {
+      for (const item of input) {
+        const cacheKey = createCacheKey(item);
+        this.deleteKey(cacheKey);
+        this.removeFromKeys(cacheKey);
       }
       return;
     }
 
-    this.delete(cacheKey);
+    const cacheKey = createCacheKey(input);
+    this.deleteKey(cacheKey);
+    this.removeFromKeys(cacheKey);
   }
 
-  private read<T>(input: ICacheKeyInput): T | null {
-    const cacheKey = createCacheKey(input);
+  private read<T>(cacheKey: ICacheKey): T | null {
     this.addKey(cacheKey);
     try {
       const target = this.createPath(cacheKey);
@@ -114,22 +123,18 @@ class FileCache implements ICache {
     }
   }
 
-  private write<T>(input: ICacheKeyInput, data: T): void {
-    const cacheKey = createCacheKey(input);
+  private write<T>(cacheKey: ICacheKey, data: T): void {
     this.addKey(cacheKey);
     try {
       const target = this.createPath(cacheKey);
-
       mkdirSync(path.dirname(target), { recursive: true });
-
       writeFileSync(target, JSON.stringify(data, null, 2));
     } catch (ex) {
       this.logger.error(ex instanceof Error ? ex.message : String(ex));
     }
   }
 
-  private delete(input: ICacheKeyInput): void {
-    const cacheKey = createCacheKey(input);
+  private deleteKey(cacheKey: ICacheKey): void {
     try {
       unlinkSync(this.createPath(cacheKey));
     } catch {
@@ -137,20 +142,26 @@ class FileCache implements ICache {
     }
   }
 
-  private createPath(input: ICacheKeyInput): string {
-    const cacheKey = createCacheKey(input);
+  private createPath(cacheKey: ICacheKey): string {
     return path.join(this.cacheDir, `${cacheKey.get()}.json`);
   }
 
-  private addKey(input: ICacheKeyInput): void {
-    const cacheKey = createCacheKey(input);
-
+  private addKey(cacheKey: ICacheKey): void {
     for (const key of this.keys) {
       if (key.get() === cacheKey.get()) {
         return;
       }
     }
     this.keys.add(cacheKey);
+  }
+
+  private removeFromKeys(cacheKey: ICacheKey): void {
+    for (const key of this.keys) {
+      if (key.get() === cacheKey.get()) {
+        this.keys.delete(key);
+        return;
+      }
+    }
   }
 
   private clearExisting(): void {

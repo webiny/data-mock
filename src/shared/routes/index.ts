@@ -14,3 +14,9 @@ export {
 } from "./models.js";
 
 export { triggerSeedRoute, listSeedJobsRoute } from "./seeding.js";
+
+export {
+  listSeedTemplatesRoute,
+  createSeedTemplateRoute,
+  deleteSeedTemplateRoute,
+} from "./templates.js";

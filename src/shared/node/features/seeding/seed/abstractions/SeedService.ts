@@ -10,12 +10,15 @@ export interface ISeedServiceInput {
   projectId: string;
   tenant: string;
   models: Array<{ modelId: string; amount: number }>;
+  dryRun?: boolean;
 }
 
 export interface ISeedServiceOutput {
   jobId: string;
   created: number;
   errors: Array<{ modelId: string; message: string }>;
+  dryRun: boolean;
+  generatedEntries?: Array<{ modelId: string; entries: Record<string, unknown>[] }> | undefined;
 }
 
 export interface ISeedService {

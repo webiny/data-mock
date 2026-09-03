@@ -14,6 +14,7 @@ import { ProjectsFeature } from "~/shared/node/features/projects/feature.js";
 import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
 import { ModelsFeature } from "~/shared/node/features/models/feature.js";
 import { SeedingFeature } from "~/shared/node/features/seeding/feature.js";
+import { TemplatesFeature } from "~/shared/node/features/templates/feature.js";
 import { GraphQLConfig } from "~/shared/node/graphql/abstractions/GraphQLConfig.js";
 import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
@@ -59,6 +60,7 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   ModelsFeature.register(container);
   ProjectsFeature.register(container);
   SeedingFeature.register(container);
+  TemplatesFeature.register(container);
 
   if (options.httpClient) {
     container.registerInstance(HttpClient, options.httpClient);

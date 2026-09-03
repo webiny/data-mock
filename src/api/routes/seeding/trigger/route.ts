@@ -10,6 +10,7 @@ export const triggerSeed = routeFactory(
       projectId: params.projectId,
       tenant: body.tenant,
       models: body.models,
+      dryRun: body.dryRun,
     });
 
     if (result.isFail()) {

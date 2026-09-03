@@ -3,7 +3,9 @@ import { GetProjectRepository } from "~/shared/node/features/projects/get/abstra
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { SyncProjectTenantsRepository } from "./abstractions/SyncProjectTenantsRepository.js";
+import { ListProjectTenantsRepository } from "~/shared/node/features/tenants/list/abstractions/ListProjectTenantsRepository.js";
 import { TenantSyncService as Abstraction } from "./abstractions/TenantSyncService.js";
+import type { ITenantSyncDiff } from "./abstractions/TenantSyncService.js";
 
 class TenantSyncServiceImpl implements Abstraction.Interface {
   public constructor(
@@ -11,6 +13,7 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
     private readonly httpClient: HttpClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly syncProjectTenantsRepository: SyncProjectTenantsRepository.Interface,
+    private readonly listProjectTenantsRepository: ListProjectTenantsRepository.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -73,6 +76,25 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
       tenants = [{ tenantId: project.tenant, name: project.tenant }];
     }
 
+    const existingResult = await this.listProjectTenantsRepository.execute({
+      projectId: project.id,
+    });
+
+    const existingTenantIds = new Set(
+      existingResult.isOk() ? existingResult.value.map((t) => t.tenantId) : [],
+    );
+    const newTenantIds = new Set(tenants.map((t) => t.tenantId));
+
+    const diff: ITenantSyncDiff = {
+      added: tenants.filter((t) => !existingTenantIds.has(t.tenantId)),
+      removed: existingResult.isOk()
+        ? existingResult.value
+            .filter((t) => !newTenantIds.has(t.tenantId))
+            .map((t) => ({ tenantId: t.tenantId, name: t.name }))
+        : [],
+      unchanged: tenants.filter((t) => existingTenantIds.has(t.tenantId)),
+    };
+
     const syncResult = await this.syncProjectTenantsRepository.execute({
       projectId: project.id,
       tenants,
@@ -82,7 +104,7 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
       return Result.fail(syncResult.error);
     }
 
-    return Result.ok({ tenants, synced: tenants.length });
+    return Result.ok({ tenants, synced: tenants.length, diff });
   }
 }
 
@@ -93,6 +115,7 @@ export const TenantSyncService = Abstraction.createImplementation({
     HttpClient,
     OperationRegistry,
     SyncProjectTenantsRepository,
+    ListProjectTenantsRepository,
     Logger,
   ],
 });

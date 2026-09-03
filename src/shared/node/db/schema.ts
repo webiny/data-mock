@@ -63,6 +63,20 @@ export const projectModels = sqliteTable(
   (table) => [uniqueIndex("project_model_unique").on(table.projectId, table.modelId)],
 );
 
+export const seedTemplates = sqliteTable(
+  "seed_templates",
+  {
+    id: text("id").primaryKey().notNull(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    config: text("config").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("seed_template_unique").on(table.projectId, table.name)],
+);
+
 export const seedJobs = sqliteTable("seed_jobs", {
   id: text("id").primaryKey().notNull(),
   projectId: text("project_id")

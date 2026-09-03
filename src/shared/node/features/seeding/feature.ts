@@ -2,6 +2,7 @@ import { createFeature } from "@webiny/stdlib";
 import { CreateSeedJobRepository } from "./create/CreateSeedJobRepository.js";
 import { UpdateSeedJobRepository } from "./update/UpdateSeedJobRepository.js";
 import { ListSeedJobsRepository } from "./list/ListSeedJobsRepository.js";
+import { ModelDependencyResolver } from "./resolve/ModelDependencyResolver.js";
 import { SeedService } from "./seed/SeedService.js";
 
 export const SeedingFeature = createFeature({
@@ -10,6 +11,7 @@ export const SeedingFeature = createFeature({
     container.register(CreateSeedJobRepository).inSingletonScope();
     container.register(UpdateSeedJobRepository).inSingletonScope();
     container.register(ListSeedJobsRepository).inSingletonScope();
+    container.register(ModelDependencyResolver).inSingletonScope();
 
     container.register(SeedService);
   },
