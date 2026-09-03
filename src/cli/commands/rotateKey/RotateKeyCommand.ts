@@ -5,11 +5,11 @@ import { isCancel } from "@clack/prompts";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { KeyRotationService } from "~/shared/node/encryption/abstractions/KeyRotationService.js";
-import { RotateKeyCommand as Abstraction } from "./abstractions/RotateKeyCommand.js";
+import { Command } from "~/cli/abstractions/Command.js";
 
 const ENV_PATH = join(process.cwd(), ".env");
 
-class RotateKeyCommandImpl implements Abstraction.Interface {
+class RotateKeyCommandImpl implements Command.Interface {
   public readonly name = "rotate-key";
   public readonly description = "Rotate the API token encryption key";
 
@@ -103,7 +103,7 @@ class RotateKeyCommandImpl implements Abstraction.Interface {
   }
 }
 
-export const RotateKeyCommand = Abstraction.createImplementation({
+export const RotateKeyCommand = Command.createImplementation({
   implementation: RotateKeyCommandImpl,
   dependencies: [UI, Prompts, KeyRotationService],
 });
