@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { observer } from "mobx-react-lite";
-import { AppShell, Box, Group, Title, Text, Container, Modal, Button } from "@mantine/core";
+import { AppShell, Box, Group, Title, Text, Modal, Button } from "@mantine/core";
 import { useContainer } from "../di/DiContainerProvider.js";
 import { useFeature } from "../di/useFeature.js";
 import { Router } from "../features/router/abstractions/Router.js";
@@ -86,8 +86,8 @@ export const AppLayout = observer(function AppLayout() {
       </AppShell.Header>
 
       <AppShell.Main>
-        {router.currentView === "project-list" && (
-          <Container size="lg" py="md">
+        <Box p="md">
+          {router.currentView === "project-list" && (
             <ProjectListPage
               presenter={listPresenter}
               onAddProject={handleOpenAdd}
@@ -95,26 +95,20 @@ export const AppLayout = observer(function AppLayout() {
               onSeedProject={handleSeedProject}
               onViewHistory={handleViewHistory}
             />
-          </Container>
-        )}
+          )}
 
-        {router.currentView === "project-detail" && router.params["projectId"] && (
-          <Box p="md">
+          {router.currentView === "project-detail" && router.params["projectId"] && (
             <ProjectDetailPage presenter={detailPresenter} projectId={router.params["projectId"]} />
-          </Box>
-        )}
+          )}
 
-        {router.currentView === "seed-config" && router.params["projectId"] && (
-          <Container size="lg" py="md">
+          {router.currentView === "seed-config" && router.params["projectId"] && (
             <SeedConfigPage presenter={seedPresenter} projectId={router.params["projectId"]} />
-          </Container>
-        )}
+          )}
 
-        {router.currentView === "seed-history" && router.params["projectId"] && (
-          <Container size="lg" py="md">
+          {router.currentView === "seed-history" && router.params["projectId"] && (
             <SeedHistoryPage presenter={historyPresenter} projectId={router.params["projectId"]} />
-          </Container>
-        )}
+          )}
+        </Box>
       </AppShell.Main>
 
       <Modal opened={addModalOpen} onClose={handleCloseAdd} title="Add Project" size="md">
