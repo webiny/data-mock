@@ -4,7 +4,7 @@ export interface ITextOptions {
   message: string;
   placeholder?: string;
   defaultValue?: string;
-  validate?: (value: string) => string | undefined;
+  validate?: (value: string | undefined) => string | Error | undefined;
 }
 
 export interface ISelectOption<T> {

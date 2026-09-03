@@ -20,7 +20,7 @@ class AddProjectCommandImpl implements Command.Interface {
     const name = await this.prompts.text({
       message: "Project name",
       placeholder: "my-webiny-project",
-      validate: (value) => (value.trim().length === 0 ? "Name is required" : undefined),
+      validate: (value) => (!value || value.trim().length === 0 ? "Name is required" : undefined),
     });
     if (isCancel(name)) {
       this.ui.cancel("Cancelled.");
@@ -31,7 +31,7 @@ class AddProjectCommandImpl implements Command.Interface {
       message: "Webiny GraphQL API URL",
       placeholder: "https://your-webiny-api.com",
       validate: (value) => {
-        if (value.trim().length === 0) {
+        if (!value || value.trim().length === 0) {
           return "URL is required";
         }
         if (!value.startsWith("http://") && !value.startsWith("https://")) {
@@ -48,7 +48,7 @@ class AddProjectCommandImpl implements Command.Interface {
     const apiToken = await this.prompts.text({
       message: "API token",
       placeholder: "your-api-token",
-      validate: (value) => (value.trim().length === 0 ? "Token is required" : undefined),
+      validate: (value) => (!value || value.trim().length === 0 ? "Token is required" : undefined),
     });
     if (isCancel(apiToken)) {
       this.ui.cancel("Cancelled.");
