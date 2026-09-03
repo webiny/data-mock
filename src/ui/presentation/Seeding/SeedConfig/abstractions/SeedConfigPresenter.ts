@@ -1,17 +1,36 @@
 import { createAbstraction } from "@webiny/stdlib";
+import type { PublishStrategy } from "~/shared/types.js";
 
-export interface ModelConfigItem {
+export interface IModelConfigVM {
   modelId: string;
   name: string;
+  groupSlug: string;
   selected: boolean;
   amount: number;
+  revisions: string;
 }
 
-export interface SeedConfigVM {
+export interface IGroupConfigVM {
+  slug: string;
+  name: string;
+  allSelected: boolean;
+  models: IModelConfigVM[];
+}
+
+export interface ITenantVM {
+  tenantId: string;
+  name: string;
+}
+
+export interface ISeedConfigVM {
   project: { id: string; name: string } | null;
-  tenants: Array<{ tenantId: string; name: string }>;
-  models: ModelConfigItem[];
+  tenants: ITenantVM[];
+  groups: IGroupConfigVM[];
   selectedTenant: string;
+  publishStrategy: PublishStrategy;
+  publishPercent: number;
+  includeUnpublish: boolean;
+  dryRun: boolean;
   isLoading: boolean;
   isSeeding: boolean;
   error: string | null;
@@ -19,11 +38,19 @@ export interface SeedConfigVM {
 }
 
 export interface ISeedConfigPresenter {
-  readonly vm: SeedConfigVM;
+  readonly vm: ISeedConfigVM;
   load(projectId: string): Promise<void>;
   toggleModel(modelId: string): void;
+  toggleGroup(groupSlug: string): void;
+  selectAll(): void;
+  deselectAll(): void;
   setAmount(modelId: string, amount: number): void;
+  setRevisions(modelId: string, value: string): void;
   setTenant(tenantId: string): void;
+  setPublishStrategy(strategy: PublishStrategy): void;
+  setPublishPercent(percent: number): void;
+  setIncludeUnpublish(value: boolean): void;
+  setDryRun(value: boolean): void;
   seed(): Promise<void>;
 }
 
@@ -32,6 +59,6 @@ export const SeedConfigPresenter =
 
 export namespace SeedConfigPresenter {
   export type Interface = ISeedConfigPresenter;
-  export type VM = SeedConfigVM;
-  export type ModelItem = ModelConfigItem;
+  export type VM = ISeedConfigVM;
+  export type ModelItem = IModelConfigVM;
 }

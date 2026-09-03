@@ -1,14 +1,36 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { ProjectModel, ProjectTenant } from "~/shared/types.js";
+import type { ProjectModel, ProjectTenant, PublishStrategy, Revisions } from "~/shared/types.js";
 import { LoadSeedConfigUseCase } from "./useCases/LoadSeedConfig/abstractions/LoadSeedConfigUseCase.js";
 import { TriggerSeedUseCase } from "./useCases/TriggerSeed/abstractions/TriggerSeedUseCase.js";
 import { SeedConfigPresenter as Abstraction } from "./abstractions/SeedConfigPresenter.js";
-import type { SeedConfigVM, ModelConfigItem } from "./abstractions/SeedConfigPresenter.js";
+import type {
+  ISeedConfigVM,
+  IGroupConfigVM,
+  IModelConfigVM,
+} from "./abstractions/SeedConfigPresenter.js";
 
 interface ModelState {
   model: ProjectModel;
   selected: boolean;
   amount: number;
+  revisions: string;
+}
+
+function parseRevisions(value: string): Revisions {
+  const trimmed = value.trim();
+  if (trimmed.includes("-")) {
+    const [minStr, maxStr] = trimmed.split("-");
+    const min = parseInt(minStr!, 10);
+    const max = parseInt(maxStr!, 10);
+    if (!isNaN(min) && !isNaN(max) && min >= 1 && max >= min) {
+      return { min, max };
+    }
+  }
+  const num = parseInt(trimmed, 10);
+  if (!isNaN(num) && num >= 1) {
+    return num;
+  }
+  return 1;
 }
 
 class SeedConfigPresenterImpl implements Abstraction.Interface {
@@ -17,6 +39,10 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   private _tenants: ProjectTenant[] = [];
   private _modelStates: ModelState[] = [];
   private _selectedTenant = "";
+  private _publishStrategy: PublishStrategy = "none";
+  private _publishPercent = 50;
+  private _includeUnpublish = false;
+  private _dryRun = false;
   private _isLoading = false;
   private _isSeeding = false;
   private _error: string | null = null;
@@ -29,20 +55,45 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     makeAutoObservable(this);
   }
 
-  public get vm(): SeedConfigVM {
+  public get vm(): ISeedConfigVM {
+    const groupMap = new Map<string, { slug: string; name: string; models: ModelState[] }>();
+
+    for (const ms of this._modelStates) {
+      const slug = ms.model.groupSlug;
+      const existing = groupMap.get(slug);
+      if (existing) {
+        existing.models.push(ms);
+      } else {
+        groupMap.set(slug, { slug, name: slug, models: [ms] });
+      }
+    }
+
+    const groups: IGroupConfigVM[] = Array.from(groupMap.values()).map((g) => ({
+      slug: g.slug,
+      name: g.name,
+      allSelected: g.models.every((ms) => ms.selected),
+      models: g.models.map((ms): IModelConfigVM => ({
+        modelId: ms.model.modelId,
+        name: ms.model.name,
+        groupSlug: ms.model.groupSlug,
+        selected: ms.selected,
+        amount: ms.amount,
+        revisions: ms.revisions,
+      })),
+    }));
+
     return {
       project: this._projectId ? { id: this._projectId, name: this._projectName ?? "" } : null,
       tenants: this._tenants.map((t) => ({
         tenantId: t.tenantId,
         name: t.name,
       })),
-      models: this._modelStates.map((ms): ModelConfigItem => ({
-        modelId: ms.model.modelId,
-        name: ms.model.name,
-        selected: ms.selected,
-        amount: ms.amount,
-      })),
+      groups,
       selectedTenant: this._selectedTenant,
+      publishStrategy: this._publishStrategy,
+      publishPercent: this._publishPercent,
+      includeUnpublish: this._includeUnpublish,
+      dryRun: this._dryRun,
       isLoading: this._isLoading,
       isSeeding: this._isSeeding,
       error: this._error,
@@ -65,11 +116,13 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
           return;
         }
 
+        this._projectName = result.value.projectName;
         this._tenants = result.value.tenants;
         this._modelStates = result.value.models.map((m) => ({
           model: m,
           selected: true,
           amount: 10,
+          revisions: "1",
         }));
 
         if (this._tenants.length > 0) {
@@ -90,6 +143,26 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  public toggleGroup = (groupSlug: string): void => {
+    const groupModels = this._modelStates.filter((ms) => ms.model.groupSlug === groupSlug);
+    const allSelected = groupModels.every((ms) => ms.selected);
+    for (const ms of groupModels) {
+      ms.selected = !allSelected;
+    }
+  };
+
+  public selectAll = (): void => {
+    for (const ms of this._modelStates) {
+      ms.selected = true;
+    }
+  };
+
+  public deselectAll = (): void => {
+    for (const ms of this._modelStates) {
+      ms.selected = false;
+    }
+  };
+
   public setAmount = (modelId: string, amount: number): void => {
     const state = this._modelStates.find((ms) => ms.model.modelId === modelId);
     if (state) {
@@ -97,8 +170,31 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  public setRevisions = (modelId: string, value: string): void => {
+    const state = this._modelStates.find((ms) => ms.model.modelId === modelId);
+    if (state) {
+      state.revisions = value;
+    }
+  };
+
   public setTenant = (tenantId: string): void => {
     this._selectedTenant = tenantId;
+  };
+
+  public setPublishStrategy = (strategy: PublishStrategy): void => {
+    this._publishStrategy = strategy;
+  };
+
+  public setPublishPercent = (percent: number): void => {
+    this._publishPercent = Math.max(0, Math.min(100, percent));
+  };
+
+  public setIncludeUnpublish = (value: boolean): void => {
+    this._includeUnpublish = value;
+  };
+
+  public setDryRun = (value: boolean): void => {
+    this._dryRun = value;
   };
 
   public seed = async (): Promise<void> => {
@@ -111,6 +207,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
       .map((ms) => ({
         modelId: ms.model.modelId,
         amount: ms.amount,
+        revisions: parseRevisions(ms.revisions),
       }));
 
     if (selectedModels.length === 0) {
@@ -127,6 +224,10 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
         projectId: this._projectId,
         tenant: this._selectedTenant,
         models: selectedModels,
+        publishStrategy: this._publishStrategy,
+        publishPercent: this._publishPercent,
+        includeUnpublish: this._includeUnpublish,
+        dryRun: this._dryRun,
       });
 
       runInAction(() => {

@@ -117,8 +117,20 @@ export interface ProjectFile {
   uploadedAt: number;
 }
 
+export type Revisions = number | { min: number; max: number };
+export type PublishStrategy = "none" | "all" | "random" | "first" | "last";
+
+export interface SeedModelConfig {
+  modelId: string;
+  amount: number;
+  revisions?: Revisions | undefined;
+}
+
 export interface SeedJobConfig {
-  models: Array<{ modelId: string; amount: number }>;
+  models: SeedModelConfig[];
+  publishStrategy?: PublishStrategy | undefined;
+  publishPercent?: number | undefined;
+  includeUnpublish?: boolean | undefined;
 }
 
 export type SeedJobStatus = "pending" | "running" | "completed" | "failed" | "dry-run";

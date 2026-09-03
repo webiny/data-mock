@@ -1,11 +1,21 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
-import type { SeedJob } from "~/shared/types.js";
+import type { SeedJob, Revisions, PublishStrategy } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
+
+export interface ITriggerSeedModelInput {
+  modelId: string;
+  amount: number;
+  revisions?: Revisions | undefined;
+}
 
 export interface ITriggerSeedInput {
   tenant: string;
-  models: Array<{ modelId: string; amount: number }>;
+  models: ITriggerSeedModelInput[];
+  publishStrategy?: PublishStrategy | undefined;
+  publishPercent?: number | undefined;
+  includeUnpublish?: boolean | undefined;
+  dryRun?: boolean | undefined;
 }
 
 export interface ISeedingGateway {

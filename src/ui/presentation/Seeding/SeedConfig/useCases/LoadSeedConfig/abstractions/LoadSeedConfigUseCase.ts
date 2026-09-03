@@ -4,6 +4,7 @@ import type { ProjectModel, ProjectTenant } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface ILoadSeedConfigOutput {
+  projectName: string;
   tenants: ProjectTenant[];
   models: ProjectModel[];
 }

@@ -5,12 +5,22 @@ import type {
   ProjectPersistenceError,
   SeedingError,
 } from "~/shared/errors.js";
+import type { Revisions, PublishStrategy } from "~/shared/types.js";
+
+export interface ISeedServiceModelInput {
+  modelId: string;
+  amount: number;
+  revisions?: Revisions | undefined;
+}
 
 export interface ISeedServiceInput {
   projectId: string;
   tenant: string;
-  models: Array<{ modelId: string; amount: number }>;
-  dryRun?: boolean;
+  models: ISeedServiceModelInput[];
+  publishStrategy?: PublishStrategy | undefined;
+  publishPercent?: number | undefined;
+  includeUnpublish?: boolean | undefined;
+  dryRun?: boolean | undefined;
 }
 
 export interface ISeedServiceOutput {

@@ -15,6 +15,10 @@ class TriggerSeedUseCaseImpl implements Abstraction.Interface {
     const result = await this.seedingGateway.triggerSeed(input.projectId, {
       tenant: input.tenant,
       models: input.models,
+      publishStrategy: input.publishStrategy,
+      publishPercent: input.publishPercent,
+      includeUnpublish: input.includeUnpublish,
+      dryRun: input.dryRun,
     });
 
     if (result.isOk()) {

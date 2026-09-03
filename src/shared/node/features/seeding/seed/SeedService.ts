@@ -48,7 +48,12 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     const jobResult = await this.createSeedJobRepository.execute({
       projectId: project.id,
-      config: { models: input.models },
+      config: {
+        models: input.models,
+        publishStrategy: input.publishStrategy,
+        publishPercent: input.publishPercent,
+        includeUnpublish: input.includeUnpublish,
+      },
     });
 
     if (jobResult.isFail()) {
