@@ -1,6 +1,6 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
-import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { SyncProjectTenantsRepository } from "./abstractions/SyncProjectTenantsRepository.js";
 import { ListProjectTenantsRepository } from "~/shared/node/features/tenants/list/abstractions/ListProjectTenantsRepository.js";
@@ -11,7 +11,7 @@ import type { OperationLog } from "~/shared/types.js";
 class TenantSyncServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
-    private readonly httpClient: HttpClient.Interface,
+    private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly syncProjectTenantsRepository: SyncProjectTenantsRepository.Interface,
     private readonly listProjectTenantsRepository: ListProjectTenantsRepository.Interface,
@@ -33,7 +33,6 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
       project.webinyVersion,
     );
 
-    const baseUrl = project.apiUrl.replace(/\/cms\/manage$/, "");
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       authorization: `Bearer ${project.apiToken}`,
@@ -42,11 +41,11 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
 
     let tenants: Array<{ tenantId: string; name: string }>;
     const operations: OperationLog[] = [];
-    const url = `${baseUrl}${operation.path}`;
+    const url = `${project.apiUrl}${operation.path}`;
 
     try {
-      const response = await this.httpClient.post(
-        url,
+      const response = await this.cmsManageClient.post(
+        project.apiUrl,
         JSON.stringify({ query: operation.query }),
         headers,
       );
@@ -141,7 +140,7 @@ export const TenantSyncService = Abstraction.createImplementation({
   implementation: TenantSyncServiceImpl,
   dependencies: [
     GetProjectRepository,
-    HttpClient,
+    CmsManageEndpointClient,
     OperationRegistry,
     SyncProjectTenantsRepository,
     ListProjectTenantsRepository,

@@ -54,6 +54,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _loadedDatasets = new Set<string>();
   private _loadingDatasets = new Set<string>();
   private _loadingProjectId: string | null = null;
+  private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
+  private _projectHealthError: string | null = null;
   private _entriesPage = 1;
   private _entriesJobFilter: string | null = null;
   private _entriesModelFilter: string | null = null;
@@ -200,6 +202,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         response: l.response,
         createdAt: l.createdAt,
       })),
+      projectHealth: this._projectHealth,
+      projectHealthError: this._projectHealthError,
       isLoading: this._isLoading,
       isSyncingTenants: this._isSyncingTenants,
       isSyncingModels: this._isSyncingModels,
@@ -232,6 +236,25 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         this._isLoading = false;
       });
     }
+    void this.checkHealth();
+  };
+
+  public checkHealth = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    this._projectHealth = "checking";
+    this._projectHealthError = null;
+    const result = await this.projectsGateway.healthCheck(this._projectId);
+    runInAction(() => {
+      if (result.isFail()) {
+        this._projectHealth = "unreachable";
+        this._projectHealthError = result.error.message;
+        return;
+      }
+      this._projectHealth = result.value.reachable ? "reachable" : "unreachable";
+      this._projectHealthError = result.value.error;
+    });
   };
 
   public activateView = async (view: string): Promise<void> => {

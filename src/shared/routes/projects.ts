@@ -38,6 +38,14 @@ export const updateProjectRoute = defineOneRoute("project", {
   item: projectSchema,
 });
 
+export const healthCheckProjectRoute = defineOneRoute("health", {
+  method: "POST",
+  path: "/api/projects/:id/health",
+  description: "Check if a project's Webiny API is reachable",
+  params: z.object({ id: z.string() }),
+  item: z.object({ reachable: z.boolean(), error: z.string().nullable() }),
+});
+
 export const removeProjectRoute = defineVoidRoute({
   method: "DELETE",
   path: "/api/projects/:id",

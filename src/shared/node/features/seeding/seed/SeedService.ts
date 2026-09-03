@@ -4,7 +4,7 @@ import { GetProjectRepository } from "~/shared/node/features/projects/get/abstra
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
 import { GeneratorRegistry } from "~/shared/node/generators/abstractions/GeneratorRegistry.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
-import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { CreateSeedJobRepository } from "~/shared/node/features/seeding/create/abstractions/CreateSeedJobRepository.js";
 import { UpdateSeedJobRepository } from "~/shared/node/features/seeding/update/abstractions/UpdateSeedJobRepository.js";
 import { ModelDependencyResolver } from "~/shared/node/features/seeding/resolve/abstractions/ModelDependencyResolver.js";
@@ -54,7 +54,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
     private readonly generatorRegistry: GeneratorRegistry.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
-    private readonly httpClient: HttpClient.Interface,
+    private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly createSeedJobRepository: CreateSeedJobRepository.Interface,
     private readonly updateSeedJobRepository: UpdateSeedJobRepository.Interface,
     private readonly modelDependencyResolver: ModelDependencyResolver.Interface,
@@ -146,7 +146,7 @@ class SeedServiceImpl implements Abstraction.Interface {
         const revisionOp = this.operationRegistry.resolve("createRevision", project.webinyVersion);
         const publishOp = this.operationRegistry.resolve("publishEntry", project.webinyVersion);
         const unpublishOp = this.operationRegistry.resolve("unpublishEntry", project.webinyVersion);
-        const apiUrl = `${project.apiUrl}${createOp.path}`;
+        const apiUrl = project.apiUrl;
 
         for (let i = 0; i < ctx.amount; i++) {
           const entry = await createSingleEntryVariables(
@@ -352,7 +352,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     op: GqlOp,
   ): Promise<EntryMutationResult> {
     const body = JSON.stringify({ query: mutation, variables });
-    const response = await this.httpClient.post(apiUrl, body, headers);
+    const response = await this.cmsManageClient.post(apiUrl, body, headers);
 
     if (response.status !== 200) {
       const text = await response.text().catch(() => "");
@@ -544,7 +544,7 @@ export const SeedService = Abstraction.createImplementation({
     GetProjectModelRepository,
     GeneratorRegistry,
     OperationRegistry,
-    HttpClient,
+    CmsManageEndpointClient,
     CreateSeedJobRepository,
     UpdateSeedJobRepository,
     ModelDependencyResolver,

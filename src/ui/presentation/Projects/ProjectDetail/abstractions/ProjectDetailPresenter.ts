@@ -103,6 +103,8 @@ export interface IProjectDetailVM {
   entriesTenantFilter: string | null;
   entriesStatusFilter: string | null;
   syncLog: ISyncLogVM[];
+  projectHealth: "unknown" | "checking" | "reachable" | "unreachable";
+  projectHealthError: string | null;
   isLoading: boolean;
   isSyncingTenants: boolean;
   isSyncingModels: boolean;
@@ -121,6 +123,7 @@ export interface IProjectDetailPresenter {
   readonly vm: IProjectDetailVM;
   load(projectId: string): Promise<void>;
   activateView(view: string): Promise<void>;
+  checkHealth(): Promise<void>;
   loadTemplate(templateId: string): void;
   deleteTemplate(templateId: string): Promise<void>;
   syncTenants(): Promise<void>;

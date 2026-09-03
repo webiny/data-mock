@@ -10,6 +10,7 @@ import { FetchHttpClient } from "./FetchHttpClient.js";
 import { seedProjectsFromFile } from "./seedProjects.js";
 import { GeneratorFeature } from "./generators/feature.js";
 import { OperationsFeature } from "./graphql/operations/feature.js";
+import { EndpointsFeature } from "./graphql/endpoints/feature.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
@@ -38,6 +39,7 @@ export const AppFeature = createFeature({
     container.register(FetchHttpClient).inSingletonScope();
     GeneratorFeature.register(container);
     OperationsFeature.register(container);
+    EndpointsFeature.register(container);
     ProjectsFeature.register(container);
     TenantsFeature.register(container);
     ModelsFeature.register(container);

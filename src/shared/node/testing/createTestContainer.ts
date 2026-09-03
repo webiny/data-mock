@@ -18,6 +18,7 @@ import { SyncLogsFeature } from "~/shared/node/features/syncLogs/feature.js";
 import { GraphQLConfig } from "~/shared/node/graphql/abstractions/GraphQLConfig.js";
 import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { EndpointsFeature } from "~/shared/node/graphql/endpoints/feature.js";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 
 interface TestContainerOptions {
@@ -59,6 +60,8 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   } else {
     container.registerInstance(HttpClient, createNoOpHttpClient());
   }
+
+  EndpointsFeature.register(container);
 
   container.registerInstance(GraphQLConfig, {
     url: "http://localhost:0",

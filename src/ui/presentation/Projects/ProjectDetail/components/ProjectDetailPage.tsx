@@ -14,6 +14,7 @@ import {
   Table,
   Text,
   Title,
+  Tooltip,
 } from "@mantine/core";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 import { useFeature } from "~/ui/di/useFeature.js";
@@ -127,6 +128,11 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             <Group gap="sm">
               <Title order={2}>{project.name}</Title>
               <Badge variant="light">v{project.webinyVersion}</Badge>
+              <HealthBadge
+                status={vm.projectHealth}
+                error={vm.projectHealthError}
+                onCheck={() => void presenter.checkHealth()}
+              />
             </Group>
             <Text size="sm" c="dimmed">
               {project.apiUrl}
@@ -393,6 +399,40 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
     </>
   );
 });
+
+const HEALTH_CONFIG: Record<string, { color: string; label: string }> = {
+  unknown: { color: "gray", label: "Not checked" },
+  checking: { color: "blue", label: "Checking..." },
+  reachable: { color: "green", label: "Online" },
+  unreachable: { color: "red", label: "Unreachable" },
+};
+
+interface HealthBadgeProps {
+  status: string;
+  error: string | null;
+  onCheck: () => void;
+}
+
+function HealthBadge({ status, error, onCheck }: HealthBadgeProps) {
+  const config = HEALTH_CONFIG[status] ?? HEALTH_CONFIG.unknown;
+  const badge = (
+    <Badge
+      color={config.color}
+      variant="dot"
+      size="sm"
+      style={{ cursor: "pointer" }}
+      onClick={onCheck}
+    >
+      {config.label}
+    </Badge>
+  );
+
+  if (error) {
+    return <Tooltip label={error}>{badge}</Tooltip>;
+  }
+
+  return badge;
+}
 
 function EmbeddedSeedConfig({ projectId }: { projectId: string }) {
   const { presenter } = useFeature(SeedConfigPresentationFeature);

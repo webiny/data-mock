@@ -4,7 +4,7 @@ import { GetProjectRepository } from "~/shared/node/features/projects/get/abstra
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
 import { ListSeedEntriesRepository } from "~/shared/node/features/seeding/entries/abstractions/ListSeedEntriesRepository.js";
 import { UpdateSeedEntryStatusRepository } from "~/shared/node/features/seeding/entries/abstractions/UpdateSeedEntryStatusRepository.js";
-import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { ModelDependencyResolver } from "~/shared/node/features/seeding/resolve/abstractions/ModelDependencyResolver.js";
 import { buildDeleteEntryQuery } from "~/shared/node/graphql/operations/base/revisionOperations.js";
@@ -29,7 +29,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
     private readonly listSeedEntriesRepository: ListSeedEntriesRepository.Interface,
     private readonly updateSeedEntryStatusRepository: UpdateSeedEntryStatusRepository.Interface,
-    private readonly httpClient: HttpClient.Interface,
+    private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly modelDependencyResolver: ModelDependencyResolver.Interface,
     private readonly logger: Logger.Interface,
@@ -82,7 +82,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
 
       const orderedModels = this.reverseDependencyOrder(resolvedModels);
       const deleteOp = this.operationRegistry.resolve("deleteEntry", project.webinyVersion);
-      const apiUrl = `${project.apiUrl}${deleteOp.path}`;
+      const apiUrl = project.apiUrl;
 
       const modelResults: Abstraction.Output["models"] = [];
       let totalDeleted = 0;
@@ -196,7 +196,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
     }
 
     const body = JSON.stringify({ query: mutation, variables: { revision } });
-    const response = await this.httpClient.post(apiUrl, body, headers);
+    const response = await this.cmsManageClient.post(apiUrl, body, headers);
 
     if (response.status !== 200) {
       const text = await response.text().catch(() => "");
@@ -221,7 +221,7 @@ export const CleanupService = Abstraction.createImplementation({
     GetProjectModelRepository,
     ListSeedEntriesRepository,
     UpdateSeedEntryStatusRepository,
-    HttpClient,
+    CmsManageEndpointClient,
     OperationRegistry,
     ModelDependencyResolver,
     Logger,

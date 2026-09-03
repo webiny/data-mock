@@ -6,7 +6,9 @@ import {
   createProjectRoute,
   updateProjectRoute,
   removeProjectRoute,
+  healthCheckProjectRoute,
 } from "~/shared/routes/projects.js";
+import type { HealthCheckResult } from "./abstractions/ProjectsGateway.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { ProjectsGateway as Abstraction } from "./abstractions/ProjectsGateway.js";
@@ -71,6 +73,18 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
     return this.httpClient.request(removeProjectRoute, {
       params: { id },
     });
+  }
+
+  public async healthCheck(id: string): Promise<Result<HealthCheckResult, HTTPError>> {
+    const result = await this.httpClient.request(healthCheckProjectRoute, {
+      params: { id },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.health);
   }
 }
 

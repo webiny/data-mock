@@ -1,6 +1,6 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
-import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { SyncProjectGroupsRepository } from "./abstractions/SyncProjectGroupsRepository.js";
 import { SyncProjectModelsRepository } from "./abstractions/SyncProjectModelsRepository.js";
@@ -36,7 +36,7 @@ interface RemoteModel {
 class SyncModelsServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
-    private readonly httpClient: HttpClient.Interface,
+    private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly syncProjectGroupsRepository: SyncProjectGroupsRepository.Interface,
     private readonly syncProjectModelsRepository: SyncProjectModelsRepository.Interface,
@@ -53,7 +53,6 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     }
 
     const project = projectResult.value;
-    const baseUrl = project.apiUrl.replace(/\/cms\/manage$/, "");
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       authorization: `Bearer ${project.apiToken}`,
@@ -65,7 +64,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     const groupsResult = await this.fetchWithOperation<RemoteGroup[]>(
       "listContentModelGroups",
       project.webinyVersion,
-      baseUrl,
+      project.apiUrl,
       headers,
       operations,
     );
@@ -76,7 +75,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     const modelsResult = await this.fetchWithOperation<RemoteModel[]>(
       "listContentModels",
       project.webinyVersion,
-      baseUrl,
+      project.apiUrl,
       headers,
       operations,
     );
@@ -131,16 +130,15 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
   private async fetchWithOperation<T>(
     operationName: string,
     version: string,
-    baseUrl: string,
+    apiUrl: string,
     headers: Record<string, string>,
     logs: OperationLog[],
   ): Promise<Result<T, GraphQLRequestError>> {
     const operation = this.operationRegistry.resolve<void, T>(operationName, version);
-    const url = `${baseUrl}${operation.path}`;
 
     try {
-      const response = await this.httpClient.post(
-        url,
+      const response = await this.cmsManageClient.post(
+        apiUrl,
         JSON.stringify({ query: operation.query }),
         headers,
       );
@@ -149,7 +147,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
         const text = await response.text().catch(() => "");
         logs.push({
           name: operationName,
-          url,
+          url: apiUrl,
           query: operation.query.trim(),
           httpStatus: response.status,
           response: text,
@@ -166,7 +164,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       const json = (await response.json()) as Record<string, unknown>;
       logs.push({
         name: operationName,
-        url,
+        url: apiUrl,
         query: operation.query.trim(),
         httpStatus: response.status,
         response: json,
@@ -184,7 +182,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     } catch (error) {
       logs.push({
         name: operationName,
-        url,
+        url: apiUrl,
         query: operation.query.trim(),
         httpStatus: 0,
         response: error instanceof Error ? error.message : String(error),
@@ -203,7 +201,7 @@ export const SyncModelsService = Abstraction.createImplementation({
   implementation: SyncModelsServiceImpl,
   dependencies: [
     GetProjectRepository,
-    HttpClient,
+    CmsManageEndpointClient,
     OperationRegistry,
     SyncProjectGroupsRepository,
     SyncProjectModelsRepository,

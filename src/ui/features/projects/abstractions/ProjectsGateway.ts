@@ -18,12 +18,18 @@ export interface IProjectUpdateInput {
   webinyVersion?: string;
 }
 
+export interface HealthCheckResult {
+  reachable: boolean;
+  error: string | null;
+}
+
 export interface IProjectsGateway {
   list(): Promise<Result<Project[], HTTPError>>;
   getById(id: string): Promise<Result<Project, HTTPError>>;
   create(input: IProjectCreateInput): Promise<Result<Project, HTTPError>>;
   update(id: string, input: IProjectUpdateInput): Promise<Result<Project, HTTPError>>;
   remove(id: string): Promise<Result<void, HTTPError>>;
+  healthCheck(id: string): Promise<Result<HealthCheckResult, HTTPError>>;
 }
 
 export const ProjectsGateway = createAbstraction<IProjectsGateway>("Ui/ProjectsGateway");

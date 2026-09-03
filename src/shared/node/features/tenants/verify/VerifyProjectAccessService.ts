@@ -1,19 +1,19 @@
 import { Result, Logger } from "@webiny/stdlib";
-import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { VerifyProjectAccessService as Abstraction } from "./abstractions/VerifyProjectAccessService.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
 
 class VerifyProjectAccessServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly httpClient: HttpClient.Interface,
+    private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
   public async execute(input: Abstraction.Input): Promise<Result<void, Abstraction.Error>> {
-    const query = `{ cms { listContentModelGroups { data { id name } } } }`;
+    const query = `{ listContentModelGroups { data { id } error { code message } } }`;
 
     try {
-      const response = await this.httpClient.post(`${input.apiUrl}`, JSON.stringify({ query }), {
+      const response = await this.cmsManageClient.post(input.apiUrl, JSON.stringify({ query }), {
         "Content-Type": "application/json",
         authorization: `Bearer ${input.apiToken}`,
         "x-tenant": input.tenant,
@@ -56,5 +56,5 @@ class VerifyProjectAccessServiceImpl implements Abstraction.Interface {
 
 export const VerifyProjectAccessService = Abstraction.createImplementation({
   implementation: VerifyProjectAccessServiceImpl,
-  dependencies: [HttpClient, Logger],
+  dependencies: [CmsManageEndpointClient, Logger],
 });

@@ -2,7 +2,7 @@ import { Result, Logger } from "@webiny/stdlib";
 import { ImportEntriesService as Abstraction } from "./abstractions/ImportEntriesService.js";
 import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
-import { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entries/abstractions/CreateSeedEntryRepository.js";
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
@@ -30,7 +30,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
-    private readonly httpClient: HttpClient.Interface,
+    private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly createSeedEntryRepository: CreateSeedEntryRepository.Interface,
     private readonly logger: Logger.Interface,
@@ -81,7 +81,6 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     const { pluralApiName } = model;
     const query = buildListEntriesQuery({ pluralApiName, fieldSelection }).query;
     const listOp = this.operationRegistry.resolve("listContentEntries", project.webinyVersion);
-    const apiUrl = `${project.apiUrl}${listOp.path}`;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -96,7 +95,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     this.logger.info(`Importing entries for model "${model.name}"...`);
 
     while (hasMore) {
-      const page = await this.fetchPage(apiUrl, query, headers, listOp, cursor);
+      const page = await this.fetchPage(project.apiUrl, query, headers, listOp, cursor);
 
       for (const entry of page.data) {
         const entryId = typeof entry["id"] === "string" ? entry["id"] : "";
@@ -133,7 +132,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
   ): Promise<ListEntriesData> {
     const variables = op.getVariables ? op.getVariables({ limit: PAGE_SIZE, after }) : {};
     const body = JSON.stringify({ query, variables });
-    const response = await this.httpClient.post(apiUrl, body, headers);
+    const response = await this.cmsManageClient.post(apiUrl, body, headers);
 
     if (response.status !== 200) {
       const text = await response.text().catch(() => "");
@@ -161,7 +160,7 @@ export const ImportEntriesService = Abstraction.createImplementation({
   dependencies: [
     GetProjectRepository,
     GetProjectModelRepository,
-    HttpClient,
+    CmsManageEndpointClient,
     OperationRegistry,
     CreateSeedEntryRepository,
     Logger,
