@@ -57,6 +57,7 @@ export const projectModels = sqliteTable(
     pluralApiName: text("plural_api_name").notNull(),
     description: text("description"),
     fields: text("fields").notNull(),
+    plugin: integer("plugin").notNull().default(0),
     remoteId: text("remote_id"),
     syncedAt: integer("synced_at"),
     createdAt: integer("created_at").notNull(),

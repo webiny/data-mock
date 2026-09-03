@@ -12,9 +12,12 @@ import type {
 interface ModelState {
   model: ProjectModel;
   selected: boolean;
-  amount: number;
-  revisions: string;
+  amount: number | null;
+  revisions: string | null;
+  hasOverride: boolean;
 }
+
+const SYSTEM_MODEL_PREFIX = "wby";
 
 function parseRevisions(value: string): Revisions {
   const trimmed = value.trim();
@@ -39,6 +42,8 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   private _tenants: ProjectTenant[] = [];
   private _modelStates: ModelState[] = [];
   private _selectedTenant = "";
+  private _globalAmount = 10;
+  private _globalRevisions = "1";
   private _publishStrategy: PublishStrategy = "none";
   private _publishPercent = 50;
   private _includeUnpublish = false;
@@ -56,9 +61,13 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   }
 
   public get vm(): ISeedConfigVM {
+    const seedableStates = this._modelStates.filter(
+      (ms) => !ms.model.modelId.startsWith(SYSTEM_MODEL_PREFIX),
+    );
+
     const groupMap = new Map<string, { slug: string; name: string; models: ModelState[] }>();
 
-    for (const ms of this._modelStates) {
+    for (const ms of seedableStates) {
       const slug = ms.model.groupSlug;
       const existing = groupMap.get(slug);
       if (existing) {
@@ -77,8 +86,10 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
         name: ms.model.name,
         groupSlug: ms.model.groupSlug,
         selected: ms.selected,
-        amount: ms.amount,
-        revisions: ms.revisions,
+        plugin: ms.model.plugin,
+        amount: ms.hasOverride ? ms.amount : null,
+        revisions: ms.hasOverride ? ms.revisions : null,
+        hasOverride: ms.hasOverride,
       })),
     }));
 
@@ -90,6 +101,8 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
       })),
       groups,
       selectedTenant: this._selectedTenant,
+      globalAmount: this._globalAmount,
+      globalRevisions: this._globalRevisions,
       publishStrategy: this._publishStrategy,
       publishPercent: this._publishPercent,
       includeUnpublish: this._includeUnpublish,
@@ -120,9 +133,10 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
         this._tenants = result.value.tenants;
         this._modelStates = result.value.models.map((m) => ({
           model: m,
-          selected: true,
-          amount: 10,
-          revisions: "1",
+          selected: !m.plugin && !m.modelId.startsWith(SYSTEM_MODEL_PREFIX),
+          amount: null,
+          revisions: null,
+          hasOverride: false,
         }));
 
         if (this._tenants.length > 0) {
@@ -160,6 +174,28 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   public deselectAll = (): void => {
     for (const ms of this._modelStates) {
       ms.selected = false;
+    }
+  };
+
+  public setGlobalAmount = (amount: number): void => {
+    this._globalAmount = Math.max(1, amount);
+  };
+
+  public setGlobalRevisions = (value: string): void => {
+    this._globalRevisions = value;
+  };
+
+  public toggleModelOverride = (modelId: string): void => {
+    const state = this._modelStates.find((ms) => ms.model.modelId === modelId);
+    if (state) {
+      state.hasOverride = !state.hasOverride;
+      if (state.hasOverride) {
+        state.amount = this._globalAmount;
+        state.revisions = this._globalRevisions;
+      } else {
+        state.amount = null;
+        state.revisions = null;
+      }
     }
   };
 
@@ -206,8 +242,8 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
       .filter((ms) => ms.selected)
       .map((ms) => ({
         modelId: ms.model.modelId,
-        amount: ms.amount,
-        revisions: parseRevisions(ms.revisions),
+        amount: ms.amount ?? this._globalAmount,
+        revisions: parseRevisions(ms.revisions ?? this._globalRevisions),
       }));
 
     if (selectedModels.length === 0) {

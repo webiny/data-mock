@@ -29,6 +29,7 @@ interface RemoteModel {
   pluralApiName: string;
   description?: string | null;
   group: string;
+  plugin: boolean;
   fields: ApiCmsModelField[];
 }
 
@@ -110,6 +111,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
         singularApiName: m.singularApiName,
         pluralApiName: m.pluralApiName,
         description: m.description ?? null,
+        plugin: m.plugin,
         fields: m.fields,
         remoteId: m.modelId,
       })),

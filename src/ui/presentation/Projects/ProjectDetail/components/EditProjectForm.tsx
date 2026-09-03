@@ -1,16 +1,10 @@
 import { useState } from "react";
 import { Button, Group, Stack, TextInput } from "@mantine/core";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import type { IProjectVM, IEditProjectInput } from "../abstractions/ProjectDetailPresenter.js";
 
 interface EditProjectFormProps {
-  project: NonNullable<ProjectDetailPresenter.VM["project"]>;
-  onSubmit: (input: {
-    name?: string;
-    apiUrl?: string;
-    apiToken?: string;
-    tenant?: string;
-    webinyVersion?: string;
-  }) => Promise<boolean>;
+  project: IProjectVM;
+  onSubmit: (input: IEditProjectInput) => Promise<boolean>;
   onCancel: () => void;
 }
 

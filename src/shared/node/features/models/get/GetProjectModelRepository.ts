@@ -28,6 +28,7 @@ class GetProjectModelRepositoryImpl implements Abstraction.Interface {
 
       const model: ProjectModel = {
         ...row,
+        plugin: row.plugin === 1,
         fields: JSON.parse(row.fields) as ApiCmsModelField[],
       };
 

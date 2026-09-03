@@ -12,6 +12,7 @@ export interface ISyncProjectModelsRepositoryInput {
     singularApiName: string;
     pluralApiName: string;
     description?: string | null;
+    plugin?: boolean;
     fields: ApiCmsModelField[];
     remoteId?: string;
   }>;

@@ -3,10 +3,9 @@ import { Badge, Button, Group, Pagination, Stack, Table, Text, Title } from "@ma
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
 import { usePagination } from "~/ui/components/usePagination.js";
 import type { IEntryVM } from "../abstractions/ProjectDetailPresenter.js";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 
 interface AuditLogTabProps {
-  entries: ProjectDetailPresenter.VM["entries"];
+  entries: IEntryVM[];
   isClearing: boolean;
   onClear: () => void;
 }

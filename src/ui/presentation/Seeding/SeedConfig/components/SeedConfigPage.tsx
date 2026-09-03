@@ -20,6 +20,7 @@ import {
   Title,
 } from "@mantine/core";
 import type { SeedConfigPresenter } from "../abstractions/SeedConfigPresenter.js";
+import type { IModelConfigVM } from "../abstractions/SeedConfigPresenter.js";
 
 interface SeedConfigPageProps {
   presenter: SeedConfigPresenter.Interface;
@@ -78,14 +79,41 @@ export const SeedConfigPage = observer(function SeedConfigPage({
         />
       )}
 
+      <Divider label="Global Defaults" labelPosition="left" />
+
+      <Group gap="md">
+        <NumberInput
+          label="Entries per model"
+          value={vm.globalAmount}
+          onChange={(value) => presenter.setGlobalAmount(typeof value === "number" ? value : 10)}
+          min={1}
+          max={100000}
+          w={160}
+          size="sm"
+        />
+        <TextInput
+          label="Revisions"
+          value={vm.globalRevisions}
+          onChange={(e) => presenter.setGlobalRevisions(e.currentTarget.value)}
+          placeholder="1 or 1-5"
+          w={120}
+          size="sm"
+        />
+      </Group>
+
       {vm.groups.length === 0 ? (
         <Alert color="yellow" title="No Models">
           No models synced for this project. Sync models first.
         </Alert>
       ) : (
         <>
+          <Divider label="Models" labelPosition="left" />
+
           <Group justify="space-between">
-            <Text fw={500}>Models</Text>
+            <Text size="sm" c="dimmed">
+              {selectedCount} of {vm.groups.reduce((acc, g) => acc + g.models.length, 0)} models
+              selected
+            </Text>
             <Group gap="xs">
               <Button variant="subtle" size="compact-xs" onClick={() => presenter.selectAll()}>
                 Select All
@@ -118,47 +146,14 @@ export const SeedConfigPage = observer(function SeedConfigPage({
                 <Accordion.Panel>
                   <Stack gap="xs">
                     {group.models.map((model) => (
-                      <Card key={model.modelId} withBorder p="sm">
-                        <Group justify="space-between" wrap="nowrap">
-                          <Checkbox
-                            label={model.name}
-                            checked={model.selected}
-                            onChange={() => presenter.toggleModel(model.modelId)}
-                          />
-                          <Group gap="xs" wrap="nowrap">
-                            <Text size="xs" c="dimmed">
-                              Entries:
-                            </Text>
-                            <NumberInput
-                              value={model.amount}
-                              onChange={(value) =>
-                                presenter.setAmount(
-                                  model.modelId,
-                                  typeof value === "number" ? value : 10,
-                                )
-                              }
-                              min={1}
-                              max={100000}
-                              w={90}
-                              size="xs"
-                              disabled={!model.selected}
-                            />
-                            <Text size="xs" c="dimmed">
-                              Revisions:
-                            </Text>
-                            <TextInput
-                              value={model.revisions}
-                              onChange={(e) =>
-                                presenter.setRevisions(model.modelId, e.currentTarget.value)
-                              }
-                              placeholder="1 or 1-5"
-                              w={80}
-                              size="xs"
-                              disabled={!model.selected}
-                            />
-                          </Group>
-                        </Group>
-                      </Card>
+                      <ModelConfigRow
+                        key={model.modelId}
+                        model={model}
+                        onToggle={() => presenter.toggleModel(model.modelId)}
+                        onToggleOverride={() => presenter.toggleModelOverride(model.modelId)}
+                        onAmountChange={(v) => presenter.setAmount(model.modelId, v)}
+                        onRevisionsChange={(v) => presenter.setRevisions(model.modelId, v)}
+                      />
                     ))}
                   </Stack>
                 </Accordion.Panel>
@@ -249,3 +244,65 @@ export const SeedConfigPage = observer(function SeedConfigPage({
     </Stack>
   );
 });
+
+interface ModelConfigRowProps {
+  model: IModelConfigVM;
+  onToggle: () => void;
+  onToggleOverride: () => void;
+  onAmountChange: (value: number) => void;
+  onRevisionsChange: (value: string) => void;
+}
+
+function ModelConfigRow({
+  model,
+  onToggle,
+  onToggleOverride,
+  onAmountChange,
+  onRevisionsChange,
+}: ModelConfigRowProps) {
+  return (
+    <Card withBorder p="sm">
+      <Group justify="space-between" wrap="nowrap">
+        <Group gap="sm">
+          <Checkbox
+            label={model.name}
+            checked={model.selected}
+            onChange={onToggle}
+            disabled={model.plugin}
+          />
+          {model.plugin && (
+            <Badge size="xs" color="gray" variant="outline">
+              code model
+            </Badge>
+          )}
+        </Group>
+        {model.selected && !model.plugin && (
+          <Button variant="subtle" size="compact-xs" onClick={onToggleOverride}>
+            {model.hasOverride ? "Use global" : "Override"}
+          </Button>
+        )}
+      </Group>
+      {model.hasOverride && model.selected && (
+        <Group gap="xs" mt="xs" wrap="nowrap">
+          <NumberInput
+            label="Entries"
+            value={model.amount ?? 10}
+            onChange={(value) => onAmountChange(typeof value === "number" ? value : 10)}
+            min={1}
+            max={100000}
+            w={100}
+            size="xs"
+          />
+          <TextInput
+            label="Revisions"
+            value={model.revisions ?? "1"}
+            onChange={(e) => onRevisionsChange(e.currentTarget.value)}
+            placeholder="1 or 1-5"
+            w={90}
+            size="xs"
+          />
+        </Group>
+      )}
+    </Card>
+  );
+}

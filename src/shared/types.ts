@@ -58,6 +58,7 @@ export interface ProjectModel {
   pluralApiName: string;
   description: string | null;
   fields: ApiCmsModelField[];
+  plugin: boolean;
   remoteId: string | null;
   syncedAt: number | null;
   createdAt: number;

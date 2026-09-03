@@ -1,9 +1,9 @@
 import { Button, Group, Stack, Text, Title } from "@mantine/core";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import type { ISyncLogVM } from "../abstractions/ProjectDetailPresenter.js";
 import { SyncLogTable } from "./SyncLogTable.js";
 
 interface SyncTenantsTabProps {
-  logs: ProjectDetailPresenter.VM["syncLog"];
+  logs: ISyncLogVM[];
   isSyncing: boolean;
   onSync: () => void;
   onDeleteLog: (logId: string) => void;

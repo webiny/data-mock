@@ -27,6 +27,7 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
         singularApiName: m.singularApiName,
         pluralApiName: m.pluralApiName,
         description: m.description ?? null,
+        plugin: m.plugin ?? false,
         fields: m.fields,
         remoteId: m.remoteId ?? null,
         syncedAt: now,
@@ -38,6 +39,7 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
         db.insert(projectModels)
           .values({
             ...row,
+            plugin: row.plugin ? 1 : 0,
             fields: JSON.stringify(row.fields),
           })
           .run();

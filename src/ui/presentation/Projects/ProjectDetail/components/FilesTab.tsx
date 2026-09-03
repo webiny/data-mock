@@ -1,9 +1,9 @@
 import { Badge, Button, Group, Pagination, Stack, Table, Text, Title } from "@mantine/core";
 import { usePagination } from "~/ui/components/usePagination.js";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import type { IFileVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface FilesTabProps {
-  files: ProjectDetailPresenter.VM["files"];
+  files: IFileVM[];
   onDelete: (fileId: string) => void;
 }
 

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Alert, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from "@mantine/core";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import type { ITenantVM, IModelVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface ImportEntriesTabProps {
-  tenants: ProjectDetailPresenter.VM["tenants"];
-  models: ProjectDetailPresenter.VM["models"];
+  tenants: ITenantVM[];
+  models: IModelVM[];
   isImporting: boolean;
   onImport: (tenant: string, modelIds: string[]) => void;
 }

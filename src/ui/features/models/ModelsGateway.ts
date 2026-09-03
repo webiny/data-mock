@@ -25,6 +25,7 @@ class ModelsGatewayImpl implements Abstraction.Interface {
 
     const models: ProjectModel[] = result.value.models.items.map((item) => ({
       ...item,
+      plugin: (item as Record<string, unknown>).plugin === true,
       fields: item.fields as ApiCmsModelField[],
     }));
 

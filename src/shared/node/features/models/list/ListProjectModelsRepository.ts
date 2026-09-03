@@ -21,6 +21,7 @@ class ListProjectModelsRepositoryImpl implements Abstraction.Interface {
 
       const models: ProjectModel[] = rows.map((row) => ({
         ...row,
+        plugin: row.plugin === 1,
         fields: JSON.parse(row.fields) as ApiCmsModelField[],
       }));
 

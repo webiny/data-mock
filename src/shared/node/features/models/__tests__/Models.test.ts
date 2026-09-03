@@ -341,6 +341,7 @@ describe("Models Feature", () => {
                     description: "Blog article",
                     group: "blog",
                     tags: [],
+                    plugin: false,
                     fields: [testField],
                   },
                 ],

@@ -73,6 +73,7 @@ describe("GraphQL Operations", () => {
                 description: null,
                 group: "blog",
                 tags: [],
+                plugin: false,
                 fields: [],
               },
             ],

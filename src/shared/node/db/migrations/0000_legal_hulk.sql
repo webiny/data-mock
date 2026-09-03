@@ -36,6 +36,7 @@ CREATE TABLE `project_models` (
 	`plural_api_name` text NOT NULL,
 	`description` text,
 	`fields` text NOT NULL,
+	`plugin` integer DEFAULT 0 NOT NULL,
 	`remote_id` text,
 	`synced_at` integer,
 	`created_at` integer NOT NULL,

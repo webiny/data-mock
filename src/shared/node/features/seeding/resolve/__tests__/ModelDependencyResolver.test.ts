@@ -32,6 +32,7 @@ function makeModel(modelId: string, fields: ApiCmsModelField[]): ProjectModel {
     pluralApiName: modelId.charAt(0).toUpperCase() + modelId.slice(1) + "s",
     description: null,
     fields,
+    plugin: false,
     remoteId: null,
     syncedAt: null,
     createdAt: Date.now(),

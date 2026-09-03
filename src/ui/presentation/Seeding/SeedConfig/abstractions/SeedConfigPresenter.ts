@@ -6,8 +6,10 @@ export interface IModelConfigVM {
   name: string;
   groupSlug: string;
   selected: boolean;
-  amount: number;
-  revisions: string;
+  plugin: boolean;
+  amount: number | null;
+  revisions: string | null;
+  hasOverride: boolean;
 }
 
 export interface IGroupConfigVM {
@@ -27,6 +29,8 @@ export interface ISeedConfigVM {
   tenants: ITenantVM[];
   groups: IGroupConfigVM[];
   selectedTenant: string;
+  globalAmount: number;
+  globalRevisions: string;
   publishStrategy: PublishStrategy;
   publishPercent: number;
   includeUnpublish: boolean;
@@ -44,6 +48,9 @@ export interface ISeedConfigPresenter {
   toggleGroup(groupSlug: string): void;
   selectAll(): void;
   deselectAll(): void;
+  setGlobalAmount(amount: number): void;
+  setGlobalRevisions(value: string): void;
+  toggleModelOverride(modelId: string): void;
   setAmount(modelId: string, amount: number): void;
   setRevisions(modelId: string, value: string): void;
   setTenant(tenantId: string): void;

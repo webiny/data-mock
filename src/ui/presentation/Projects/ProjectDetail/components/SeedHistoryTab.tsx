@@ -1,10 +1,10 @@
 import { observer } from "mobx-react-lite";
 import { Badge, Group, Pagination, Stack, Table, Text, Title } from "@mantine/core";
 import { usePagination } from "~/ui/components/usePagination.js";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import type { ISeedJobVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface SeedHistoryTabProps {
-  seedJobs: ProjectDetailPresenter.VM["seedJobs"];
+  seedJobs: ISeedJobVM[];
 }
 
 function statusColor(status: string): string {

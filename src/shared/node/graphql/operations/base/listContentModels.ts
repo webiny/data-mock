@@ -47,6 +47,7 @@ export const contentModelSchema = z
     description: z.string().nullable(),
     group: z.string(),
     tags: z.array(z.string()),
+    plugin: z.boolean(),
     fields: z.array(contentModelFieldSchema),
   })
   .strict();
@@ -107,6 +108,7 @@ export const listContentModels = defineOperation<
           tags
           description
           group
+          plugin
           ${CMS_MODEL_FIELDS_SUBSELECTION}
         }
         error {

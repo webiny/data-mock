@@ -1,10 +1,10 @@
 import { observer } from "mobx-react-lite";
 import { Badge, Group, Pagination, Table, Text, Stack, Title } from "@mantine/core";
 import { usePagination } from "~/ui/components/usePagination.js";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import type { ITenantVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface TenantsTabProps {
-  tenants: ProjectDetailPresenter.VM["tenants"];
+  tenants: ITenantVM[];
 }
 
 export const TenantsTab = observer(function TenantsTab({ tenants }: TenantsTabProps) {

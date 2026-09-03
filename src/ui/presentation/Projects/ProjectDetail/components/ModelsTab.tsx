@@ -3,17 +3,15 @@ import { observer } from "mobx-react-lite";
 import { Accordion, Badge, Group, Pagination, Stack, Text, Title } from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
 import { usePagination } from "~/ui/components/usePagination.js";
-import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
-
-type IModelItem = ProjectDetailPresenter.VM["models"][number];
+import type { IGroupVM, IModelVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface ModelsTabProps {
-  groups: ProjectDetailPresenter.VM["groups"];
-  models: ProjectDetailPresenter.VM["models"];
+  groups: IGroupVM[];
+  models: IModelVM[];
 }
 
 export const ModelsTab = observer(function ModelsTab({ groups, models }: ModelsTabProps) {
-  const [selectedModel, setSelectedModel] = useState<IModelItem | null>(null);
+  const [selectedModel, setSelectedModel] = useState<IModelVM | null>(null);
   const { page, totalPages, pageItems: pageGroups, setPage } = usePagination(groups);
 
   if (models.length === 0) {
@@ -72,8 +70,8 @@ export const ModelsTab = observer(function ModelsTab({ groups, models }: ModelsT
 });
 
 interface ModelItemProps {
-  model: IModelItem;
-  onSelect: (model: IModelItem) => void;
+  model: IModelVM;
+  onSelect: (model: IModelVM) => void;
 }
 
 function ModelItem({ model, onSelect }: ModelItemProps) {
