@@ -1,5 +1,13 @@
+import { z } from "zod";
 import type { IGraphQLOperation } from "../types.js";
 import type { GenericRecord } from "~/shared/types.js";
+
+const listDataSchema = z.array(z.object({}).passthrough());
+const listMetaSchema = z.object({
+  totalCount: z.number(),
+  hasMoreItems: z.boolean(),
+  cursor: z.string().nullable(),
+});
 
 interface ListEntriesInput {
   pluralApiName: string;
@@ -34,10 +42,30 @@ export const listContentEntries: IGraphQLOperation<ListEntriesInput, ListEntries
         error: result["error"] as { message: string; code: string; data?: GenericRecord | null },
       };
     }
+    const parsedData = listDataSchema.safeParse(result["data"]);
+    if (!parsedData.success) {
+      return {
+        data: null,
+        error: {
+          message: `Invalid list entries data: ${parsedData.error.issues[0]?.message ?? "unknown"}`,
+          code: "VALIDATION",
+        },
+      };
+    }
+    const parsedMeta = listMetaSchema.safeParse(result["meta"]);
+    if (!parsedMeta.success) {
+      return {
+        data: null,
+        error: {
+          message: `Invalid list entries meta: ${parsedMeta.error.issues[0]?.message ?? "unknown"}`,
+          code: "VALIDATION",
+        },
+      };
+    }
     return {
       data: {
-        data: result["data"] as GenericRecord[],
-        meta: result["meta"] as ListEntriesOutput["meta"],
+        data: parsedData.data as GenericRecord[],
+        meta: parsedMeta.data,
       },
     };
   },

@@ -28,6 +28,8 @@ function makeModel(modelId: string, fields: ApiCmsModelField[]): ProjectModel {
     groupSlug: "test",
     modelId,
     name: modelId,
+    singularApiName: modelId.charAt(0).toUpperCase() + modelId.slice(1),
+    pluralApiName: modelId.charAt(0).toUpperCase() + modelId.slice(1) + "s",
     description: null,
     fields,
     remoteId: null,

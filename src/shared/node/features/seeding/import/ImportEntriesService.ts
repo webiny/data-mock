@@ -26,10 +26,6 @@ interface GqlOp {
   getVariables?(input: unknown): GenericRecord;
 }
 
-function toApiName(modelId: string): string {
-  return modelId.charAt(0).toUpperCase() + modelId.slice(1);
-}
-
 class ImportEntriesServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
@@ -82,11 +78,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     tenant: string,
   ): Promise<number> {
     const fieldSelection = createModelFields(model.fields);
-    // singularApiName/pluralApiName are not stored locally, so we derive them
-    // using Webiny's default naming convention: capitalized modelId for
-    // singular, and singular + "s" for plural.
-    const singularApiName = toApiName(model.modelId);
-    const pluralApiName = `${singularApiName}s`;
+    const { pluralApiName } = model;
     const query = buildListEntriesQuery({ pluralApiName, fieldSelection });
     const listOp = this.operationRegistry.resolve("listContentEntries", project.webinyVersion);
     const apiUrl = `${project.apiUrl}${listOp.path}`;

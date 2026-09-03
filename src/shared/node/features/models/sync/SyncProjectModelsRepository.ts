@@ -24,6 +24,8 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
         groupSlug: m.groupSlug,
         modelId: m.modelId,
         name: m.name,
+        singularApiName: m.singularApiName,
+        pluralApiName: m.pluralApiName,
         description: m.description ?? null,
         fields: m.fields,
         remoteId: m.remoteId ?? null,

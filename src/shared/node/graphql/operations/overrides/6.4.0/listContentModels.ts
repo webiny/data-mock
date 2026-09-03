@@ -46,6 +46,7 @@ export const listContentModels: IGraphQLOperation<void, ApiCmsModel[]> = {
           group {
             id
             name
+            slug
           }
           ${CMS_MODEL_FIELDS_SUBSELECTION}
         }

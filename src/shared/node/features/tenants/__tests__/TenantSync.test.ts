@@ -22,7 +22,7 @@ function createMockResponse(status: number, body: unknown): HttpClient.Response 
 function createTenantListResponse(tenants: Array<{ id: string; name: string }>) {
   return createMockResponse(200, {
     data: {
-      listWbyTenants: {
+      listTenants: {
         data: tenants.map((t) => ({ entryId: t.id, name: t.name })),
       },
     },

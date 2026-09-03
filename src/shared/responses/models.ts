@@ -20,6 +20,8 @@ export const projectModelSchema = z.object({
   groupSlug: z.string(),
   modelId: z.string(),
   name: z.string(),
+  singularApiName: z.string(),
+  pluralApiName: z.string(),
   description: z.string().nullable(),
   fields: z.array(z.unknown()),
   remoteId: z.string().nullable(),

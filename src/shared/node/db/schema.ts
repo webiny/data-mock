@@ -53,6 +53,8 @@ export const projectModels = sqliteTable(
     groupSlug: text("group_slug").notNull(),
     modelId: text("model_id").notNull(),
     name: text("name").notNull(),
+    singularApiName: text("singular_api_name").notNull(),
+    pluralApiName: text("plural_api_name").notNull(),
     description: text("description"),
     fields: text("fields").notNull(),
     remoteId: text("remote_id"),

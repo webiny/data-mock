@@ -23,10 +23,6 @@ interface DeleteResult {
   error?: string;
 }
 
-function toApiName(modelId: string): string {
-  return modelId.charAt(0).toUpperCase() + modelId.slice(1);
-}
-
 class CleanupServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
@@ -94,7 +90,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
 
       for (const model of orderedModels) {
         const modelEntries = grouped.get(model.modelId) ?? [];
-        const mutation = buildDeleteEntryQuery(toApiName(model.modelId));
+        const mutation = buildDeleteEntryQuery(model.singularApiName);
 
         let deleted = 0;
         let errors = 0;

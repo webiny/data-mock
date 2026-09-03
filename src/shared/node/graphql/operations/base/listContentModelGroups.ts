@@ -1,4 +1,9 @@
+import { z } from "zod";
 import type { IGraphQLOperation } from "../types.js";
+
+const dataSchema = z.array(
+  z.object({ id: z.string(), name: z.string(), slug: z.string() }).passthrough(),
+);
 
 interface ContentModelGroup {
   id: string;
@@ -44,6 +49,16 @@ export const listContentModelGroups: IGraphQLOperation<void, ContentModelGroup[]
         },
       };
     }
-    return { data: result["data"] as ContentModelGroup[] };
+    const parsed = dataSchema.safeParse(result["data"]);
+    if (!parsed.success) {
+      return {
+        data: null,
+        error: {
+          message: `Invalid listContentModelGroups response: ${parsed.error.issues[0]?.message ?? "unknown"}`,
+          code: "VALIDATION",
+        },
+      };
+    }
+    return { data: parsed.data as unknown as ContentModelGroup[] };
   },
 };

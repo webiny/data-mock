@@ -1,5 +1,10 @@
+import { z } from "zod";
 import type { IGraphQLOperation } from "../types.js";
 import type { ApiCmsModel } from "~/shared/types.js";
+
+const dataSchema = z.array(
+  z.object({ name: z.string(), modelId: z.string(), fields: z.array(z.unknown()) }).passthrough(),
+);
 
 const CMS_MODEL_FIELDS_SUBSELECTION = `
   fields {
@@ -45,6 +50,7 @@ export const listContentModels: IGraphQLOperation<void, ApiCmsModel[]> = {
           group {
             id
             name
+            slug
           }
           ${CMS_MODEL_FIELDS_SUBSELECTION}
         }
@@ -71,6 +77,16 @@ export const listContentModels: IGraphQLOperation<void, ApiCmsModel[]> = {
         },
       };
     }
-    return { data: result["data"] as ApiCmsModel[] };
+    const parsed = dataSchema.safeParse(result["data"]);
+    if (!parsed.success) {
+      return {
+        data: null,
+        error: {
+          message: `Invalid listContentModels response: ${parsed.error.issues[0]?.message ?? "unknown"}`,
+          code: "VALIDATION",
+        },
+      };
+    }
+    return { data: parsed.data as unknown as ApiCmsModel[] };
   },
 };

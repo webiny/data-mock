@@ -1,5 +1,8 @@
+import { z } from "zod";
 import type { IGraphQLOperation } from "../types.js";
 import type { GenericRecord } from "~/shared/types.js";
+
+const entryDataSchema = z.object({ id: z.string(), entryId: z.string() }).passthrough();
 
 interface CreateEntryInput {
   singularApiName: string;
@@ -30,9 +33,22 @@ export const createContentEntry: IGraphQLOperation<CreateEntryInput, CreateEntry
         error: result["error"] as { message: string; code: string; data?: GenericRecord | null },
       };
     }
+    const rawData = result["data"];
+    if (rawData != null) {
+      const parsed = entryDataSchema.safeParse(rawData);
+      if (!parsed.success) {
+        return {
+          data: null,
+          error: {
+            message: `Invalid create response: ${parsed.error.issues[0]?.message ?? "unknown"}`,
+            code: "VALIDATION",
+          },
+        };
+      }
+    }
     return {
       data: {
-        data: result["data"] as GenericRecord | null,
+        data: rawData as GenericRecord | null,
         error: null,
       },
     };

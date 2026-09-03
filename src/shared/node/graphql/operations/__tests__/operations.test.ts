@@ -81,10 +81,10 @@ describe("GraphQL Operations", () => {
   });
 
   describe("listTenants", () => {
-    it("should parse wbyTenant entries into tenant format", () => {
+    it("should parse tenant entries into tenant format", () => {
       const result = listTenants.getResult(
         makeJson({
-          listWbyTenants: {
+          listTenants: {
             data: [
               { entryId: "root", name: "Root" },
               { entryId: "t1", name: "Tenant 1" },

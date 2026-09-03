@@ -51,6 +51,8 @@ async function setupProject(tc: ReturnType<typeof createTestContainer>) {
         groupSlug: "blog",
         modelId: "article",
         name: "Article",
+        singularApiName: "Article",
+        pluralApiName: "Articles",
         fields: [textField],
         remoteId: "m1",
       },

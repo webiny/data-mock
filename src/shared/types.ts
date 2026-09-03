@@ -84,6 +84,8 @@ export interface ProjectModel {
   groupSlug: string;
   modelId: string;
   name: string;
+  singularApiName: string;
+  pluralApiName: string;
   description: string | null;
   fields: ApiCmsModelField[];
   remoteId: string | null;
