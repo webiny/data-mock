@@ -57,6 +57,14 @@ export interface Project {
   updatedAt: number;
 }
 
+export interface ProjectTenant {
+  id: string;
+  projectId: string;
+  tenantId: string;
+  name: string;
+  discoveredAt: number;
+}
+
 export interface SeedJobConfig {
   models: Array<{ modelId: string; amount: number }>;
 }

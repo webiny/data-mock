@@ -9,6 +9,7 @@ import { DatabaseFeature } from "~/shared/node/db/feature.js";
 import { CacheFeature } from "~/shared/node/cache/feature.js";
 import { GeneratorFeature } from "~/shared/node/generators/feature.js";
 import { ProjectsFeature } from "~/shared/node/features/projects/feature.js";
+import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
 import { GraphQLConfig } from "~/shared/node/graphql/abstractions/GraphQLConfig.js";
 import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
@@ -47,6 +48,7 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   CacheFeature.register(container, { cacheDir });
 
   GeneratorFeature.register(container);
+  TenantsFeature.register(container);
   ProjectsFeature.register(container);
 
   if (options.httpClient) {
