@@ -1,6 +1,18 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
-import { Badge, Button, Group, Loader, Stack, Tabs, Text, Title } from "@mantine/core";
+import {
+  Badge,
+  Box,
+  Button,
+  Divider,
+  Group,
+  Loader,
+  NavLink,
+  Paper,
+  Stack,
+  Text,
+  Title,
+} from "@mantine/core";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 import { TenantsTab } from "./TenantsTab.js";
 import { ModelsTab } from "./ModelsTab.js";
@@ -70,34 +82,47 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
         </Group>
       </Group>
 
-      <Tabs value={activeTab} onChange={(tab) => presenter.setTab(tab ?? "tenants")}>
-        <Tabs.List>
-          <Tabs.Tab value="tenants">Tenants ({tenants.length})</Tabs.Tab>
-          <Tabs.Tab value="models">Models & Groups ({models.length})</Tabs.Tab>
-          <Tabs.Tab value="history">Seed History ({seedJobs.length})</Tabs.Tab>
-          <Tabs.Tab value="templates">Templates ({templates.length})</Tabs.Tab>
-        </Tabs.List>
+      <Group align="flex-start" gap={0} wrap="nowrap" style={{ width: "100%" }}>
+        <Paper w={250} maw={250} p="xs" withBorder style={{ flexShrink: 0, alignSelf: "stretch" }}>
+          <Stack gap={2}>
+            <NavLink
+              label={`Tenants (${tenants.length})`}
+              active={activeTab === "tenants"}
+              onClick={() => presenter.setTab("tenants")}
+            />
+            <NavLink
+              label={`Models & Groups (${models.length})`}
+              active={activeTab === "models"}
+              onClick={() => presenter.setTab("models")}
+            />
+            <NavLink
+              label={`Seed History (${seedJobs.length})`}
+              active={activeTab === "history"}
+              onClick={() => presenter.setTab("history")}
+            />
+            <NavLink
+              label={`Templates (${templates.length})`}
+              active={activeTab === "templates"}
+              onClick={() => presenter.setTab("templates")}
+            />
+          </Stack>
+        </Paper>
 
-        <Tabs.Panel value="tenants" pt="md">
-          <TenantsTab tenants={tenants} />
-        </Tabs.Panel>
+        <Divider orientation="vertical" mx="md" />
 
-        <Tabs.Panel value="models" pt="md">
-          <ModelsTab groups={groups} models={models} />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="history" pt="md">
-          <SeedHistoryTab seedJobs={seedJobs} />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="templates" pt="md">
-          <TemplatesTab
-            templates={templates}
-            onLoad={(id) => presenter.loadTemplate(id)}
-            onDelete={(id) => void presenter.deleteTemplate(id)}
-          />
-        </Tabs.Panel>
-      </Tabs>
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          {activeTab === "tenants" && <TenantsTab tenants={tenants} />}
+          {activeTab === "models" && <ModelsTab groups={groups} models={models} />}
+          {activeTab === "history" && <SeedHistoryTab seedJobs={seedJobs} />}
+          {activeTab === "templates" && (
+            <TemplatesTab
+              templates={templates}
+              onLoad={(id) => presenter.loadTemplate(id)}
+              onDelete={(id) => void presenter.deleteTemplate(id)}
+            />
+          )}
+        </Box>
+      </Group>
     </Stack>
   );
 });
