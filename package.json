@@ -55,10 +55,6 @@
     "vitest": "^4.1.11"
   },
   "scripts": {
-    "create-data": "ts-node src/index.ts --create-data",
-    "create-tenants": "tsx ./index.js --create-tenants",
-    "create-data-per-tenant": "tsx ./index.js --create-data-per-tenant",
-    "fetch-data": "tsx ./index.js --fetch-data",
     "lint": "oxlint --deny-warnings src/",
     "lint:check": "oxlint --deny-warnings src/",
     "lint:fix": "oxlint --fix --deny-warnings src/",

@@ -66,10 +66,17 @@ src/
 - **Errors extend BaseError** — with `code` (namespaced) and `statusCode`
 - **Abstractions in separate files** — `abstractions/` directory, never in same file as implementation
 - **Never export Impl classes** — consumers get implementations through DI container
+- **Single responsibility** — one use case per operation, one repository per operation, each with a single `execute()` method. No multi-method repositories or use cases.
+- **Folder boundaries:**
+  - `src/api/` — API-only (routes, API-specific features)
+  - `src/cli/` — CLI-only (commands, CLI-specific features)
+  - `src/ui/` — UI-only (React, presenters, UI features)
+  - `src/shared/` — platform-agnostic, shared by ALL (types, errors, routing defs, response schemas, abstractions)
+  - `src/shared/node/` — shared between CLI and API only (NOT UI): database, repositories, use cases, GraphQL client, generators, cache
 - **SQLite for project config** — connection strings, tenant info, model selections
-- **GraphQL for CMS** — all Webiny communication via GraphQL (existing GraphQLApplication)
+- **GraphQL for CMS** — all Webiny communication via GraphQL
 - **Sequential checks** — never run lint/typecheck/test/build in parallel
-- **Commit after each chunk** — lint (`oxlint`), format (`oxfmt`), test, build (`tsc`), then commit
+- **Commit after each chunk** — lint (`oxlint`), format (`oxfmt`), test, typecheck (`tsc --noEmit`), then commit
 - **English code** — all code in English; DB tables snake_case, TS variables camelCase
 - **No `as` casts** — fix types at source; cast only as documented last resort
 

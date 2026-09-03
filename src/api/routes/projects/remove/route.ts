@@ -1,5 +1,5 @@
 import { removeProjectRoute } from "~/shared/routes/projects.js";
-import { RemoveProjectUseCase } from "~/api/features/projects/remove/abstractions/RemoveProjectUseCase.js";
+import { RemoveProjectUseCase } from "~/shared/node/features/projects/remove/abstractions/RemoveProjectUseCase.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
 export const removeProject = routeFactory(

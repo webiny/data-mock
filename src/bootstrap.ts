@@ -1,7 +1,7 @@
 import { Container } from "@webiny/di";
 import { sql } from "drizzle-orm";
-import { AppFeature } from "./feature.js";
-import { DatabaseClient } from "./db/abstractions/DatabaseClient.js";
+import { AppFeature } from "./shared/node/feature.js";
+import { DatabaseClient } from "./shared/node/db/abstractions/DatabaseClient.js";
 
 const container = new Container();
 AppFeature.register(container);

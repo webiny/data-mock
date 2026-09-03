@@ -224,7 +224,7 @@ Rules:
 | Feature directory | `{businessCapability}` (camelCase) | `createProject`, `seedEntries` |
 | UseCase | `{Action}{Entity}UseCase` | `CreateProjectUseCase` |
 | Service | `{Domain}Service` | `GraphQLService` |
-| Repository | `{Entity}Repository` | `ProjectRepository` |
+| Repository | `{Action}{Entity}Repository` | `ListProjectsRepository` |
 | Gateway | `{Feature}Gateway` | `ProjectsGateway` |
 | Presenter | `{Page}Presenter` | `ProjectListPresenter` |
 | Error | `{Entity}{Problem}Error` | `ProjectNotFoundError` |
@@ -243,6 +243,13 @@ Rules:
 | Gateway | `.inSingletonScope()` | Stateless but expensive |
 | Presenter | Transient (default) | Fresh per component |
 | Command | `.inSingletonScope()` | One per CLI invocation |
+
+## Single Responsibility
+
+- Every use case has one `execute()` method — one operation per class
+- Every repository has one `execute()` method — one operation per class
+- No multi-method repositories or use cases — split by operation (ListXxx, CreateXxx, RemoveXxx)
+- Services may have multiple methods when they represent a single external concern (e.g., GraphQLClient)
 
 ## Code Style
 

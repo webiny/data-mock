@@ -1,5 +1,5 @@
 import { createProjectRoute } from "~/shared/routes/projects.js";
-import { CreateProjectUseCase } from "~/api/features/projects/create/abstractions/CreateProjectUseCase.js";
+import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
 export const createProject = routeFactory(createProjectRoute, async ({ body, container, send }) => {

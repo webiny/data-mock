@@ -96,8 +96,9 @@ The UI follows a layered architecture with DI (@webiny/di):
 | `abstractions/*.ts` | Interfaces — type contracts |
 | `feature.ts` | DI wiring |
 | `src/api/**` | Server-side code |
-| `src/apps/**` (non-UI) | Backend applications and generators |
-| `src/cache/**` | Caching layer |
+| `src/cli/**` | CLI code |
+| `src/shared/node/**` | Node.js-only shared code (DB, generators) |
+| `src/apps/**` (non-UI) | Legacy backend applications |
 
 ## UI Language
 All user-facing text is in **English** unless otherwise specified by the user.

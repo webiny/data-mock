@@ -9,5 +9,4 @@ export {
 export type { Project, SeedJob, SeedJobConfig, SeedJobResult, SeedJobStatus } from "./types.js";
 
 export { HttpClient } from "./abstractions/HttpClient.js";
-export { ProjectRepository } from "./abstractions/ProjectRepository.js";
-export { ProjectRepositoryFeature } from "./features/ProjectRepositoryFeature.js";
+export { MemoryCache } from "./abstractions/MemoryCache.js";

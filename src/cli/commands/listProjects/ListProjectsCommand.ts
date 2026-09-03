@@ -1,5 +1,5 @@
 import { UI } from "~/cli/abstractions/UI.js";
-import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { ListProjectsUseCase } from "~/shared/node/features/projects/list/abstractions/ListProjectsUseCase.js";
 import { Command } from "~/cli/abstractions/Command.js";
 
 class ListProjectsCommandImpl implements Command.Interface {
@@ -8,20 +8,20 @@ class ListProjectsCommandImpl implements Command.Interface {
 
   public constructor(
     private readonly ui: UI.Interface,
-    private readonly projectRepository: ProjectRepository.Interface,
+    private readonly listProjectsUseCase: ListProjectsUseCase.Interface,
   ) {}
 
   public async execute(): Promise<void> {
     this.ui.intro("Projects");
 
-    const result = await this.projectRepository.list();
+    const result = await this.listProjectsUseCase.execute();
 
     if (result.isFail()) {
       this.ui.log.error(`Failed to load projects: ${result.error.message}`);
       return;
     }
 
-    const projects = result.value;
+    const projects = result.value.projects;
 
     if (projects.length === 0) {
       this.ui.log.info("No projects configured. Run 'yarn cli add-project' to add one.");
@@ -39,5 +39,5 @@ class ListProjectsCommandImpl implements Command.Interface {
 
 export const ListProjectsCommand = Command.createImplementation({
   implementation: ListProjectsCommandImpl,
-  dependencies: [UI, ProjectRepository],
+  dependencies: [UI, ListProjectsUseCase],
 });

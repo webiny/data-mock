@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createTestContainer } from "~/testing/createTestContainer.js";
+import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { ApiFeature } from "../feature.js";
 import { createServer } from "../server.js";
 import { registerApiRoutes } from "../routes/index.js";

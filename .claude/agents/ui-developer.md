@@ -98,13 +98,18 @@ export const XxxPageFeature = createFeature<void, IXxxExports>({
 - **Use cases through presenters** — presenters call use cases, never repos/gateways directly
 - **Result pattern** — all layers use `Result<T, E>`, nothing throws
 - **Gateway calls local API** — uses HTTP client + route definitions, never hardcode URLs
+- **Single responsibility** — one use case per operation, one repository per operation, each with a single `execute()` method
 - **Barrel exports abstractions only** — never implementations or features
 - **Scoping** — Gateway/Repository: singleton, UseCase/Presenter: transient
 - **`try/finally`** — presenters reset loading state in finally blocks
 - **All input validated with Zod** — no `!` guards, no trusting raw input
 - **No `as` casts** — fix types at source; cast only as documented last resort
+- **Folder boundaries:**
+  - `src/ui/` — UI-only (React, presenters, UI features, gateways)
+  - `src/shared/` — platform-agnostic imports ONLY (types, errors, routing defs, response schemas)
+  - UI must NEVER import from `src/shared/node/`, `src/api/`, or `src/cli/`
 - **Sequential checks** — never run lint/typecheck/test/build in parallel
-- **Commit after each chunk** — lint (`oxlint`), format (`oxfmt`), test, build (`tsc`), then commit
+- **Commit after each chunk** — lint (`oxlint`), format (`oxfmt`), test, typecheck (`tsc --noEmit`), then commit
 - **English code** — all code in English; TS variables camelCase
 
 ### Tooling

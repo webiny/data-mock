@@ -1,7 +1,8 @@
 import { isCancel } from "@clack/prompts";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
-import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { ListProjectsUseCase } from "~/shared/node/features/projects/list/abstractions/ListProjectsUseCase.js";
+import { RemoveProjectUseCase } from "~/shared/node/features/projects/remove/abstractions/RemoveProjectUseCase.js";
 import { Command } from "~/cli/abstractions/Command.js";
 import type { Project } from "~/shared/types.js";
 
@@ -12,19 +13,20 @@ class RemoveProjectCommandImpl implements Command.Interface {
   public constructor(
     private readonly prompts: Prompts.Interface,
     private readonly ui: UI.Interface,
-    private readonly projectRepository: ProjectRepository.Interface,
+    private readonly listProjectsUseCase: ListProjectsUseCase.Interface,
+    private readonly removeProjectUseCase: RemoveProjectUseCase.Interface,
   ) {}
 
   public async execute(): Promise<void> {
     this.ui.intro("Remove Project");
 
-    const listResult = await this.projectRepository.list();
+    const listResult = await this.listProjectsUseCase.execute();
     if (listResult.isFail()) {
       this.ui.log.error(`Failed to load projects: ${listResult.error.message}`);
       return;
     }
 
-    const projects = listResult.value;
+    const projects = listResult.value.projects;
     if (projects.length === 0) {
       this.ui.log.info("No projects configured.");
       this.ui.outro("");
@@ -56,7 +58,7 @@ class RemoveProjectCommandImpl implements Command.Interface {
       return;
     }
 
-    const removeResult = await this.projectRepository.remove(project.id);
+    const removeResult = await this.removeProjectUseCase.execute({ id: project.id });
     if (removeResult.isFail()) {
       this.ui.log.error(`Failed to remove project: ${removeResult.error.message}`);
       return;
@@ -68,5 +70,5 @@ class RemoveProjectCommandImpl implements Command.Interface {
 
 export const RemoveProjectCommand = Command.createImplementation({
   implementation: RemoveProjectCommandImpl,
-  dependencies: [Prompts, UI, ProjectRepository],
+  dependencies: [Prompts, UI, ListProjectsUseCase, RemoveProjectUseCase],
 });

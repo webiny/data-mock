@@ -1,9 +1,9 @@
 import { createFeature } from "@webiny/stdlib";
-import { ProjectsApiFeature } from "./features/projects/feature.js";
 
 export const ApiFeature = createFeature({
   name: "Api/ApiFeature",
-  register(container) {
-    ProjectsApiFeature.register(container);
+  register() {
+    // API-only bindings go here. Cross-layer bindings (e.g. project use cases)
+    // are registered by AppFeature (~/shared/node/feature.js).
   },
 });

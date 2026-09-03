@@ -110,6 +110,7 @@ const project = {
 - Routes are thin — resolve use case, call execute, send result
 - Use cases return `Result<T, E>` — never throw for expected failures
 - API errors extend `BaseError`
-- One use case per operation
+- One use case per operation, one repository per operation — single `execute()` method each
+- No multi-method repositories — split into ListXxxRepository, CreateXxxRepository, etc.
 - Use cases are transient, repositories and services are singleton
 - Child container per request — no singleton spill between requests

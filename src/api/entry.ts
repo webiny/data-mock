@@ -1,5 +1,5 @@
 import { Container } from "@webiny/di";
-import { AppFeature } from "~/feature.js";
+import { AppFeature } from "~/shared/node/feature.js";
 import { ApiFeature } from "./feature.js";
 import { createServer } from "./server.js";
 import { registerApiRoutes } from "./routes/index.js";

@@ -1,6 +1,6 @@
 import { Container } from "@webiny/di";
 import * as clack from "@clack/prompts";
-import { AppFeature } from "~/feature.js";
+import { AppFeature } from "~/shared/node/feature.js";
 import { CliFeature } from "./feature.js";
 import { Command } from "./abstractions/Command.js";
 
