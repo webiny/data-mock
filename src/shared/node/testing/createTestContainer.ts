@@ -9,8 +9,10 @@ import { DatabaseFeature } from "~/shared/node/db/feature.js";
 import { CacheFeature } from "~/shared/node/cache/feature.js";
 import { EncryptionFeature } from "~/shared/node/encryption/feature.js";
 import { GeneratorFeature } from "~/shared/node/generators/feature.js";
+import { OperationsFeature } from "~/shared/node/graphql/operations/feature.js";
 import { ProjectsFeature } from "~/shared/node/features/projects/feature.js";
 import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
+import { ModelsFeature } from "~/shared/node/features/models/feature.js";
 import { GraphQLConfig } from "~/shared/node/graphql/abstractions/GraphQLConfig.js";
 import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
@@ -51,7 +53,9 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   EncryptionFeature.register(container, { encryptionKey: randomBytes(32).toString("hex") });
 
   GeneratorFeature.register(container);
+  OperationsFeature.register(container);
   TenantsFeature.register(container);
+  ModelsFeature.register(container);
   ProjectsFeature.register(container);
 
   if (options.httpClient) {

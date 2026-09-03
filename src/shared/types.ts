@@ -66,6 +66,32 @@ export interface ProjectTenant {
   discoveredAt: number;
 }
 
+export interface ProjectGroup {
+  id: string;
+  projectId: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  remoteId: string | null;
+  syncedAt: number | null;
+  createdAt: number;
+}
+
+export interface ProjectModel {
+  id: string;
+  projectId: string;
+  groupSlug: string;
+  modelId: string;
+  name: string;
+  description: string | null;
+  fields: ApiCmsModelField[];
+  remoteId: string | null;
+  syncedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface SeedJobConfig {
   models: Array<{ modelId: string; amount: number }>;
 }

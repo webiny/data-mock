@@ -25,6 +25,44 @@ export const projectTenants = sqliteTable(
   (table) => [uniqueIndex("project_tenant_unique").on(table.projectId, table.tenantId)],
 );
 
+export const projectGroups = sqliteTable(
+  "project_groups",
+  {
+    id: text("id").primaryKey().notNull(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    icon: text("icon"),
+    remoteId: text("remote_id"),
+    syncedAt: integer("synced_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("project_group_unique").on(table.projectId, table.slug)],
+);
+
+export const projectModels = sqliteTable(
+  "project_models",
+  {
+    id: text("id").primaryKey().notNull(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    groupSlug: text("group_slug").notNull(),
+    modelId: text("model_id").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    fields: text("fields").notNull(),
+    remoteId: text("remote_id"),
+    syncedAt: integer("synced_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("project_model_unique").on(table.projectId, table.modelId)],
+);
+
 export const seedJobs = sqliteTable("seed_jobs", {
   id: text("id").primaryKey().notNull(),
   projectId: text("project_id")

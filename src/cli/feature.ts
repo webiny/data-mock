@@ -6,6 +6,7 @@ import { AddProjectFeature } from "./commands/addProject/feature.js";
 import { ListProjectsFeature } from "./commands/listProjects/feature.js";
 import { RemoveProjectFeature } from "./commands/removeProject/feature.js";
 import { InitFeature } from "./commands/init/feature.js";
+import { SyncModelsFeature } from "./commands/syncModels/feature.js";
 
 export const CliFeature = createFeature({
   name: "Cli/CliFeature",
@@ -17,6 +18,7 @@ export const CliFeature = createFeature({
     AddProjectFeature.register(container);
     ListProjectsFeature.register(container);
     RemoveProjectFeature.register(container);
+    SyncModelsFeature.register(container);
   },
 });
 
