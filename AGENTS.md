@@ -234,11 +234,8 @@ UI entry (src/ui/main.tsx):
 - `fs-extra` → replaced by `DirectoryToolFeature` + `FileToolFeature`
 - `dotenv` → replaced by `ProcessEnvFeature` from `@webiny/stdlib/node`
 
-### Dependencies to Replace
-- `slugify` → `transliteration` (supports transliteration + slugify in one package)
-
 ### Dependencies to Keep
-- `@faker-js/faker`, `graphql-tag`, `lodash`, `p-retry`
+- `@faker-js/faker`, `lodash`, `p-retry`
 
 ---
 

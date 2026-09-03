@@ -1,7 +1,16 @@
 import path from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import type { Stats } from "node:fs";
 import type { ICache, ICacheKey, ICacheKeyInput } from "./types.js";
 import type { Logger } from "@webiny/stdlib";
-import fsExtra from "fs-extra";
 import { createCacheKey } from "~/shared/node/cache/CacheKey.js";
 
 export interface IFileCacheParams {
@@ -20,7 +29,6 @@ class FileCache implements ICache {
 
   private keys = new Set<ICacheKey>();
 
-  // Prevent direct instantiation.
   protected constructor(params: IFileCacheParams) {
     this.cacheDir = params.cacheDir || defaultCacheDir;
     this.ttl = params.ttl || 300;
@@ -88,14 +96,14 @@ class FileCache implements ICache {
     this.addKey(cacheKey);
     try {
       const target = this.createPath(cacheKey);
-      if (!fsExtra.existsSync(target)) {
+      if (!existsSync(target)) {
         return null;
       }
-      const stats = fsExtra.statSync(target);
+      const stats = statSync(target);
       if (this.isExpired(stats)) {
         return null;
       }
-      const content = fsExtra.readFileSync(target, "utf8");
+      const content = readFileSync(target, "utf8");
       if (!content) {
         return null;
       }
@@ -112,9 +120,9 @@ class FileCache implements ICache {
     try {
       const target = this.createPath(cacheKey);
 
-      fsExtra.ensureDirSync(path.dirname(target));
+      mkdirSync(path.dirname(target), { recursive: true });
 
-      fsExtra.writeFileSync(target, JSON.stringify(data, null, 2));
+      writeFileSync(target, JSON.stringify(data, null, 2));
     } catch (ex) {
       this.logger.error(ex instanceof Error ? ex.message : String(ex));
     }
@@ -123,7 +131,7 @@ class FileCache implements ICache {
   private delete(input: ICacheKeyInput): void {
     const cacheKey = createCacheKey(input);
     try {
-      fsExtra.unlinkSync(this.createPath(cacheKey));
+      unlinkSync(this.createPath(cacheKey));
     } catch {
       //
     }
@@ -146,25 +154,25 @@ class FileCache implements ICache {
   }
 
   private clearExisting(): void {
-    if (!fsExtra.existsSync(this.cacheDir)) {
+    if (!existsSync(this.cacheDir)) {
       return;
     }
-    const files = fsExtra.readdirSync(this.cacheDir);
+    const files = readdirSync(this.cacheDir);
     for (const file of files) {
       const target = path.join(this.cacheDir, file);
-      const stats = fsExtra.statSync(target);
+      const stats = statSync(target);
       if (!this.isExpired(stats)) {
         continue;
       }
       try {
-        fsExtra.unlinkSync(target);
+        unlinkSync(target);
       } catch {
         //
       }
     }
   }
 
-  private isExpired(stats: fsExtra.Stats): boolean {
+  private isExpired(stats: Stats): boolean {
     return stats.mtime < new Date(Date.now() - this.ttl * 1000);
   }
 }

@@ -4,6 +4,7 @@ import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abs
 import { TenantSyncService } from "../sync/abstractions/TenantSyncService.js";
 import { ListProjectTenantsRepository } from "../list/abstractions/ListProjectTenantsRepository.js";
 import { SyncProjectTenantsRepository } from "../sync/abstractions/SyncProjectTenantsRepository.js";
+import { VerifyProjectAccessService } from "../verify/abstractions/VerifyProjectAccessService.js";
 import type { HttpClient } from "~/shared/abstractions/HttpClient.js";
 
 function createMockHttpClient(): HttpClient.Interface {
@@ -192,6 +193,70 @@ describe("Tenant Sync", () => {
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toEqual([]);
+        }
+      } finally {
+        tc.cleanup();
+      }
+    });
+  });
+
+  describe("VerifyProjectAccessService", () => {
+    it("should return ok when API responds with 200", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
+        createMockResponse(200, { data: { cms: { listContentModelGroups: { data: [] } } } }),
+      );
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const service = tc.container.resolve(VerifyProjectAccessService);
+        const result = await service.execute({
+          apiUrl: "https://api.example.com/cms/manage",
+          apiToken: "test-token",
+          tenant: "root",
+        });
+        expect(result.isOk()).toBe(true);
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("should return error when API responds with non-200", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockResolvedValue(createMockResponse(401, "Unauthorized"));
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const service = tc.container.resolve(VerifyProjectAccessService);
+        const result = await service.execute({
+          apiUrl: "https://api.example.com/cms/manage",
+          apiToken: "bad-token",
+          tenant: "root",
+        });
+        expect(result.isFail()).toBe(true);
+        if (result.isFail()) {
+          expect(result.error.code).toBe("GraphQL/RequestError");
+        }
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("should return error when network fails", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockRejectedValue(new Error("Connection refused"));
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const service = tc.container.resolve(VerifyProjectAccessService);
+        const result = await service.execute({
+          apiUrl: "https://api.example.com/cms/manage",
+          apiToken: "test-token",
+          tenant: "root",
+        });
+        expect(result.isFail()).toBe(true);
+        if (result.isFail()) {
+          expect(result.error.message).toContain("Connection refused");
         }
       } finally {
         tc.cleanup();

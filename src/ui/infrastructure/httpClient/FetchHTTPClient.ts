@@ -14,10 +14,11 @@ class FetchHTTPClientImpl implements HTTPClient.Interface {
     route: TypedRouteDefinition<TPath, TParams, TBody, TResponse, TMethod>,
     args: IRequestArgs<TMethod, TParams, TBody>,
   ): Promise<Result<TResponse, HTTPError>> {
-    const params = (args as { params?: Record<string, string> }).params ?? {};
     const stringParams: Record<string, string> = {};
-    for (const [k, v] of Object.entries(params)) {
-      stringParams[k] = String(v);
+    if ("params" in args && args.params) {
+      for (const [k, v] of Object.entries(args.params)) {
+        stringParams[k] = String(v);
+      }
     }
     const path = interpolatePath(route.path, stringParams);
     const url = `${this.baseUrl.value}${path}`;
