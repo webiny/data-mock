@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GraphQLClientImpl } from "../GraphQLClient.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createTestContainer } from "~/testing/createTestContainer.js";
+import { GraphQLClient } from "../abstractions/GraphQLClient.js";
 import type { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import type { ApiGraphQLResultJson } from "../abstractions/GraphQLClient.js";
 
@@ -21,26 +22,29 @@ const defaultGetResult = (json: ApiGraphQLResultJson) => ({
   data: json.data["result"] as string,
 });
 
-describe("GraphQLClientImpl", () => {
-  let httpClient: HttpClient.Interface;
-  let client: GraphQLClientImpl;
+describe("GraphQLClient", () => {
+  let mockHttpClient: HttpClient.Interface;
+  let tc: ReturnType<typeof createTestContainer>;
 
   beforeEach(() => {
-    httpClient = createMockHttpClient();
-    client = new GraphQLClientImpl(httpClient, {
-      url: "https://api.example.com",
-      token: "test-token",
-      tenant: "root",
-      retries: 0,
-      retryMinTimeout: 0,
-    });
+    mockHttpClient = createMockHttpClient();
+    tc = createTestContainer({ httpClient: mockHttpClient });
   });
+
+  afterEach(() => {
+    tc.cleanup();
+  });
+
+  function resolveClient() {
+    return tc.container.resolve(GraphQLClient);
+  }
 
   describe("query", () => {
     it("should send a POST request with correct headers and body", async () => {
       const responseBody = { data: { result: "hello" } };
-      vi.mocked(httpClient.post).mockResolvedValue(createMockResponse(200, responseBody));
+      vi.mocked(mockHttpClient.post).mockResolvedValue(createMockResponse(200, responseBody));
 
+      const client = resolveClient();
       const result = await client.query({
         query: "{ listItems { data } }",
         path: "/cms/manage",
@@ -49,8 +53,8 @@ describe("GraphQLClientImpl", () => {
       });
 
       expect(result.isOk()).toBe(true);
-      expect(httpClient.post).toHaveBeenCalledWith(
-        "https://api.example.com/cms/manage",
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
+        "http://localhost:0/cms/manage",
         JSON.stringify({
           query: "{ listItems { data } }",
           variables: { limit: 10 },
@@ -64,10 +68,11 @@ describe("GraphQLClientImpl", () => {
     });
 
     it("should return Result.ok with extracted data on success", async () => {
-      vi.mocked(httpClient.post).mockResolvedValue(
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
         createMockResponse(200, { data: { result: "success" } }),
       );
 
+      const client = resolveClient();
       const result = await client.query({
         query: "{ test }",
         path: "/cms/manage",
@@ -81,10 +86,11 @@ describe("GraphQLClientImpl", () => {
     });
 
     it("should return Result.fail on non-200 status", async () => {
-      vi.mocked(httpClient.post).mockResolvedValue(
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
         createMockResponse(500, "Internal Server Error"),
       );
 
+      const client = resolveClient();
       const result = await client.query({
         query: "{ test }",
         path: "/cms/manage",
@@ -97,9 +103,10 @@ describe("GraphQLClientImpl", () => {
       }
     });
 
-    it("should return Result.fail when all retries are exhausted", async () => {
-      vi.mocked(httpClient.post).mockRejectedValue(new Error("Network error"));
+    it("should return Result.fail when request throws", async () => {
+      vi.mocked(mockHttpClient.post).mockRejectedValue(new Error("Network error"));
 
+      const client = resolveClient();
       const result = await client.query({
         query: "{ test }",
         path: "/cms/manage",
@@ -115,10 +122,11 @@ describe("GraphQLClientImpl", () => {
 
   describe("mutation", () => {
     it("should send mutation and return Result.ok on success", async () => {
-      vi.mocked(httpClient.post).mockResolvedValue(
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
         createMockResponse(200, { data: { result: "created" } }),
       );
 
+      const client = resolveClient();
       const result = await client.mutation({
         mutation: "mutation { createItem { data } }",
         path: "/cms/manage",
@@ -135,10 +143,11 @@ describe("GraphQLClientImpl", () => {
 
   describe("mutations (batch)", () => {
     it("should chunk variables and execute in batches", async () => {
-      vi.mocked(httpClient.post).mockResolvedValue(
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
         createMockResponse(200, { data: { result: "ok" } }),
       );
 
+      const client = resolveClient();
       const result = await client.mutations({
         mutation: "mutation { createItem { data } }",
         path: "/cms/manage",
@@ -151,14 +160,15 @@ describe("GraphQLClientImpl", () => {
       if (result.isOk()) {
         expect(result.value).toHaveLength(3);
       }
-      expect(httpClient.post).toHaveBeenCalledTimes(3);
+      expect(mockHttpClient.post).toHaveBeenCalledTimes(3);
     });
 
     it("should fail fast when a chunk fails", async () => {
-      vi.mocked(httpClient.post)
+      vi.mocked(mockHttpClient.post)
         .mockResolvedValueOnce(createMockResponse(200, { data: { result: "ok" } }))
         .mockResolvedValueOnce(createMockResponse(500, "error"));
 
+      const client = resolveClient();
       const result = await client.mutations({
         mutation: "mutation { createItem { data } }",
         path: "/cms/manage",
@@ -173,10 +183,11 @@ describe("GraphQLClientImpl", () => {
 
   describe("setTenant", () => {
     it("should update the tenant header for subsequent requests", async () => {
-      vi.mocked(httpClient.post).mockResolvedValue(
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
         createMockResponse(200, { data: { result: "ok" } }),
       );
 
+      const client = resolveClient();
       client.setTenant("tenant-2");
 
       await client.query({
@@ -185,7 +196,7 @@ describe("GraphQLClientImpl", () => {
         getResult: defaultGetResult,
       });
 
-      expect(httpClient.post).toHaveBeenCalledWith(
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(String),
         expect.objectContaining({ "x-tenant": "tenant-2" }),
