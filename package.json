@@ -36,7 +36,8 @@
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
     "tsx": "^4.23.13",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitest": "^3.2.4"
   },
   "scripts": {
     "create-data": "ts-node src/index.ts --create-data",
@@ -52,6 +53,8 @@
     "compile": "tsc",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:migrate": "drizzle-kit migrate"
   },
   "resolutions": {
