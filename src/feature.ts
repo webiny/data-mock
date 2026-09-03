@@ -4,6 +4,7 @@ import { createDatabaseClient } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { DatabaseFeature } from "./db/feature.js";
 import { CacheFeature } from "./cache/feature.js";
+import { ProjectRepositoryFeature } from "./shared/features/ProjectRepositoryFeature.js";
 
 const DEFAULT_DB_PATH = "./.webiny/data-mock.db";
 
@@ -19,5 +20,6 @@ export const AppFeature = createFeature({
 
     DatabaseFeature.register(container, { databaseClient });
     CacheFeature.register(container, {});
+    ProjectRepositoryFeature.register(container);
   },
 });

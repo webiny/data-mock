@@ -1,5 +1,4 @@
 import { createFeature } from "@webiny/stdlib";
-import { ProjectRepositoryFeature } from "~/shared/features/ProjectRepositoryFeature.js";
 import { Prompts } from "./abstractions/Prompts.js";
 import { UI } from "./abstractions/UI.js";
 import { Command } from "./abstractions/Command.js";
@@ -14,8 +13,6 @@ export const CliFeature = createFeature({
   register(container) {
     container.registerInstance(Prompts, new PromptsImpl());
     container.registerInstance(UI, new UIImpl());
-
-    ProjectRepositoryFeature.register(container);
 
     AddProjectFeature.register(container);
     ListProjectsFeature.register(container);

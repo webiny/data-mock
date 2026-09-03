@@ -8,6 +8,7 @@ import { runMigrations } from "~/db/migrate.js";
 import { DatabaseFeature } from "~/db/feature.js";
 import { CacheFeature } from "~/cache/feature.js";
 import { GeneratorFeature } from "~/generators/feature.js";
+import { ProjectRepositoryFeature } from "~/shared/features/ProjectRepositoryFeature.js";
 import { GraphQLClient } from "~/graphql/abstractions/GraphQLClient.js";
 import { GraphQLClientImpl } from "~/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
@@ -46,6 +47,7 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   CacheFeature.register(container, { cacheDir });
 
   GeneratorFeature.register(container);
+  ProjectRepositoryFeature.register(container);
 
   const httpClient = options.httpClient ?? createNoOpHttpClient();
   const graphqlClient = new GraphQLClientImpl(httpClient, {
