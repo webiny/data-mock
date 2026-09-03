@@ -12,14 +12,39 @@ import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entrie
 import { createSingleEntryVariables } from "~/shared/node/generators/createEntryVariables.js";
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
 import { buildCreateEntryQuery } from "~/shared/node/graphql/operations/base/createContentEntry.js";
+import {
+  buildCreateRevisionQuery,
+  buildPublishQuery,
+  buildUnpublishQuery,
+} from "~/shared/node/graphql/operations/base/revisionOperations.js";
 import { SeedingError } from "~/shared/errors.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { ProjectModel } from "~/shared/types.js";
+import type { ProjectModel, Revisions, PublishStrategy } from "~/shared/types.js";
 
 interface ModelSeedContext {
   model: ProjectModel;
   amount: number;
   modelId: string;
+  revisions: Revisions;
+}
+
+interface EntryMutationResult {
+  entryId: string;
+  responseData: Record<string, unknown> | null;
+  httpStatus: number;
+  status: "created" | "failed";
+  error: string | null;
+}
+
+interface GqlOp {
+  getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
+}
+
+function resolveRevisionCount(revisions: Revisions): number {
+  if (typeof revisions === "number") {
+    return revisions;
+  }
+  return Math.floor(Math.random() * (revisions.max - revisions.min + 1)) + revisions.min;
 }
 
 class SeedServiceImpl implements Abstraction.Interface {
@@ -65,6 +90,9 @@ class SeedServiceImpl implements Abstraction.Interface {
     const errors: Array<{ modelId: string; message: string }> = [];
     const isDryRun = input.dryRun === true;
     const generatedEntries: Array<{ modelId: string; entries: Record<string, unknown>[] }> = [];
+    const publishStrategy = input.publishStrategy ?? "none";
+    const publishPercent = input.publishPercent ?? 50;
+    const includeUnpublish = input.includeUnpublish ?? false;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -101,11 +129,17 @@ class SeedServiceImpl implements Abstraction.Interface {
         const fieldSelection = createModelFields(ctx.model.fields);
         const singularApiName =
           ctx.model.modelId.charAt(0).toUpperCase() + ctx.model.modelId.slice(1);
-        const mutation = buildCreateEntryQuery({ singularApiName, fieldSelection });
+        const createMutation = buildCreateEntryQuery({ singularApiName, fieldSelection });
+        const revisionMutation = buildCreateRevisionQuery({ singularApiName, fieldSelection });
+        const publishMutation = buildPublishQuery(singularApiName);
+        const unpublishMutation = buildUnpublishQuery(singularApiName);
         const createOp = this.operationRegistry.resolve(
           "createContentEntry",
           project.webinyVersion,
         );
+        const revisionOp = this.operationRegistry.resolve("createRevision", project.webinyVersion);
+        const publishOp = this.operationRegistry.resolve("publishEntry", project.webinyVersion);
+        const unpublishOp = this.operationRegistry.resolve("unpublishEntry", project.webinyVersion);
         const apiUrl = `${project.apiUrl}${createOp.path}`;
 
         for (let i = 0; i < ctx.amount; i++) {
@@ -117,7 +151,13 @@ class SeedServiceImpl implements Abstraction.Interface {
           const entryData = entry.values as Record<string, unknown>;
 
           try {
-            const created = await this.sendEntry(apiUrl, mutation, entryData, headers, createOp);
+            const created = await this.sendMutation(
+              apiUrl,
+              createMutation,
+              { data: entryData },
+              headers,
+              createOp,
+            );
 
             if (created.error) {
               modelErrors.push(created.error);
@@ -140,6 +180,59 @@ class SeedServiceImpl implements Abstraction.Interface {
               availableRefs.set(ctx.model.modelId, refs);
             }
             await this.logEntry(job.id, project.id, input.tenant, ctx.modelId, entryData, created);
+
+            const revisionCount = resolveRevisionCount(ctx.revisions);
+            let latestRevisionId = created.entryId;
+
+            for (let rev = 1; rev < revisionCount; rev++) {
+              const revEntry = await createSingleEntryVariables(
+                this.generatorRegistry,
+                { fields: ctx.model.fields },
+                availableRefs,
+              );
+              const revData = revEntry.values as Record<string, unknown>;
+
+              const revResult = await this.sendMutation(
+                apiUrl,
+                revisionMutation,
+                { revision: latestRevisionId, data: revData },
+                headers,
+                revisionOp,
+              );
+
+              await this.logEntry(
+                job.id,
+                project.id,
+                input.tenant,
+                ctx.modelId,
+                revData,
+                revResult,
+              );
+
+              if (revResult.error) {
+                errors.push({
+                  modelId: ctx.modelId,
+                  message: `Revision ${rev + 1}: ${revResult.error}`,
+                });
+              } else if (revResult.entryId) {
+                latestRevisionId = revResult.entryId;
+                totalCreated++;
+              }
+            }
+
+            await this.applyPublishStrategy(
+              apiUrl,
+              publishMutation,
+              unpublishMutation,
+              headers,
+              publishOp,
+              unpublishOp,
+              created.entryId,
+              latestRevisionId,
+              publishStrategy,
+              publishPercent,
+              includeUnpublish,
+            );
           } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err);
             modelErrors.push(errorMsg);
@@ -214,7 +307,12 @@ class SeedServiceImpl implements Abstraction.Interface {
         errors.push({ modelId: mc.modelId, message: r.error.message });
         continue;
       }
-      contexts.push({ model: r.value, amount: mc.amount, modelId: mc.modelId });
+      contexts.push({
+        model: r.value,
+        amount: mc.amount,
+        modelId: mc.modelId,
+        revisions: mc.revisions ?? 1,
+      });
     }
     return contexts;
   }
@@ -240,22 +338,14 @@ class SeedServiceImpl implements Abstraction.Interface {
       .filter((c): c is ModelSeedContext => c !== undefined);
   }
 
-  private async sendEntry(
+  private async sendMutation(
     apiUrl: string,
     mutation: string,
-    entryData: Record<string, unknown>,
+    variables: Record<string, unknown>,
     headers: Record<string, string>,
-    createOp: {
-      getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
-    },
-  ): Promise<{
-    entryId: string;
-    responseData: Record<string, unknown> | null;
-    httpStatus: number;
-    status: "created" | "failed";
-    error: string | null;
-  }> {
-    const body = JSON.stringify({ query: mutation, variables: { data: entryData } });
+    op: GqlOp,
+  ): Promise<EntryMutationResult> {
+    const body = JSON.stringify({ query: mutation, variables });
     const response = await this.httpClient.post(apiUrl, body, headers);
 
     if (response.status !== 200) {
@@ -270,7 +360,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     }
 
     const json = (await response.json()) as ApiGraphQLResultJson;
-    const result = createOp.getResult(json);
+    const result = op.getResult(json);
 
     if (result.error) {
       return {
@@ -283,7 +373,8 @@ class SeedServiceImpl implements Abstraction.Interface {
     }
 
     const data = result.data as Record<string, unknown> | undefined;
-    const entryId = data && typeof data["id"] === "string" ? (data["id"] as string) : "";
+    const nested = (data?.["data"] as Record<string, unknown>) ?? data;
+    const entryId = nested && typeof nested["id"] === "string" ? (nested["id"] as string) : "";
 
     return {
       entryId,
@@ -294,19 +385,75 @@ class SeedServiceImpl implements Abstraction.Interface {
     };
   }
 
+  private async applyPublishStrategy(
+    apiUrl: string,
+    publishMutation: string,
+    unpublishMutation: string,
+    headers: Record<string, string>,
+    publishOp: GqlOp,
+    unpublishOp: GqlOp,
+    firstRevisionId: string,
+    lastRevisionId: string,
+    strategy: PublishStrategy,
+    percent: number,
+    includeUnpublish: boolean,
+  ): Promise<void> {
+    if (strategy === "none" || !firstRevisionId) {
+      return;
+    }
+
+    let shouldPublish = false;
+    let revisionToPublish = lastRevisionId;
+
+    switch (strategy) {
+      case "all":
+        shouldPublish = true;
+        revisionToPublish = lastRevisionId;
+        break;
+      case "random":
+        shouldPublish = Math.random() * 100 < percent;
+        revisionToPublish = lastRevisionId;
+        break;
+      case "first":
+        shouldPublish = true;
+        revisionToPublish = firstRevisionId;
+        break;
+      case "last":
+        shouldPublish = true;
+        revisionToPublish = lastRevisionId;
+        break;
+    }
+
+    if (!shouldPublish) {
+      return;
+    }
+
+    await this.sendMutation(
+      apiUrl,
+      publishMutation,
+      { revision: revisionToPublish },
+      headers,
+      publishOp,
+    );
+
+    if (includeUnpublish && Math.random() < 0.3) {
+      await this.sendMutation(
+        apiUrl,
+        unpublishMutation,
+        { revision: revisionToPublish },
+        headers,
+        unpublishOp,
+      );
+    }
+  }
+
   private async logEntry(
     jobId: string,
     projectId: string,
     tenant: string,
     modelId: string,
     entryData: Record<string, unknown>,
-    result: {
-      entryId: string;
-      responseData: Record<string, unknown> | null;
-      httpStatus: number;
-      status: "created" | "failed";
-      error: string | null;
-    },
+    result: EntryMutationResult,
   ): Promise<void> {
     await this.createSeedEntryRepository.execute({
       jobId,

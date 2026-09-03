@@ -3,3 +3,11 @@ export { listContentModels } from "./listContentModels.js";
 export { createContentEntry, buildCreateEntryQuery } from "./createContentEntry.js";
 export { listContentEntries, buildListEntriesQuery } from "./listContentEntries.js";
 export { listTenants } from "./listTenants.js";
+export {
+  createRevisionOperation,
+  publishEntryOperation,
+  unpublishEntryOperation,
+  buildCreateRevisionQuery,
+  buildPublishQuery,
+  buildUnpublishQuery,
+} from "./revisionOperations.js";
