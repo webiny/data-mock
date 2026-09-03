@@ -3,6 +3,13 @@ import type { Result } from "@webiny/stdlib";
 import type { Project } from "../types.js";
 import type { ProjectNotFoundError, ProjectPersistenceError } from "../errors.js";
 
+export interface IProjectCreateInput {
+  name: string;
+  apiUrl: string;
+  apiToken: string;
+  tenant?: string;
+}
+
 export interface IProjectRepository {
   list(): Promise<Result<Project[], ProjectPersistenceError>>;
   getById(id: string): Promise<Result<Project, ProjectNotFoundError | ProjectPersistenceError>>;
@@ -14,10 +21,8 @@ export const ProjectRepository = createAbstraction<IProjectRepository>("Shared/P
 
 export namespace ProjectRepository {
   export type Interface = IProjectRepository;
-  export type CreateInput = {
-    name: string;
-    apiUrl: string;
-    apiToken: string;
-    tenant?: string;
-  };
+  export type Record = Project;
+  export type CreateInput = IProjectCreateInput;
+  export type NotFoundError = ProjectNotFoundError;
+  export type PersistenceError = ProjectPersistenceError;
 }

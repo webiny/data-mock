@@ -2,7 +2,7 @@ import { Result, generateId } from "@webiny/stdlib";
 import { eq } from "drizzle-orm";
 import { ProjectNotFoundError, ProjectPersistenceError } from "./errors.js";
 import { projects } from "~/db/schema.js";
-import type { DatabaseClient } from "~/db/abstractions/DatabaseClient.js";
+import { DatabaseClient } from "~/db/abstractions/DatabaseClient.js";
 import type { Project } from "./types.js";
 import { ProjectRepository as Abstraction } from "./abstractions/ProjectRepository.js";
 
@@ -98,4 +98,7 @@ function toError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
 
-export { ProjectRepositoryImpl };
+export const ProjectRepository = Abstraction.createImplementation({
+  implementation: ProjectRepositoryImpl,
+  dependencies: [DatabaseClient],
+});

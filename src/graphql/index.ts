@@ -1,4 +1,5 @@
 export { GraphQLClient } from "./abstractions/index.js";
+export { GraphQLConfig } from "./abstractions/index.js";
 export type {
   IGraphQLClient,
   QueryParams,
@@ -14,4 +15,3 @@ export type {
   GenericRecord,
 } from "./abstractions/index.js";
 export { GraphQLFeature } from "./feature.js";
-export type { GraphQLClientConfig } from "./GraphQLClient.js";

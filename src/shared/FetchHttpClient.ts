@@ -1,4 +1,4 @@
-import type { HttpClient } from "./abstractions/HttpClient.js";
+import { HttpClient } from "./abstractions/HttpClient.js";
 
 class FetchHttpClientImpl implements HttpClient.Interface {
   public async post(
@@ -14,4 +14,7 @@ class FetchHttpClientImpl implements HttpClient.Interface {
   }
 }
 
-export const FetchHttpClient = FetchHttpClientImpl;
+export const FetchHttpClient = HttpClient.createImplementation({
+  implementation: FetchHttpClientImpl,
+  dependencies: [],
+});

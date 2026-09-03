@@ -33,4 +33,7 @@ class UIImpl implements Abstraction.Interface {
   }
 }
 
-export { UIImpl };
+export const UI = Abstraction.createImplementation({
+  implementation: UIImpl,
+  dependencies: [],
+});

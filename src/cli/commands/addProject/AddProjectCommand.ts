@@ -1,10 +1,10 @@
 import { isCancel } from "@clack/prompts";
-import type { Prompts } from "~/cli/abstractions/Prompts.js";
-import type { UI } from "~/cli/abstractions/UI.js";
-import type { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
-import { AddProjectCommand as Abstraction } from "./abstractions/AddProjectCommand.js";
+import { Prompts } from "~/cli/abstractions/Prompts.js";
+import { UI } from "~/cli/abstractions/UI.js";
+import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { Command } from "~/cli/abstractions/Command.js";
 
-class AddProjectCommandImpl implements Abstraction.Interface {
+class AddProjectCommandImpl implements Command.Interface {
   public readonly name = "add-project";
   public readonly description = "Add a new Webiny project connection";
 
@@ -80,4 +80,7 @@ class AddProjectCommandImpl implements Abstraction.Interface {
   }
 }
 
-export { AddProjectCommandImpl };
+export const AddProjectCommand = Command.createImplementation({
+  implementation: AddProjectCommandImpl,
+  dependencies: [Prompts, UI, ProjectRepository],
+});

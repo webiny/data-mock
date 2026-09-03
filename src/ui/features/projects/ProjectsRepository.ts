@@ -26,4 +26,7 @@ class ProjectsRepositoryImpl implements Abstraction.Interface {
   }
 }
 
-export { ProjectsRepositoryImpl };
+export const ProjectsRepository = Abstraction.createImplementation({
+  implementation: ProjectsRepositoryImpl,
+  dependencies: [],
+});

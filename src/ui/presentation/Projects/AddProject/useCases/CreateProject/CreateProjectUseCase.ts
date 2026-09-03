@@ -1,6 +1,6 @@
 import type { Result } from "@webiny/stdlib";
 import type { Project } from "~/shared/types.js";
-import type { HTTPError } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
+import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
 import { CreateProjectUseCase as Abstraction } from "./abstractions/CreateProjectUseCase.js";

@@ -1,25 +1,29 @@
 import { createFeature } from "@webiny/stdlib";
 import { FetchHttpClient } from "~/shared/FetchHttpClient.js";
-import { GraphQLClient } from "./abstractions/GraphQLClient.js";
-import { GraphQLClientImpl } from "./GraphQLClient.js";
-import type { GraphQLClientConfig } from "./GraphQLClient.js";
+import { GraphQLConfig } from "./abstractions/GraphQLConfig.js";
+import { GraphQLClient } from "./GraphQLClient.js";
 
 interface IGraphQLFeatureContext {
   readonly url: string;
   readonly token: string;
   readonly tenant?: string;
+  readonly retries?: number;
+  readonly retryMinTimeout?: number;
 }
 
 export const GraphQLFeature = createFeature<IGraphQLFeatureContext>({
   name: "GraphQL/GraphQLFeature",
   register(container, context) {
-    const config: GraphQLClientConfig = {
+    container.register(FetchHttpClient).inSingletonScope();
+
+    container.registerInstance(GraphQLConfig, {
       url: context.url,
       token: context.token,
       tenant: context.tenant ?? "root",
-    };
-    const httpClient = new FetchHttpClient();
-    const client = new GraphQLClientImpl(httpClient, config);
-    container.registerInstance(GraphQLClient, client);
+      retries: context.retries ?? 5,
+      retryMinTimeout: context.retryMinTimeout ?? 1000,
+    });
+
+    container.register(GraphQLClient).inSingletonScope();
   },
 });

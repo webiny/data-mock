@@ -6,7 +6,8 @@ import {
   createProjectRoute,
   removeProjectRoute,
 } from "~/shared/routes/projects.js";
-import { HTTPClient, HTTPError } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
+import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
+import { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { ProjectsGateway as Abstraction } from "./abstractions/ProjectsGateway.js";
 
 class ProjectsGatewayImpl implements Abstraction.Interface {

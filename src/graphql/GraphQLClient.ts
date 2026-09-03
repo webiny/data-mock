@@ -2,9 +2,10 @@ import { Result } from "@webiny/stdlib";
 import pRetry from "p-retry";
 import lodashChunk from "lodash/chunk.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
-import type { HttpClient } from "~/shared/abstractions/HttpClient.js";
+import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { logger } from "~/logger.js";
 import { GraphQLClient as Abstraction } from "./abstractions/GraphQLClient.js";
+import { GraphQLConfig } from "./abstractions/GraphQLConfig.js";
 import type {
   QueryParams,
   MutationParams,
@@ -14,14 +15,6 @@ import type {
   ResultExtractor,
 } from "./abstractions/GraphQLClient.js";
 
-interface GraphQLClientConfig {
-  url: string;
-  token: string;
-  tenant: string;
-  retries?: number;
-  retryMinTimeout?: number;
-}
-
 class GraphQLClientImpl implements Abstraction.Interface {
   private readonly url: string;
   private readonly headerValues: Record<string, string>;
@@ -30,11 +23,11 @@ class GraphQLClientImpl implements Abstraction.Interface {
 
   public constructor(
     private readonly httpClient: HttpClient.Interface,
-    config: GraphQLClientConfig,
+    config: GraphQLConfig.Interface,
   ) {
     this.url = config.url;
-    this.retries = config.retries ?? 5;
-    this.retryMinTimeout = config.retryMinTimeout ?? 1000;
+    this.retries = config.retries;
+    this.retryMinTimeout = config.retryMinTimeout;
     this.headerValues = {
       "Content-Type": "application/json",
       authorization: `Bearer ${config.token}`,
@@ -164,5 +157,7 @@ class GraphQLClientImpl implements Abstraction.Interface {
   }
 }
 
-export { GraphQLClientImpl };
-export type { GraphQLClientConfig };
+export const GraphQLClient = Abstraction.createImplementation({
+  implementation: GraphQLClientImpl,
+  dependencies: [HttpClient, GraphQLConfig],
+});

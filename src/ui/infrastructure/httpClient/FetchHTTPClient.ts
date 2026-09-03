@@ -3,8 +3,9 @@ import { interpolatePath } from "~/shared/routing/interpolatePath.js";
 import type { TypedRouteDefinition } from "~/shared/routing/defineTypedRoutes.js";
 import type { IRequestArgs } from "~/shared/routing/types.js";
 import type { HTTPMethod } from "~/shared/routing/defineRoute.js";
-import { HTTPClient, HTTPError } from "./abstractions/HTTPClient.js";
-import type { BaseUrl } from "./abstractions/BaseUrl.js";
+import { HTTPClient } from "./abstractions/HTTPClient.js";
+import { HTTPError } from "./HTTPError.js";
+import { BaseUrl } from "./abstractions/BaseUrl.js";
 
 class FetchHTTPClientImpl implements HTTPClient.Interface {
   public constructor(private readonly baseUrl: BaseUrl.Interface) {}
@@ -87,4 +88,7 @@ class FetchHTTPClientImpl implements HTTPClient.Interface {
   }
 }
 
-export { FetchHTTPClientImpl };
+export const FetchHTTPClient = HTTPClient.createImplementation({
+  implementation: FetchHTTPClientImpl,
+  dependencies: [BaseUrl],
+});

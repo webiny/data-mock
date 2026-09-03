@@ -1,7 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { Project } from "~/shared/types.js";
-import type { HTTPError } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
+import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface ICreateProjectUseCase {
   execute(input: CreateProjectUseCase.Input): Promise<Result<Project, HTTPError>>;

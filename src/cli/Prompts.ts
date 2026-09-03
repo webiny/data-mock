@@ -1,9 +1,7 @@
 import * as clack from "@clack/prompts";
-import type { Prompts } from "./abstractions/Prompts.js";
+import { Prompts as Abstraction } from "./abstractions/Prompts.js";
 import type { ISelectOption } from "./abstractions/Prompts.js";
 
-// @clack/prompts Option type uses optional properties that conflict with
-// exactOptionalPropertyTypes — cast at the library boundary.
 type ClackOption<T> = Parameters<typeof clack.select<T>>[0]["options"][number];
 
 function toClackOptions<T>(options: ISelectOption<T>[]): ClackOption<T>[] {
@@ -17,23 +15,23 @@ function toClackOptions<T>(options: ISelectOption<T>[]): ClackOption<T>[] {
   );
 }
 
-class PromptsImpl implements Prompts.Interface {
-  public async text(opts: Prompts.TextOptions): Promise<string | symbol> {
+class PromptsImpl implements Abstraction.Interface {
+  public async text(opts: Abstraction.TextOptions): Promise<string | symbol> {
     return clack.text(opts);
   }
 
-  public async select<T>(opts: Prompts.SelectOptions<T>): Promise<T | symbol> {
+  public async select<T>(opts: Abstraction.SelectOptions<T>): Promise<T | symbol> {
     return clack.select({
       message: opts.message,
       options: toClackOptions(opts.options),
     }) as Promise<T | symbol>;
   }
 
-  public async confirm(opts: Prompts.ConfirmOptions): Promise<boolean | symbol> {
+  public async confirm(opts: Abstraction.ConfirmOptions): Promise<boolean | symbol> {
     return clack.confirm(opts);
   }
 
-  public async multiselect<T>(opts: Prompts.MultiselectOptions<T>): Promise<T[] | symbol> {
+  public async multiselect<T>(opts: Abstraction.MultiselectOptions<T>): Promise<T[] | symbol> {
     return clack.multiselect({
       message: opts.message,
       options: toClackOptions(opts.options),
@@ -42,4 +40,7 @@ class PromptsImpl implements Prompts.Interface {
   }
 }
 
-export { PromptsImpl };
+export const Prompts = Abstraction.createImplementation({
+  implementation: PromptsImpl,
+  dependencies: [],
+});

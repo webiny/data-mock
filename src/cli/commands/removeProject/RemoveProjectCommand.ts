@@ -1,11 +1,11 @@
 import { isCancel } from "@clack/prompts";
-import type { Prompts } from "~/cli/abstractions/Prompts.js";
-import type { UI } from "~/cli/abstractions/UI.js";
-import type { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { Prompts } from "~/cli/abstractions/Prompts.js";
+import { UI } from "~/cli/abstractions/UI.js";
+import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { Command } from "~/cli/abstractions/Command.js";
 import type { Project } from "~/shared/types.js";
-import { RemoveProjectCommand as Abstraction } from "./abstractions/RemoveProjectCommand.js";
 
-class RemoveProjectCommandImpl implements Abstraction.Interface {
+class RemoveProjectCommandImpl implements Command.Interface {
   public readonly name = "remove-project";
   public readonly description = "Remove a Webiny project connection";
 
@@ -66,4 +66,7 @@ class RemoveProjectCommandImpl implements Abstraction.Interface {
   }
 }
 
-export { RemoveProjectCommandImpl };
+export const RemoveProjectCommand = Command.createImplementation({
+  implementation: RemoveProjectCommandImpl,
+  dependencies: [Prompts, UI, ProjectRepository],
+});

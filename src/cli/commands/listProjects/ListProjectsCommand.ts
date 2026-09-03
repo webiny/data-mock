@@ -1,8 +1,8 @@
-import type { UI } from "~/cli/abstractions/UI.js";
-import type { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
-import { ListProjectsCommand as Abstraction } from "./abstractions/ListProjectsCommand.js";
+import { UI } from "~/cli/abstractions/UI.js";
+import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { Command } from "~/cli/abstractions/Command.js";
 
-class ListProjectsCommandImpl implements Abstraction.Interface {
+class ListProjectsCommandImpl implements Command.Interface {
   public readonly name = "list-projects";
   public readonly description = "List all configured Webiny projects";
 
@@ -37,4 +37,7 @@ class ListProjectsCommandImpl implements Abstraction.Interface {
   }
 }
 
-export { ListProjectsCommandImpl };
+export const ListProjectsCommand = Command.createImplementation({
+  implementation: ListProjectsCommandImpl,
+  dependencies: [UI, ProjectRepository],
+});

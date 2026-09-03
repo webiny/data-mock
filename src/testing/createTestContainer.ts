@@ -9,8 +9,8 @@ import { DatabaseFeature } from "~/db/feature.js";
 import { CacheFeature } from "~/cache/feature.js";
 import { GeneratorFeature } from "~/generators/feature.js";
 import { ProjectRepositoryFeature } from "~/shared/features/ProjectRepositoryFeature.js";
-import { GraphQLClient } from "~/graphql/abstractions/GraphQLClient.js";
-import { GraphQLClientImpl } from "~/graphql/GraphQLClient.js";
+import { GraphQLConfig } from "~/graphql/abstractions/GraphQLConfig.js";
+import { GraphQLClient as GraphQLClientImpl } from "~/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import type { DatabaseClient } from "~/db/abstractions/DatabaseClient.js";
 
@@ -49,15 +49,21 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   GeneratorFeature.register(container);
   ProjectRepositoryFeature.register(container);
 
-  const httpClient = options.httpClient ?? createNoOpHttpClient();
-  const graphqlClient = new GraphQLClientImpl(httpClient, {
+  if (options.httpClient) {
+    container.registerInstance(HttpClient, options.httpClient);
+  } else {
+    container.registerInstance(HttpClient, createNoOpHttpClient());
+  }
+
+  container.registerInstance(GraphQLConfig, {
     url: "http://localhost:0",
     token: "test-token",
     tenant: "root",
     retries: 0,
     retryMinTimeout: 0,
   });
-  container.registerInstance(GraphQLClient, graphqlClient);
+
+  container.register(GraphQLClientImpl).inSingletonScope();
 
   return {
     container,
