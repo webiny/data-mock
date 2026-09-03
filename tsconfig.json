@@ -1,11 +1,12 @@
 {
   "exclude": ["node_modules", "dist", "code"],
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "compilerOptions": {
     "paths": {
       "~/*": ["./src/*"]
     },
     "rootDir": "./src/",
+    "jsx": "react-jsx",
     "target": "esnext",
     "module": "nodenext",
     "moduleResolution": "nodenext",
