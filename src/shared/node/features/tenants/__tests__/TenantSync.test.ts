@@ -23,7 +23,7 @@ function createTenantListResponse(tenants: Array<{ id: string; name: string }>) 
   return createMockResponse(200, {
     data: {
       listTenants: {
-        data: tenants.map((t) => ({ entryId: t.id, name: t.name })),
+        data: tenants.map((t) => ({ id: t.id, values: { name: t.name } })),
       },
     },
   });

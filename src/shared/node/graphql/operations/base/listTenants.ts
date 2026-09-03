@@ -1,7 +1,9 @@
 import { z } from "zod";
 import type { IGraphQLOperation } from "../types.js";
 
-const dataSchema = z.array(z.object({ entryId: z.string(), name: z.string() }).passthrough());
+const dataSchema = z.array(
+  z.object({ id: z.string(), values: z.object({ name: z.string() }).passthrough() }).passthrough(),
+);
 
 interface Tenant {
   id: string;
@@ -15,8 +17,10 @@ export const listTenants: IGraphQLOperation<void, Tenant[]> = {
     query ListTenants {
       listTenants {
         data {
-          entryId
-          name
+          id
+          values {
+            name
+          }
         }
         error {
           message
@@ -52,7 +56,7 @@ export const listTenants: IGraphQLOperation<void, Tenant[]> = {
       };
     }
     return {
-      data: parsed.data.map((e) => ({ id: e.entryId, name: e.name })),
+      data: parsed.data.map((e) => ({ id: e.id, name: e.values.name })),
     };
   },
 };

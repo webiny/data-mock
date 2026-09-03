@@ -86,8 +86,8 @@ describe("GraphQL Operations", () => {
         makeJson({
           listTenants: {
             data: [
-              { entryId: "root", name: "Root" },
-              { entryId: "t1", name: "Tenant 1" },
+              { id: "root", values: { name: "Root" } },
+              { id: "t1", values: { name: "Tenant 1" } },
             ],
           },
         }),

@@ -333,7 +333,7 @@ describe("Models Feature", () => {
                     singularApiName: "Article",
                     pluralApiName: "Articles",
                     description: "Blog article",
-                    group: { id: "g1", name: "Blog", slug: "blog" },
+                    group: "blog",
                     fields: [testField],
                   },
                 ],

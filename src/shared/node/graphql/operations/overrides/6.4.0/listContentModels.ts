@@ -43,11 +43,7 @@ export const listContentModels: IGraphQLOperation<void, ApiCmsModel[]> = {
           pluralApiName
           tags
           description
-          group {
-            id
-            name
-            slug
-          }
+          group
           ${CMS_MODEL_FIELDS_SUBSELECTION}
         }
         error {

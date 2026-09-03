@@ -80,6 +80,9 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
 
         if (gqlResult.data) {
           tenants = gqlResult.data.map((t) => ({ tenantId: t.id, name: t.name }));
+          if (!tenants.some((t) => t.tenantId === project.tenant)) {
+            tenants.unshift({ tenantId: project.tenant, name: project.tenant });
+          }
           this.logger.info(`Discovered ${tenants.length} tenant(s) for project "${project.name}".`);
         } else {
           this.logger.warn(
