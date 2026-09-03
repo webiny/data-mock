@@ -5,7 +5,6 @@ import type { ProjectListPresenter } from "../abstractions/ProjectListPresenter.
 
 interface ProjectListPageProps {
   presenter: ProjectListPresenter.Interface;
-  onAddProject: () => void;
   onOpenProject?: (projectId: string) => void;
   onSeedProject?: (projectId: string) => void;
   onViewHistory?: (projectId: string) => void;
@@ -13,7 +12,6 @@ interface ProjectListPageProps {
 
 export const ProjectListPage = observer(function ProjectListPage({
   presenter,
-  onAddProject,
   onOpenProject,
   onSeedProject,
   onViewHistory,
@@ -37,18 +35,16 @@ export const ProjectListPage = observer(function ProjectListPage({
     return (
       <Stack align="center" mt="xl" gap="md">
         <Title order={3}>No projects configured</Title>
-        <Text c="dimmed">Add a Webiny project to get started with data seeding.</Text>
-        <Button onClick={onAddProject}>Add Project</Button>
+        <Text c="dimmed">
+          Click &ldquo;Add Project&rdquo; in the header to get started with data seeding.
+        </Text>
       </Stack>
     );
   }
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
-        <Title order={3}>Projects</Title>
-        <Button onClick={onAddProject}>Add Project</Button>
-      </Group>
+      <Title order={3}>Projects</Title>
 
       {projects.map((project) => (
         <Card key={project.id} withBorder padding="md">

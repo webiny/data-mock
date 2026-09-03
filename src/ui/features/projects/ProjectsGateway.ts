@@ -4,6 +4,7 @@ import {
   listProjectsRoute,
   getProjectRoute,
   createProjectRoute,
+  updateProjectRoute,
   removeProjectRoute,
 } from "~/shared/routes/projects.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
@@ -40,6 +41,22 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
   public async create(input: Abstraction.CreateInput): Promise<Result<Project, HTTPError>> {
     const result = await this.httpClient.request(createProjectRoute, {
       params: {},
+      body: input,
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.project);
+  }
+
+  public async update(
+    id: string,
+    input: Abstraction.UpdateInput,
+  ): Promise<Result<Project, HTTPError>> {
+    const result = await this.httpClient.request(updateProjectRoute, {
+      params: { id },
       body: input,
     });
 

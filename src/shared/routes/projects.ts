@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { defineListRoute, defineOneRoute, defineVoidRoute } from "../routing/defineTypedRoutes.js";
-import { projectSchema, createProjectBodySchema } from "../responses/projects.js";
+import {
+  projectSchema,
+  createProjectBodySchema,
+  updateProjectBodySchema,
+} from "../responses/projects.js";
 
 export const listProjectsRoute = defineListRoute("projects", {
   path: "/api/projects",
@@ -22,6 +26,15 @@ export const createProjectRoute = defineOneRoute("project", {
   description: "Add a new Webiny project connection",
   params: z.object({}),
   body: createProjectBodySchema,
+  item: projectSchema,
+});
+
+export const updateProjectRoute = defineOneRoute("project", {
+  method: "PUT",
+  path: "/api/projects/:id",
+  description: "Update a Webiny project connection",
+  params: z.object({ id: z.string() }),
+  body: updateProjectBodySchema,
   item: projectSchema,
 });
 

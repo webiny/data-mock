@@ -6,6 +6,7 @@ import { SyncProjectTenantsRepository } from "./abstractions/SyncProjectTenantsR
 import { ListProjectTenantsRepository } from "~/shared/node/features/tenants/list/abstractions/ListProjectTenantsRepository.js";
 import { TenantSyncService as Abstraction } from "./abstractions/TenantSyncService.js";
 import type { ITenantSyncDiff } from "./abstractions/TenantSyncService.js";
+import type { OperationLog } from "~/shared/types.js";
 
 class TenantSyncServiceImpl implements Abstraction.Interface {
   public constructor(
@@ -40,21 +41,39 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
     };
 
     let tenants: Array<{ tenantId: string; name: string }>;
+    const operations: OperationLog[] = [];
+    const url = `${baseUrl}${operation.path}`;
 
     try {
       const response = await this.httpClient.post(
-        `${baseUrl}${operation.path}`,
+        url,
         JSON.stringify({ query: operation.query }),
         headers,
       );
 
       if (response.status !== 200) {
+        const text = await response.text().catch(() => "");
+        operations.push({
+          name: "listTenants",
+          url,
+          query: operation.query.trim(),
+          httpStatus: response.status,
+          response: text,
+        });
         this.logger.warn(
           `Could not list tenants for project "${project.name}": HTTP ${response.status}. Storing default tenant only.`,
         );
         tenants = [{ tenantId: project.tenant, name: project.tenant }];
       } else {
         const json = (await response.json()) as Record<string, unknown>;
+        operations.push({
+          name: "listTenants",
+          url,
+          query: operation.query.trim(),
+          httpStatus: response.status,
+          response: json,
+        });
+
         const gqlResult = operation.getResult({
           data: (json["data"] ?? {}) as Record<string, unknown>,
         });
@@ -70,6 +89,13 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
         }
       }
     } catch (error) {
+      operations.push({
+        name: "listTenants",
+        url,
+        query: operation.query.trim(),
+        httpStatus: 0,
+        response: error instanceof Error ? error.message : String(error),
+      });
       this.logger.warn(
         `Could not list tenants for project "${project.name}": ${error instanceof Error ? error.message : "Unknown error"}. Storing default tenant only.`,
       );
@@ -104,7 +130,7 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
       return Result.fail(syncResult.error);
     }
 
-    return Result.ok({ tenants, synced: tenants.length, diff });
+    return Result.ok({ tenants, synced: tenants.length, diff, operations });
   }
 }
 

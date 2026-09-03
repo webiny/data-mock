@@ -13,16 +13,14 @@ import { ProjectsFeature } from "./features/projects/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
 import { SeedingFeature } from "./features/seeding/feature.js";
+import { TemplatesFeature } from "./features/templates/feature.js";
 import { ProjectListPresentationFeature } from "./presentation/Projects/ProjectList/feature.js";
 import { AddProjectPresentationFeature } from "./presentation/Projects/AddProject/feature.js";
 import { SeedConfigPresentationFeature } from "./presentation/Seeding/SeedConfig/feature.js";
 import { SeedHistoryPresentationFeature } from "./presentation/Seeding/SeedHistory/feature.js";
 import { ProjectDetailPresentationFeature } from "./presentation/Projects/ProjectDetail/feature.js";
-import { TemplatesFeature } from "./features/templates/feature.js";
 import { projectListRoute } from "./presentation/Projects/ProjectList/route.js";
 import { projectDetailRoute } from "./presentation/Projects/ProjectDetail/route.js";
-import { seedConfigRoute } from "./presentation/Seeding/SeedConfig/route.js";
-import { seedHistoryRoute } from "./presentation/Seeding/SeedHistory/route.js";
 import { AppLayout } from "./components/AppLayout.js";
 import { theme } from "./theme/theme.js";
 
@@ -47,8 +45,6 @@ function createAppContainer(): Container {
 
   container.registerInstance(Route, projectListRoute);
   container.registerInstance(Route, projectDetailRoute);
-  container.registerInstance(Route, seedConfigRoute);
-  container.registerInstance(Route, seedHistoryRoute);
 
   return container;
 }

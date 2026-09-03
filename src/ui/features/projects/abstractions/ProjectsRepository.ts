@@ -5,6 +5,7 @@ export interface IProjectsRepository {
   readonly projects: Project[];
   setProjects(projects: Project[]): void;
   addProject(project: Project): void;
+  updateProject(project: Project): void;
   removeProject(id: string): void;
 }
 

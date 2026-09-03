@@ -6,7 +6,7 @@ import { SyncProjectGroupsRepository } from "./abstractions/SyncProjectGroupsRep
 import { SyncProjectModelsRepository } from "./abstractions/SyncProjectModelsRepository.js";
 import { SyncModelsService as Abstraction } from "./abstractions/SyncModelsService.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
-import type { ApiCmsModelField } from "~/shared/types.js";
+import type { ApiCmsModelField, OperationLog } from "~/shared/types.js";
 
 interface RemoteGroup {
   id: string;
@@ -51,11 +51,14 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       "x-tenant": project.tenant,
     };
 
+    const operations: OperationLog[] = [];
+
     const groupsResult = await this.fetchWithOperation<RemoteGroup[]>(
       "listContentModelGroups",
       project.webinyVersion,
       baseUrl,
       headers,
+      operations,
     );
     if (groupsResult.isFail()) {
       return Result.fail(groupsResult.error);
@@ -66,6 +69,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       project.webinyVersion,
       baseUrl,
       headers,
+      operations,
     );
     if (modelsResult.isFail()) {
       return Result.fail(modelsResult.error);
@@ -109,7 +113,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       `Synced ${groups.length} group(s) and ${models.length} model(s) for project "${project.name}".`,
     );
 
-    return Result.ok({ groups: groups.length, models: models.length });
+    return Result.ok({ groups: groups.length, models: models.length, operations });
   }
 
   private async fetchWithOperation<T>(
@@ -117,18 +121,27 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     version: string,
     baseUrl: string,
     headers: Record<string, string>,
+    logs: OperationLog[],
   ): Promise<Result<T, GraphQLRequestError>> {
     const operation = this.operationRegistry.resolve<void, T>(operationName, version);
+    const url = `${baseUrl}${operation.path}`;
 
     try {
       const response = await this.httpClient.post(
-        `${baseUrl}${operation.path}`,
+        url,
         JSON.stringify({ query: operation.query }),
         headers,
       );
 
       if (response.status !== 200) {
         const text = await response.text().catch(() => "");
+        logs.push({
+          name: operationName,
+          url,
+          query: operation.query.trim(),
+          httpStatus: response.status,
+          response: text,
+        });
         return Result.fail(
           new GraphQLRequestError(
             `${operationName} failed with status ${response.status}`,
@@ -139,6 +152,14 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       }
 
       const json = (await response.json()) as Record<string, unknown>;
+      logs.push({
+        name: operationName,
+        url,
+        query: operation.query.trim(),
+        httpStatus: response.status,
+        response: json,
+      });
+
       const gqlResult = operation.getResult({
         data: (json["data"] ?? {}) as Record<string, unknown>,
       });
@@ -149,6 +170,13 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
       return Result.ok(gqlResult.data as T);
     } catch (error) {
+      logs.push({
+        name: operationName,
+        url,
+        query: operation.query.trim(),
+        httpStatus: 0,
+        response: error instanceof Error ? error.message : String(error),
+      });
       return Result.fail(
         new GraphQLRequestError(
           error instanceof Error ? error.message : `Failed to execute ${operationName}`,

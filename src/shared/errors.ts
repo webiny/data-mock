@@ -18,6 +18,15 @@ export class ProjectPersistenceError extends BaseError<{ error: Error }> {
   }
 }
 
+export class SyncLogPersistenceError extends BaseError<{ error: Error }> {
+  override readonly code = "SyncLog/PersistenceError" as const;
+  public readonly statusCode = 500;
+
+  public constructor(error: Error) {
+    super({ message: error.message, data: { error } });
+  }
+}
+
 export class SeedingError extends BaseError<{ error: Error }> {
   override readonly code = "Seeding/Failed" as const;
   public readonly statusCode = 500;

@@ -7,6 +7,7 @@ import { ListProjectsRepository } from "./list/ListProjectsRepository.js";
 import { ListProjectsUseCase } from "./list/ListProjectsUseCase.js";
 import { RemoveProjectRepository } from "./remove/RemoveProjectRepository.js";
 import { RemoveProjectUseCase } from "./remove/RemoveProjectUseCase.js";
+import { UpdateProjectRepository } from "./update/UpdateProjectRepository.js";
 
 export const ProjectsFeature = createFeature({
   name: "Shared/ProjectsFeature",
@@ -15,6 +16,7 @@ export const ProjectsFeature = createFeature({
     container.register(GetProjectRepository).inSingletonScope();
     container.register(ListProjectsRepository).inSingletonScope();
     container.register(RemoveProjectRepository).inSingletonScope();
+    container.register(UpdateProjectRepository).inSingletonScope();
 
     container.register(CreateProjectUseCase);
     container.register(GetProjectUseCase);

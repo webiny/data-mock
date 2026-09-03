@@ -21,6 +21,13 @@ class ProjectsRepositoryImpl implements Abstraction.Interface {
     this._projects.push(project);
   }
 
+  public updateProject(project: Project): void {
+    const index = this._projects.findIndex((p) => p.id === project.id);
+    if (index !== -1) {
+      this._projects[index] = project;
+    }
+  }
+
   public removeProject(id: string): void {
     this._projects = this._projects.filter((p) => p.id !== id);
   }

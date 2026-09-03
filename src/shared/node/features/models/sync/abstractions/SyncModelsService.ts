@@ -5,6 +5,7 @@ import type {
   GraphQLRequestError,
   ProjectPersistenceError,
 } from "~/shared/errors.js";
+import type { OperationLog } from "~/shared/types.js";
 
 export interface ISyncModelsServiceInput {
   projectId: string;
@@ -13,6 +14,7 @@ export interface ISyncModelsServiceInput {
 export interface ISyncModelsServiceOutput {
   groups: number;
   models: number;
+  operations: OperationLog[];
 }
 
 export interface ISyncModelsService {

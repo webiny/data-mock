@@ -141,6 +141,27 @@ export interface SeedJobResult {
 
 export type SeedEntryStatus = "created" | "failed" | "dry-run";
 
+export interface OperationLog {
+  name: string;
+  url: string;
+  query: string;
+  httpStatus: number;
+  response: unknown;
+}
+
+export type SyncLogType = "tenants" | "models";
+export type SyncLogStatus = "success" | "error";
+
+export interface SyncLog {
+  id: string;
+  projectId: string;
+  type: SyncLogType;
+  status: SyncLogStatus;
+  message: string;
+  response: unknown;
+  createdAt: number;
+}
+
 export interface SeedEntry {
   id: string;
   jobId: string;

@@ -3,8 +3,9 @@ import { BaseError } from "@webiny/stdlib";
 
 export async function sendError(reply: FastifyReply, error: unknown): Promise<void> {
   if (error instanceof BaseError) {
-    const statusCode =
+    const rawStatus =
       "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : 500;
+    const statusCode = rawStatus >= 400 ? rawStatus : 500;
 
     await reply.status(statusCode).send({
       error: {

@@ -2,6 +2,7 @@ export {
   listProjectsRoute,
   getProjectRoute,
   createProjectRoute,
+  updateProjectRoute,
   removeProjectRoute,
 } from "./projects.js";
 
@@ -10,6 +11,7 @@ export { listProjectTenantsRoute, syncProjectTenantsRoute } from "./tenants.js";
 export {
   listProjectModelsRoute,
   syncProjectModelsRoute,
+  pushProjectModelsRoute,
   diffProjectModelsRoute,
 } from "./models.js";
 
@@ -24,3 +26,5 @@ export {
 export { listSeedEntriesRoute, getSeedEntryRoute, deleteProjectEntriesRoute } from "./entries.js";
 
 export { listProjectFilesRoute, uploadProjectFileRoute, deleteProjectFileRoute } from "./files.js";
+
+export { listSyncLogsRoute } from "./syncLogs.js";

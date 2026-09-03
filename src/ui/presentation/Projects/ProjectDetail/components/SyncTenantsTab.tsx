@@ -1,0 +1,28 @@
+import { Button, Group, Stack, Text, Title } from "@mantine/core";
+import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import { SyncLogTable } from "./SyncLogTable.js";
+
+interface SyncTenantsTabProps {
+  logs: ProjectDetailPresenter.VM["syncLog"];
+  isSyncing: boolean;
+  onSync: () => void;
+}
+
+export function SyncTenantsTab({ logs, isSyncing, onSync }: SyncTenantsTabProps) {
+  const tenantLogs = logs.filter((l) => l.type === "tenants");
+
+  return (
+    <Stack gap="md">
+      <Group justify="space-between">
+        <Title order={4}>Sync Tenants</Title>
+        <Button loading={isSyncing} onClick={onSync}>
+          Run Sync
+        </Button>
+      </Group>
+      <Text size="sm" c="dimmed">
+        Discover and sync tenants from the Webiny instance.
+      </Text>
+      <SyncLogTable logs={tenantLogs} />
+    </Stack>
+  );
+}

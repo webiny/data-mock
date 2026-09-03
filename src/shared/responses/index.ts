@@ -1,5 +1,5 @@
-export { projectSchema, createProjectBodySchema } from "./projects.js";
-export type { ProjectResponse, CreateProjectBody } from "./projects.js";
+export { projectSchema, createProjectBodySchema, updateProjectBodySchema } from "./projects.js";
+export type { ProjectResponse, CreateProjectBody, UpdateProjectBody } from "./projects.js";
 
 export { projectTenantSchema } from "./tenants.js";
 export type { ProjectTenantResponse } from "./tenants.js";
@@ -9,12 +9,14 @@ export {
   projectModelSchema,
   modelDiffItemSchema,
   modelSyncResultSchema,
+  modelPushResultSchema,
 } from "./models.js";
 export type {
   ProjectGroupResponse,
   ProjectModelResponse,
   ModelDiffItem,
   ModelSyncResult,
+  ModelPushResult,
 } from "./models.js";
 
 export { seedJobSchema, triggerSeedBodySchema } from "./seeding.js";
@@ -32,3 +34,6 @@ export type { SeedEntryResponse } from "./entries.js";
 
 export { projectFileSchema, uploadFileBodySchema } from "./files.js";
 export type { ProjectFileResponse, UploadFileBody } from "./files.js";
+
+export { syncLogSchema } from "./syncLogs.js";
+export type { SyncLogResponse } from "./syncLogs.js";

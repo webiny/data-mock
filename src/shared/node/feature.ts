@@ -14,6 +14,7 @@ import { ModelsFeature } from "./features/models/feature.js";
 import { SeedingFeature } from "./features/seeding/feature.js";
 import { TemplatesFeature } from "./features/templates/feature.js";
 import { FilesFeature } from "./features/files/feature.js";
+import { SyncLogsFeature } from "./features/syncLogs/feature.js";
 
 const DEFAULT_DB_PATH = "./.webiny/data-mock.db";
 
@@ -41,5 +42,6 @@ export const AppFeature = createFeature({
     SeedingFeature.register(container);
     TemplatesFeature.register(container);
     FilesFeature.register(container);
+    SyncLogsFeature.register(container);
   },
 });

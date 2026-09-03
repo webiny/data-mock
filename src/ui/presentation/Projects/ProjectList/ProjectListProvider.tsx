@@ -4,11 +4,10 @@ import { ProjectListPresentationFeature } from "./feature.js";
 import { ProjectListPage } from "./components/ProjectListPage.js";
 
 interface ProjectListProviderProps {
-  onAddProject: () => void;
   children?: ReactNode;
 }
 
-export function ProjectListProvider({ onAddProject }: ProjectListProviderProps) {
+export function ProjectListProvider(_props: ProjectListProviderProps) {
   const { presenter } = useFeature(ProjectListPresentationFeature);
-  return <ProjectListPage presenter={presenter} onAddProject={onAddProject} />;
+  return <ProjectListPage presenter={presenter} />;
 }

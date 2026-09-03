@@ -4,11 +4,13 @@ import { TenantsFeature } from "~/ui/features/tenants/feature.js";
 import { ModelsFeature } from "~/ui/features/models/feature.js";
 import { SeedingFeature } from "~/ui/features/seeding/feature.js";
 import { TemplatesFeature } from "~/ui/features/templates/feature.js";
+import { FilesFeature } from "~/ui/features/files/feature.js";
+import { EntriesFeature } from "~/ui/features/entries/feature.js";
+import { SyncLogsFeature } from "~/ui/features/syncLogs/feature.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
 import { ProjectDetailPresenter as ProjectDetailPresenterAbstraction } from "./abstractions/ProjectDetailPresenter.js";
 import { ProjectDetailPresenter } from "./ProjectDetailPresenter.js";
 import { LoadProjectDetailUseCase } from "./useCases/LoadProjectDetail/LoadProjectDetailUseCase.js";
-import { SyncAllUseCase } from "./useCases/SyncAll/SyncAllUseCase.js";
 import { DeleteTemplateUseCase } from "./useCases/DeleteTemplate/DeleteTemplateUseCase.js";
 
 interface ProjectDetailExports {
@@ -23,11 +25,13 @@ export const ProjectDetailPresentationFeature = createFeature<void, ProjectDetai
     ModelsFeature,
     SeedingFeature,
     TemplatesFeature,
+    FilesFeature,
+    EntriesFeature,
+    SyncLogsFeature,
     NotificationsFeature,
   ],
   register(container) {
     container.register(LoadProjectDetailUseCase);
-    container.register(SyncAllUseCase);
     container.register(DeleteTemplateUseCase);
     container.register(ProjectDetailPresenter);
   },

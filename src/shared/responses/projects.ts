@@ -22,3 +22,18 @@ export const createProjectBodySchema = z.object({
 });
 
 export type CreateProjectBody = z.infer<typeof createProjectBodySchema>;
+
+export const updateProjectBodySchema = z
+  .object({
+    name: z.string().min(1),
+    apiUrl: z.string().url(),
+    apiToken: z.string().min(1),
+    tenant: z.string().min(1),
+    webinyVersion: z.string().min(1),
+  })
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided",
+  });
+
+export type UpdateProjectBody = z.infer<typeof updateProjectBodySchema>;

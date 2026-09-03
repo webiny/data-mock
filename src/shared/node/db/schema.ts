@@ -108,6 +108,18 @@ export const seedJobs = sqliteTable("seed_jobs", {
   createdAt: integer("created_at").notNull(),
 });
 
+export const syncLogs = sqliteTable("sync_logs", {
+  id: text("id").primaryKey().notNull(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  status: text("status").notNull(),
+  message: text("message").notNull(),
+  response: text("response"),
+  createdAt: integer("created_at").notNull(),
+});
+
 export const seedEntries = sqliteTable("seed_entries", {
   id: text("id").primaryKey().notNull(),
   jobId: text("job_id")

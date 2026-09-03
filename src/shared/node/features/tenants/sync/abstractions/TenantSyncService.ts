@@ -5,6 +5,7 @@ import type {
   GraphQLRequestError,
   ProjectPersistenceError,
 } from "~/shared/errors.js";
+import type { OperationLog } from "~/shared/types.js";
 
 export interface ITenantSyncInput {
   projectId: string;
@@ -20,6 +21,7 @@ export interface ITenantSyncOutput {
   tenants: Array<{ tenantId: string; name: string }>;
   synced: number;
   diff: ITenantSyncDiff;
+  operations: OperationLog[];
 }
 
 export interface ITenantSyncService {
