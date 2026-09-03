@@ -4,7 +4,6 @@ import { TenantsFeature } from "~/ui/features/tenants/feature.js";
 import { ModelsFeature } from "~/ui/features/models/feature.js";
 import { SeedingFeature } from "~/ui/features/seeding/feature.js";
 import { TemplatesFeature } from "~/ui/features/templates/feature.js";
-import { RouterFeature } from "~/ui/features/router/feature.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
 import { ProjectDetailPresenter as ProjectDetailPresenterAbstraction } from "./abstractions/ProjectDetailPresenter.js";
 import { ProjectDetailPresenter } from "./ProjectDetailPresenter.js";
@@ -24,7 +23,6 @@ export const ProjectDetailPresentationFeature = createFeature<void, ProjectDetai
     ModelsFeature,
     SeedingFeature,
     TemplatesFeature,
-    RouterFeature,
     NotificationsFeature,
   ],
   register(container) {

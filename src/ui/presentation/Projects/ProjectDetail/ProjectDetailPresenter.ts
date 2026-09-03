@@ -9,7 +9,8 @@ import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRep
 import { ModelsRepository } from "~/ui/features/models/abstractions/ModelsRepository.js";
 import { SeedingRepository } from "~/ui/features/seeding/abstractions/SeedingRepository.js";
 import { TemplatesRepository } from "~/ui/features/templates/abstractions/TemplatesRepository.js";
-import { Router } from "~/ui/features/router/abstractions/Router.js";
+import { navigate } from "~/ui/features/router/Router.js";
+import { AppRoutes } from "~/ui/features/router/routePaths.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
@@ -27,7 +28,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly modelsRepository: ModelsRepository.Interface,
     private readonly seedingRepository: SeedingRepository.Interface,
     private readonly templatesRepository: TemplatesRepository.Interface,
-    private readonly router: Router.Interface,
     private readonly notifications: NotificationService.Interface,
   ) {
     makeAutoObservable(this);
@@ -144,13 +144,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
 
   public seedProject = (): void => {
     if (this._projectId) {
-      this.router.navigate("seed-config", { projectId: this._projectId });
+      navigate(AppRoutes.seedConfig(this._projectId));
     }
   };
 
-  public loadTemplate = (templateId: string): void => {
+  public loadTemplate = (_templateId: string): void => {
     if (this._projectId) {
-      this.router.navigate("seed-config", { projectId: this._projectId, templateId });
+      navigate(AppRoutes.seedConfig(this._projectId));
     }
   };
 
@@ -177,7 +177,6 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     ModelsRepository,
     SeedingRepository,
     TemplatesRepository,
-    Router,
     NotificationService,
   ],
 });

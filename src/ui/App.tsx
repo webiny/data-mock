@@ -7,6 +7,7 @@ import "@mantine/notifications/styles.css";
 import { DiContainerProvider } from "./di/DiContainerProvider.js";
 import { HTTPClientFeature } from "./infrastructure/httpClient/feature.js";
 import { RouterFeature } from "./features/router/feature.js";
+import { Route } from "./features/router/abstractions/Route.js";
 import { NotificationsFeature } from "./features/notifications/feature.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
@@ -18,24 +19,37 @@ import { SeedConfigPresentationFeature } from "./presentation/Seeding/SeedConfig
 import { SeedHistoryPresentationFeature } from "./presentation/Seeding/SeedHistory/feature.js";
 import { ProjectDetailPresentationFeature } from "./presentation/Projects/ProjectDetail/feature.js";
 import { TemplatesFeature } from "./features/templates/feature.js";
+import { projectListRoute } from "./presentation/Projects/ProjectList/route.js";
+import { projectDetailRoute } from "./presentation/Projects/ProjectDetail/route.js";
+import { seedConfigRoute } from "./presentation/Seeding/SeedConfig/route.js";
+import { seedHistoryRoute } from "./presentation/Seeding/SeedHistory/route.js";
 import { AppLayout } from "./components/AppLayout.js";
 import { theme } from "./theme/theme.js";
 
 function createAppContainer(): Container {
   const container = new Container();
+
   HTTPClientFeature.register(container, { baseUrl: "" });
   RouterFeature.register(container);
   NotificationsFeature.register(container);
+
   ProjectsFeature.register(container);
   TenantsFeature.register(container);
   ModelsFeature.register(container);
   SeedingFeature.register(container);
   TemplatesFeature.register(container);
+
   ProjectListPresentationFeature.register(container);
   ProjectDetailPresentationFeature.register(container);
   AddProjectPresentationFeature.register(container);
   SeedConfigPresentationFeature.register(container);
   SeedHistoryPresentationFeature.register(container);
+
+  container.registerInstance(Route, projectListRoute);
+  container.registerInstance(Route, projectDetailRoute);
+  container.registerInstance(Route, seedConfigRoute);
+  container.registerInstance(Route, seedHistoryRoute);
+
   return container;
 }
 

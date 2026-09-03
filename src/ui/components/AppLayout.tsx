@@ -1,31 +1,14 @@
 import { useState, useCallback } from "react";
-import { observer } from "mobx-react-lite";
-import { AppShell, Box, Group, Title, Text, Modal, Button } from "@mantine/core";
-import { useContainer } from "../di/DiContainerProvider.js";
+import { AppShell, Group, Title, Button, Modal } from "@mantine/core";
 import { useFeature } from "../di/useFeature.js";
-import { Router } from "../features/router/abstractions/Router.js";
-import { ProjectListPresentationFeature } from "../presentation/Projects/ProjectList/feature.js";
+import { RouterView } from "../features/router/RouterView.js";
+import { navigate } from "../features/router/Router.js";
 import { AddProjectPresentationFeature } from "../presentation/Projects/AddProject/feature.js";
-import { ProjectDetailPresentationFeature } from "../presentation/Projects/ProjectDetail/feature.js";
-import { SeedConfigPresentationFeature } from "../presentation/Seeding/SeedConfig/feature.js";
-import { SeedHistoryPresentationFeature } from "../presentation/Seeding/SeedHistory/feature.js";
-import { ProjectListPage } from "../presentation/Projects/ProjectList/components/ProjectListPage.js";
 import { AddProjectForm } from "../presentation/Projects/AddProject/components/AddProjectForm.js";
-import { ProjectDetailPage } from "../presentation/Projects/ProjectDetail/components/ProjectDetailPage.js";
-import { SeedConfigPage } from "../presentation/Seeding/SeedConfig/components/SeedConfigPage.js";
-import { SeedHistoryPage } from "../presentation/Seeding/SeedHistory/components/SeedHistoryPage.js";
 
-export const AppLayout = observer(function AppLayout() {
-  const container = useContainer();
-  const router = container.resolve(Router);
-
+export function AppLayout() {
   const [addModalOpen, setAddModalOpen] = useState(false);
-
-  const { presenter: listPresenter } = useFeature(ProjectListPresentationFeature);
   const { presenter: addPresenter } = useFeature(AddProjectPresentationFeature);
-  const { presenter: detailPresenter } = useFeature(ProjectDetailPresentationFeature);
-  const { presenter: seedPresenter } = useFeature(SeedConfigPresentationFeature);
-  const { presenter: historyPresenter } = useFeature(SeedHistoryPresentationFeature);
 
   const handleOpenAdd = useCallback(() => {
     setAddModalOpen(true);
@@ -37,78 +20,26 @@ export const AppLayout = observer(function AppLayout() {
 
   const handleAddSuccess = useCallback(() => {
     setAddModalOpen(false);
-    void listPresenter.load();
-  }, [listPresenter]);
-
-  const handleOpenProject = useCallback(
-    (projectId: string) => {
-      router.navigate("project-detail", { projectId });
-    },
-    [router],
-  );
-
-  const handleSeedProject = useCallback(
-    (projectId: string) => {
-      router.navigate("seed-config", { projectId });
-    },
-    [router],
-  );
-
-  const handleViewHistory = useCallback(
-    (projectId: string) => {
-      router.navigate("seed-history", { projectId });
-    },
-    [router],
-  );
+    navigate("/");
+  }, []);
 
   return (
     <AppShell header={{ height: 60 }} padding="md">
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
-            <Title
-              order={3}
-              style={{ cursor: "pointer" }}
-              onClick={() => router.navigate("project-list")}
-            >
+            <Title order={3} style={{ cursor: "pointer" }} onClick={() => navigate("/")}>
               Webiny Data Mock
             </Title>
-            {router.currentView !== "project-list" && (
-              <Button variant="subtle" size="compact-sm" onClick={() => router.goBack()}>
-                Back
-              </Button>
-            )}
           </Group>
-          <Text size="sm" c="dimmed">
-            {viewLabel(router.currentView)}
-          </Text>
+          <Button variant="light" size="compact-sm" onClick={handleOpenAdd}>
+            Add Project
+          </Button>
         </Group>
       </AppShell.Header>
 
       <AppShell.Main>
-        <Box p="md">
-          {router.currentView === "project-list" && (
-            <ProjectListPage
-              presenter={listPresenter}
-              onAddProject={handleOpenAdd}
-              onOpenProject={handleOpenProject}
-              onSeedProject={handleSeedProject}
-              onViewHistory={handleViewHistory}
-            />
-          )}
-
-          {router.currentView === "project-detail" && router.params["projectId"] && (
-            <ProjectDetailPage presenter={detailPresenter} projectId={router.params["projectId"]} />
-          )}
-
-          {router.currentView === "seed-config" && router.params["projectId"] && (
-            <SeedConfigPage presenter={seedPresenter} projectId={router.params["projectId"]} />
-          )}
-
-          {router.currentView === "seed-history" && router.params["projectId"] && (
-            <SeedHistoryPage presenter={historyPresenter} projectId={router.params["projectId"]} />
-          )}
-        </Box>
+        <RouterView />
       </AppShell.Main>
 
       <Modal opened={addModalOpen} onClose={handleCloseAdd} title="Add Project" size="md">
@@ -116,19 +47,4 @@ export const AppLayout = observer(function AppLayout() {
       </Modal>
     </AppShell>
   );
-});
-
-function viewLabel(view: string): string {
-  switch (view) {
-    case "project-list":
-      return "Projects";
-    case "project-detail":
-      return "Project Details";
-    case "seed-config":
-      return "Seed Configuration";
-    case "seed-history":
-      return "Seed History";
-    default:
-      return "";
-  }
 }

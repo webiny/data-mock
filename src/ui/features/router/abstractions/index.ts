@@ -1,1 +1,2 @@
-export { Router } from "./Router.js";
+export { Route } from "./Route.js";
+export { RouteRegistry } from "./RouteRegistry.js";
