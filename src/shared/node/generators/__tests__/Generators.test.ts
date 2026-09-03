@@ -108,8 +108,8 @@ describe("TextGenerator", () => {
       predefinedValues: {
         enabled: true,
         values: [
-          { label: "Option A", value: "option-a" },
-          { label: "Option B", value: "option-b" },
+          { label: "Option A", value: "option-a", selected: false },
+          { label: "Option B", value: "option-b", selected: false },
         ],
       },
     });
@@ -152,8 +152,8 @@ describe("NumberGenerator", () => {
       predefinedValues: {
         enabled: true,
         values: [
-          { label: "Ten", value: "10" },
-          { label: "Twenty", value: "20" },
+          { label: "Ten", value: "10", selected: false },
+          { label: "Twenty", value: "20", selected: false },
         ],
       },
     });

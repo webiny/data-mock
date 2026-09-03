@@ -1,45 +1,15 @@
 import type {
-  CmsModel as BaseCmsModel,
-  CmsModelField as BaseCmsModelField,
-  CmsModelDynamicZoneField,
-} from "@webiny/api-headless-cms/types/index.js";
+  CmsContentModelField,
+  CmsContentModel,
+} from "~/shared/node/graphql/operations/base/listContentModels.js";
+
+export type ApiCmsModelField = CmsContentModelField;
+export type ApiCmsModel = CmsContentModel;
+export type ApiCmsModelDynamicZoneField = CmsContentModelField;
 
 export type GenericRecordKey = string | number | symbol;
 // eslint-disable-next-line
 export type GenericRecord<K extends GenericRecordKey = GenericRecordKey, V = any> = Record<K, V>;
-
-export type ApiCmsModelField = Pick<
-  BaseCmsModelField,
-  | "id"
-  | "fieldId"
-  | "storageId"
-  | "type"
-  | "list"
-  | "settings"
-  | "predefinedValues"
-  | "validation"
-  | "listValidation"
->;
-
-export type ApiCmsModelDynamicZoneField = Pick<
-  CmsModelDynamicZoneField,
-  | "id"
-  | "fieldId"
-  | "storageId"
-  | "type"
-  | "list"
-  | "settings"
-  | "predefinedValues"
-  | "validation"
-  | "listValidation"
->;
-
-export interface ApiCmsModel extends Pick<
-  BaseCmsModel,
-  "name" | "modelId" | "singularApiName" | "pluralApiName" | "tags" | "description"
-> {
-  fields: ApiCmsModelField[];
-}
 
 export interface CmsEntry<T> {
   id: string;

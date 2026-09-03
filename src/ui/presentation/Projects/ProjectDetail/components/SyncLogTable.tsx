@@ -17,13 +17,9 @@ interface ViewerState {
   language: string;
 }
 
-function extractOperations(response: unknown): OperationEntry[] {
-  if (response == null || typeof response !== "object") {
-    return [];
-  }
-  const obj = response as Record<string, unknown>;
-  if (Array.isArray(obj["operations"])) {
-    return obj["operations"] as OperationEntry[];
+function extractOperations(request: unknown): OperationEntry[] {
+  if (Array.isArray(request)) {
+    return request as OperationEntry[];
   }
   return [];
 }
@@ -94,7 +90,7 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
         </Table.Thead>
         <Table.Tbody>
           {logs.map((log) => {
-            const operations = extractOperations(log.response);
+            const operations = extractOperations(log.request);
             return (
               <Table.Tr key={log.id}>
                 <Table.Td>

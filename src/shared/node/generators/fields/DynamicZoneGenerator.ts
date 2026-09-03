@@ -14,7 +14,6 @@ export class DynamicZoneGenerator extends BaseGenerator<GenericRecord> {
       return null;
     }
     const random = faker.number.int({
-      // @ts-expect-error - current may be set by MultiDynamicZoneGenerator
       min: params.field.settings?.current || 0,
       max: templates.length - 1,
     });

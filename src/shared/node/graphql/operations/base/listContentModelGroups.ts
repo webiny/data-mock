@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineOperation } from "../defineOperation.js";
 
-const iconSchema = z
+export const iconSchema = z
   .object({
     type: z.string(),
     name: z.string(),
@@ -9,36 +9,25 @@ const iconSchema = z
   })
   .strict();
 
-const dataSchema = z.array(
-  z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      slug: z.string(),
-      description: z.string().nullable(),
-      icon: iconSchema.nullable(),
-    })
-    .strict(),
-);
+export const contentModelGroupSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    description: z.string().nullable(),
+    icon: iconSchema.nullable(),
+  })
+  .strict();
 
-interface Icon {
-  type: string;
-  name: string;
-  value?: string;
-}
+const dataSchema = z.array(contentModelGroupSchema);
 
-interface ContentModelGroup {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  icon: Icon | null;
-}
+export type CmsIcon = z.infer<typeof iconSchema>;
+export type CmsContentModelGroup = z.infer<typeof contentModelGroupSchema>;
 
 export const listContentModelGroups = defineOperation<
   void,
   z.infer<typeof dataSchema>,
-  ContentModelGroup[]
+  CmsContentModelGroup[]
 >({
   name: "listContentModelGroups",
   path: "/cms/manage",
