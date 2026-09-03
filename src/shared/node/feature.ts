@@ -17,12 +17,9 @@ export const AppFeature = createFeature({
     ProcessEnvFeature.register(container);
 
     const encryptionKey = process.env.ENCRYPTION_KEY;
-    if (!encryptionKey) {
-      throw new Error(
-        "ENCRYPTION_KEY environment variable is required. Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
-      );
+    if (encryptionKey) {
+      EncryptionFeature.register(container, { encryptionKey });
     }
-    EncryptionFeature.register(container, { encryptionKey });
 
     const dbPath = process.env.DB_PATH ?? DEFAULT_DB_PATH;
     const databaseClient = createDatabaseClient(dbPath);

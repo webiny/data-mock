@@ -5,6 +5,7 @@ import { UI } from "./UI.js";
 import { AddProjectFeature } from "./commands/addProject/feature.js";
 import { ListProjectsFeature } from "./commands/listProjects/feature.js";
 import { RemoveProjectFeature } from "./commands/removeProject/feature.js";
+import { InitFeature } from "./commands/init/feature.js";
 
 export const CliFeature = createFeature({
   name: "Cli/CliFeature",
@@ -12,6 +13,7 @@ export const CliFeature = createFeature({
     container.register(Prompts).inSingletonScope();
     container.register(UI).inSingletonScope();
 
+    InitFeature.register(container);
     AddProjectFeature.register(container);
     ListProjectsFeature.register(container);
     RemoveProjectFeature.register(container);

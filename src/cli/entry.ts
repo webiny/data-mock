@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Container } from "@webiny/di";
 import * as clack from "@clack/prompts";
 import { AppFeature } from "~/shared/node/feature.js";

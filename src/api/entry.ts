@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Container } from "@webiny/di";
 import { AppFeature } from "~/shared/node/feature.js";
 import { ApiFeature } from "./feature.js";
