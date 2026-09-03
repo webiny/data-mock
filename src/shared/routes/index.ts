@@ -20,3 +20,7 @@ export {
   createSeedTemplateRoute,
   deleteSeedTemplateRoute,
 } from "./templates.js";
+
+export { listSeedEntriesRoute, getSeedEntryRoute, deleteProjectEntriesRoute } from "./entries.js";
+
+export { listProjectFilesRoute, uploadProjectFileRoute, deleteProjectFileRoute } from "./files.js";

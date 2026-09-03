@@ -13,6 +13,7 @@ import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
 import { SeedingFeature } from "./features/seeding/feature.js";
 import { TemplatesFeature } from "./features/templates/feature.js";
+import { FilesFeature } from "./features/files/feature.js";
 
 const DEFAULT_DB_PATH = "./.webiny/data-mock.db";
 
@@ -39,5 +40,6 @@ export const AppFeature = createFeature({
     ModelsFeature.register(container);
     SeedingFeature.register(container);
     TemplatesFeature.register(container);
+    FilesFeature.register(container);
   },
 });

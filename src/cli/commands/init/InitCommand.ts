@@ -33,8 +33,8 @@ class InitCommandImpl implements Abstraction.Interface {
 
     const apiPort = await this.prompts.text({
       message: "API server port",
-      defaultValue: "3001",
-      placeholder: "3001",
+      defaultValue: "4000",
+      placeholder: "4000",
     });
     if (isCancel(apiPort)) {
       this.ui.cancel("Cancelled.");
@@ -43,8 +43,8 @@ class InitCommandImpl implements Abstraction.Interface {
 
     const uiPort = await this.prompts.text({
       message: "UI dev server port",
-      defaultValue: "5173",
-      placeholder: "5173",
+      defaultValue: "4001",
+      placeholder: "4001",
     });
     if (isCancel(uiPort)) {
       this.ui.cancel("Cancelled.");
@@ -61,8 +61,8 @@ class InitCommandImpl implements Abstraction.Interface {
       `ENCRYPTION_KEY=${encryptionKey}`,
       "",
       "# Server ports",
-      `API_PORT=${(apiPort as string) || "3001"}`,
-      `UI_PORT=${(uiPort as string) || "5173"}`,
+      `API_PORT=${apiPort || "4000"}`,
+      `UI_PORT=${uiPort || "4001"}`,
       "",
       "# Optional: custom database path (default: .webiny/data-mock.db)",
       "# DB_PATH=./.webiny/data-mock.db",
@@ -72,9 +72,7 @@ class InitCommandImpl implements Abstraction.Interface {
     writeFileSync(ENV_PATH, envContent, "utf-8");
 
     this.ui.log.success(".env file created with a fresh encryption key.");
-    this.ui.log.info(
-      `API port: ${(apiPort as string) || "3001"}, UI port: ${(uiPort as string) || "5173"}`,
-    );
+    this.ui.log.info(`API port: ${apiPort || "4000"}, UI port: ${uiPort || "4001"}`);
     this.ui.outro("Run 'yarn cli add-project' to add your first Webiny project.");
   }
 }

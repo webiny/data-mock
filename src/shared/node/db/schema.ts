@@ -77,6 +77,24 @@ export const seedTemplates = sqliteTable(
   (table) => [uniqueIndex("seed_template_unique").on(table.projectId, table.name)],
 );
 
+export const projectFiles = sqliteTable(
+  "project_files",
+  {
+    id: text("id").primaryKey().notNull(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    tenant: text("tenant").notNull(),
+    fileKey: text("file_key").notNull(),
+    fileUrl: text("file_url").notNull(),
+    fileName: text("file_name").notNull(),
+    fileType: text("file_type").notNull(),
+    fileSize: integer("file_size"),
+    uploadedAt: integer("uploaded_at").notNull(),
+  },
+  (table) => [uniqueIndex("project_file_unique").on(table.projectId, table.fileKey)],
+);
+
 export const seedJobs = sqliteTable("seed_jobs", {
   id: text("id").primaryKey().notNull(),
   projectId: text("project_id")
@@ -87,5 +105,24 @@ export const seedJobs = sqliteTable("seed_jobs", {
   result: text("result"),
   startedAt: integer("started_at"),
   finishedAt: integer("finished_at"),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const seedEntries = sqliteTable("seed_entries", {
+  id: text("id").primaryKey().notNull(),
+  jobId: text("job_id")
+    .notNull()
+    .references(() => seedJobs.id, { onDelete: "cascade" }),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  tenant: text("tenant").notNull(),
+  modelId: text("model_id").notNull(),
+  entryId: text("entry_id").notNull(),
+  entryData: text("entry_data").notNull(),
+  responseData: text("response_data"),
+  httpStatus: integer("http_status"),
+  status: text("status").notNull(),
+  error: text("error"),
   createdAt: integer("created_at").notNull(),
 });

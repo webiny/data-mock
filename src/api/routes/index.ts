@@ -4,6 +4,8 @@ import { registerTenantRoutes } from "./tenants/index.js";
 import { registerModelRoutes } from "./models/index.js";
 import { registerSeedingRoutes } from "./seeding/index.js";
 import { registerTemplateRoutes } from "./templates/index.js";
+import { registerEntryRoutes } from "./entries/index.js";
+import { registerFileRoutes } from "./files/index.js";
 
 export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerProjectRoutes(app);
@@ -11,4 +13,6 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerModelRoutes(app);
   await registerSeedingRoutes(app);
   await registerTemplateRoutes(app);
+  await registerEntryRoutes(app);
+  await registerFileRoutes(app);
 }

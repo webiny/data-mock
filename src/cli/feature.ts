@@ -10,6 +10,7 @@ import { SyncModelsFeature } from "./commands/syncModels/feature.js";
 import { PushModelsFeature } from "./commands/pushModels/feature.js";
 import { SeedFeature } from "./commands/seed/feature.js";
 import { RotateKeyFeature } from "./commands/rotateKey/feature.js";
+import { UploadFilesFeature } from "./commands/uploadFiles/feature.js";
 
 export const CliFeature = createFeature({
   name: "Cli/CliFeature",
@@ -25,6 +26,7 @@ export const CliFeature = createFeature({
     PushModelsFeature.register(container);
     SeedFeature.register(container);
     RotateKeyFeature.register(container);
+    UploadFilesFeature.register(container);
   },
 });
 

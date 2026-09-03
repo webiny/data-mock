@@ -26,3 +26,9 @@ export {
   createSeedTemplateBodySchema,
 } from "./templates.js";
 export type { SeedTemplateResponse, CreateSeedTemplateBody } from "./templates.js";
+
+export { seedEntrySchema } from "./entries.js";
+export type { SeedEntryResponse } from "./entries.js";
+
+export { projectFileSchema, uploadFileBodySchema } from "./files.js";
+export type { ProjectFileResponse, UploadFileBody } from "./files.js";

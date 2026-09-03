@@ -1,4 +1,4 @@
-import type { ApiCmsModelField, GenericRecord } from "~/shared/types.js";
+import type { ApiCmsModelField, GenericRecord, ProjectFile } from "~/shared/types.js";
 import type { Logger } from "@webiny/stdlib";
 
 export interface IRegistryGetGeneratorParams {
@@ -35,6 +35,7 @@ export interface IGeneratorGenerateParams<T extends ApiCmsModelField = ApiCmsMod
   field: T;
   getValidator: IGetValidator;
   availableRefs?: Map<string, string[]>;
+  filePool?: ProjectFile[];
 }
 export interface IGenerator<T> {
   type: string;
@@ -46,6 +47,7 @@ export interface IRegistryGenerator<T extends IGenerator<unknown>> {
   generate(
     field: ApiCmsModelField,
     availableRefs?: Map<string, string[]>,
+    filePool?: ProjectFile[],
   ): ReturnType<T["generate"]>;
 }
 

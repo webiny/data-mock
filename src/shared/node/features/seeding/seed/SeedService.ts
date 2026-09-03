@@ -8,6 +8,7 @@ import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { CreateSeedJobRepository } from "~/shared/node/features/seeding/create/abstractions/CreateSeedJobRepository.js";
 import { UpdateSeedJobRepository } from "~/shared/node/features/seeding/update/abstractions/UpdateSeedJobRepository.js";
 import { ModelDependencyResolver } from "~/shared/node/features/seeding/resolve/abstractions/ModelDependencyResolver.js";
+import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entries/abstractions/CreateSeedEntryRepository.js";
 import { createEntryVariables } from "~/shared/node/generators/createEntryVariables.js";
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
 import { buildCreateEntryQuery } from "~/shared/node/graphql/operations/base/createContentEntry.js";
@@ -25,6 +26,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     private readonly createSeedJobRepository: CreateSeedJobRepository.Interface,
     private readonly updateSeedJobRepository: UpdateSeedJobRepository.Interface,
     private readonly modelDependencyResolver: ModelDependencyResolver.Interface,
+    private readonly createSeedEntryRepository: CreateSeedEntryRepository.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -110,6 +112,20 @@ class SeedServiceImpl implements Abstraction.Interface {
             modelId: modelConfig.modelId,
             entries: entries.map((e) => e.values as Record<string, unknown>),
           });
+          for (const entry of entries) {
+            await this.createSeedEntryRepository.execute({
+              jobId: job.id,
+              projectId: project.id,
+              tenant: input.tenant,
+              modelId: modelConfig.modelId,
+              entryId: "",
+              entryData: entry.values as Record<string, unknown>,
+              responseData: null,
+              httpStatus: null,
+              status: "dry-run",
+              error: null,
+            });
+          }
           totalCreated += entries.length;
           this.logger.info(
             `[DRY RUN] Generated ${entries.length} entries for model "${model.name}" (not sent).`,
@@ -138,11 +154,23 @@ class SeedServiceImpl implements Abstraction.Interface {
 
             const response = await this.httpClient.post(apiUrl, body, headers);
 
+            const entryData = entries[i]!.values as Record<string, unknown>;
+
             if (response.status !== 200) {
               const text = await response.text().catch(() => "");
-              errors.push({
+              const errorMsg = `HTTP ${response.status}: ${text}`;
+              errors.push({ modelId: modelConfig.modelId, message: errorMsg });
+              await this.createSeedEntryRepository.execute({
+                jobId: job.id,
+                projectId: project.id,
+                tenant: input.tenant,
                 modelId: modelConfig.modelId,
-                message: `HTTP ${response.status}: ${text}`,
+                entryId: "",
+                entryData,
+                responseData: null,
+                httpStatus: response.status,
+                status: "failed",
+                error: errorMsg,
               });
               continue;
             }
@@ -151,26 +179,58 @@ class SeedServiceImpl implements Abstraction.Interface {
             const result = createOp.getResult(json);
 
             if (result.error) {
-              errors.push({
+              errors.push({ modelId: modelConfig.modelId, message: result.error.message });
+              await this.createSeedEntryRepository.execute({
+                jobId: job.id,
+                projectId: project.id,
+                tenant: input.tenant,
                 modelId: modelConfig.modelId,
-                message: result.error.message,
+                entryId: "",
+                entryData,
+                responseData: json as unknown as Record<string, unknown>,
+                httpStatus: 200,
+                status: "failed",
+                error: result.error.message,
               });
             } else {
               totalCreated++;
               const data = result.data as Record<string, unknown> | undefined;
-              if (data) {
-                const entryId = (data as Record<string, unknown>)["id"] as string | undefined;
-                if (entryId) {
-                  const existing = availableRefs.get(model.modelId) ?? [];
-                  existing.push(entryId);
-                  availableRefs.set(model.modelId, existing);
-                }
+              const entryId =
+                data && typeof (data as Record<string, unknown>)["id"] === "string"
+                  ? ((data as Record<string, unknown>)["id"] as string)
+                  : "";
+              if (entryId) {
+                const existing = availableRefs.get(model.modelId) ?? [];
+                existing.push(entryId);
+                availableRefs.set(model.modelId, existing);
               }
+              await this.createSeedEntryRepository.execute({
+                jobId: job.id,
+                projectId: project.id,
+                tenant: input.tenant,
+                modelId: modelConfig.modelId,
+                entryId,
+                entryData,
+                responseData: data ?? null,
+                httpStatus: 200,
+                status: "created",
+                error: null,
+              });
             }
           } catch (err) {
-            errors.push({
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            errors.push({ modelId: modelConfig.modelId, message: errorMsg });
+            await this.createSeedEntryRepository.execute({
+              jobId: job.id,
+              projectId: project.id,
+              tenant: input.tenant,
               modelId: modelConfig.modelId,
-              message: err instanceof Error ? err.message : String(err),
+              entryId: "",
+              entryData: entries[i]!.values as Record<string, unknown>,
+              responseData: null,
+              httpStatus: null,
+              status: "failed",
+              error: errorMsg,
             });
           }
         }
@@ -230,6 +290,7 @@ export const SeedService = Abstraction.createImplementation({
     CreateSeedJobRepository,
     UpdateSeedJobRepository,
     ModelDependencyResolver,
+    CreateSeedEntryRepository,
     Logger,
   ],
 });

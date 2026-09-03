@@ -5,7 +5,7 @@ import { ApiFeature } from "./feature.js";
 import { createServer } from "./server.js";
 import { registerApiRoutes } from "./routes/index.js";
 
-const PORT = Number(process.env.API_PORT ?? 3001);
+const PORT = Number(process.env.API_PORT ?? 4000);
 const HOST = "127.0.0.1";
 
 const container = new Container();

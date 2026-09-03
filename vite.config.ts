@@ -10,10 +10,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: Number(process.env.UI_PORT ?? 5173),
+    port: Number(process.env.UI_PORT ?? 4001),
     proxy: {
       "/api": {
-        target: `http://localhost:${process.env.API_PORT ?? 3001}`,
+        target: `http://localhost:${process.env.API_PORT ?? 4000}`,
         changeOrigin: true,
       },
     },

@@ -105,6 +105,18 @@ export interface SeedTemplate {
   createdAt: number;
 }
 
+export interface ProjectFile {
+  id: string;
+  projectId: string;
+  tenant: string;
+  fileKey: string;
+  fileUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number | null;
+  uploadedAt: number;
+}
+
 export interface SeedJobConfig {
   models: Array<{ modelId: string; amount: number }>;
 }
@@ -125,4 +137,21 @@ export interface SeedJob {
 export interface SeedJobResult {
   created: number;
   errors: Array<{ message: string; code: string }>;
+}
+
+export type SeedEntryStatus = "created" | "failed" | "dry-run";
+
+export interface SeedEntry {
+  id: string;
+  jobId: string;
+  projectId: string;
+  tenant: string;
+  modelId: string;
+  entryId: string;
+  entryData: Record<string, unknown>;
+  responseData: Record<string, unknown> | null;
+  httpStatus: number | null;
+  status: SeedEntryStatus;
+  error: string | null;
+  createdAt: number;
 }

@@ -97,6 +97,7 @@ class GeneratorRegistryImpl implements IGeneratorRegistry {
       generate: (
         field: ApiCmsModelField,
         availableRefs?: Map<string, string[]>,
+        filePool?: import("~/shared/types.js").ProjectFile[],
       ): ReturnType<T["generate"]> => {
         // @ts-expect-error - type narrowing for generate params
         return generator.generate({
@@ -105,6 +106,7 @@ class GeneratorRegistryImpl implements IGeneratorRegistry {
             return this.getValidator(field, validatorConstructor);
           },
           availableRefs,
+          filePool,
         });
       },
     };
