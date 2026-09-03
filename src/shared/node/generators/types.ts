@@ -24,7 +24,7 @@ export interface IGeneratorRegistry {
   getGenerator<T extends IGenerator<unknown>>(
     params: IRegistryGetGeneratorParams,
   ): IRegistryGenerator<T>;
-  registerValidator<T extends IGenerator<unknown>>(validator: IValidatorConstructor<T>): void;
+  registerValidator(validator: IValidatorConstructor<unknown>): void;
 }
 
 export interface IGetValidator {

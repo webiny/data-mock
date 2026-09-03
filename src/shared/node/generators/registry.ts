@@ -10,9 +10,10 @@ import type {
 } from "./types.js";
 import type { ApiCmsModelField } from "~/shared/types.js";
 import { createCacheKey, createMemoryCache } from "~/shared/node/cache/index.js";
-import type { Logger } from "@webiny/stdlib";
+import { Logger } from "@webiny/stdlib";
+import { GeneratorRegistry as Abstraction } from "./abstractions/GeneratorRegistry.js";
 
-export class GeneratorRegistry implements IGeneratorRegistry {
+class GeneratorRegistryImpl implements IGeneratorRegistry {
   public generators: IGenerator<unknown>[] = [];
   public validators: IValidatorConstructor<unknown>[] = [];
   private readonly validatorsCache = createMemoryCache();
@@ -111,3 +112,8 @@ export class GeneratorRegistry implements IGeneratorRegistry {
     };
   }
 }
+
+export const GeneratorRegistry = Abstraction.createImplementation({
+  implementation: GeneratorRegistryImpl,
+  dependencies: [Logger],
+});

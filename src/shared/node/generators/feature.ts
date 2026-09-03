@@ -1,6 +1,6 @@
-import { createFeature, Logger } from "@webiny/stdlib";
+import { createFeature } from "@webiny/stdlib";
 import { GeneratorRegistry } from "./abstractions/GeneratorRegistry.js";
-import { GeneratorRegistry as GeneratorRegistryImpl } from "./registry.js";
+import { GeneratorRegistry as GeneratorRegistryBinding } from "./registry.js";
 import {
   TextGenerator,
   MultiTextGenerator,
@@ -35,8 +35,8 @@ import {
 export const GeneratorFeature = createFeature({
   name: "Generators/GeneratorFeature",
   register(container) {
-    const logger = container.resolve(Logger);
-    const registry = new GeneratorRegistryImpl(logger);
+    container.register(GeneratorRegistryBinding).inSingletonScope();
+    const registry = container.resolve(GeneratorRegistry);
 
     registry.registerValidator(MinimumLengthValidator);
     registry.registerValidator(MaximumLengthValidator);
@@ -65,7 +65,5 @@ export const GeneratorFeature = createFeature({
     registry.registerGenerator(MultiObjectGenerator);
     registry.registerGenerator(DynamicZoneGenerator);
     registry.registerGenerator(MultiDynamicZoneGenerator);
-
-    container.registerInstance(GeneratorRegistry, registry);
   },
 });
