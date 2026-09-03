@@ -1,4 +1,8 @@
-import { Badge, Button, Group, Stack, Table, Text, Title } from "@mantine/core";
+import { useState } from "react";
+import { Badge, Button, Group, Pagination, Stack, Table, Text, Title } from "@mantine/core";
+import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
+import { usePagination } from "~/ui/components/usePagination.js";
+import type { IEntryVM } from "../abstractions/ProjectDetailPresenter.js";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 
 interface AuditLogTabProps {
@@ -14,6 +18,9 @@ const statusColor: Record<string, string> = {
 };
 
 export function AuditLogTab({ entries, isClearing, onClear }: AuditLogTabProps) {
+  const [selectedEntry, setSelectedEntry] = useState<IEntryVM | null>(null);
+  const { page, totalPages, pageItems, setPage } = usePagination(entries);
+
   if (entries.length === 0) {
     return (
       <Stack align="center" mt="xl">
@@ -41,8 +48,12 @@ export function AuditLogTab({ entries, isClearing, onClear }: AuditLogTabProps) 
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {entries.map((entry) => (
-            <Table.Tr key={entry.id}>
+          {pageItems.map((entry) => (
+            <Table.Tr
+              key={entry.id}
+              onClick={() => setSelectedEntry(entry)}
+              style={{ cursor: "pointer" }}
+            >
               <Table.Td>
                 <Text size="sm">{new Date(entry.createdAt).toLocaleString()}</Text>
               </Table.Td>
@@ -70,6 +81,20 @@ export function AuditLogTab({ entries, isClearing, onClear }: AuditLogTabProps) 
           ))}
         </Table.Tbody>
       </Table>
+      {totalPages > 1 && (
+        <Group justify="center" mt="md">
+          <Pagination total={totalPages} value={page} onChange={setPage} />
+        </Group>
+      )}
+      {selectedEntry && (
+        <CodeViewerModal
+          opened={true}
+          onClose={() => setSelectedEntry(null)}
+          title={`Entry ${selectedEntry.entryId} — ${selectedEntry.modelId}`}
+          value={JSON.stringify(selectedEntry.entryData, null, 2)}
+          language="json"
+        />
+      )}
     </Stack>
   );
 }

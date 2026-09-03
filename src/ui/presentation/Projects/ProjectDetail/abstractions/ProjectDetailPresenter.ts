@@ -29,6 +29,7 @@ export interface IModelVM {
   name: string;
   groupSlug: string;
   fieldCount: number;
+  fields: unknown[];
   syncedAt: number | null;
 }
 
@@ -62,6 +63,9 @@ export interface IEntryVM {
   tenant: string;
   status: SeedEntryStatus;
   entryId: string;
+  entryData: Record<string, unknown>;
+  responseData: Record<string, unknown> | null;
+  error: string | null;
   createdAt: number;
 }
 

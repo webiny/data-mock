@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Badge, Button, Group, Modal, Stack, Table, Text } from "@mantine/core";
+import { Badge, Button, Group, Modal, Pagination, Stack, Table, Text, Title } from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
+import { usePagination } from "~/ui/components/usePagination.js";
 import type { ISyncLogVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface OperationEntry {
@@ -39,6 +40,7 @@ interface SyncLogTableProps {
 export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const { page, totalPages, pageItems, setPage } = usePagination(logs);
 
   const showRequest = (op: OperationEntry) => {
     const info = [
@@ -77,6 +79,9 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
 
   return (
     <>
+      <Title order={4} mb="sm">
+        Sync Log ({logs.length})
+      </Title>
       <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>
@@ -89,7 +94,7 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {logs.map((log) => {
+          {pageItems.map((log) => {
             const operations = extractOperations(log.request);
             return (
               <Table.Tr key={log.id}>
@@ -163,6 +168,12 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
           })}
         </Table.Tbody>
       </Table>
+
+      {totalPages > 1 && (
+        <Group justify="center" mt="md">
+          <Pagination total={totalPages} value={page} onChange={setPage} />
+        </Group>
+      )}
 
       {viewer && (
         <CodeViewerModal

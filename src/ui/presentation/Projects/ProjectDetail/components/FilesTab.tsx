@@ -1,4 +1,5 @@
-import { Badge, Button, Stack, Table, Text, Title } from "@mantine/core";
+import { Badge, Button, Group, Pagination, Stack, Table, Text, Title } from "@mantine/core";
+import { usePagination } from "~/ui/components/usePagination.js";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 
 interface FilesTabProps {
@@ -7,6 +8,8 @@ interface FilesTabProps {
 }
 
 export function FilesTab({ files, onDelete }: FilesTabProps) {
+  const { page, totalPages, pageItems, setPage } = usePagination(files);
+
   if (files.length === 0) {
     return (
       <Stack align="center" mt="xl">
@@ -17,7 +20,7 @@ export function FilesTab({ files, onDelete }: FilesTabProps) {
 
   return (
     <Stack gap="md">
-      <Title order={4}>Uploaded Files</Title>
+      <Title order={4}>Uploaded Files ({files.length})</Title>
       <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>
@@ -30,7 +33,7 @@ export function FilesTab({ files, onDelete }: FilesTabProps) {
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {files.map((file) => (
+          {pageItems.map((file) => (
             <Table.Tr key={file.id}>
               <Table.Td>{file.fileName}</Table.Td>
               <Table.Td>
@@ -63,6 +66,11 @@ export function FilesTab({ files, onDelete }: FilesTabProps) {
           ))}
         </Table.Tbody>
       </Table>
+      {totalPages > 1 && (
+        <Group justify="center" mt="md">
+          <Pagination total={totalPages} value={page} onChange={setPage} />
+        </Group>
+      )}
     </Stack>
   );
 }

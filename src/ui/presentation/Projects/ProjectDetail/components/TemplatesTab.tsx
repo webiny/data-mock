@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
-import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
+import { Badge, Button, Card, Group, Pagination, Stack, Text, Title } from "@mantine/core";
+import { usePagination } from "~/ui/components/usePagination.js";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 
 interface TemplatesTabProps {
@@ -13,6 +14,8 @@ export const TemplatesTab = observer(function TemplatesTab({
   onLoad,
   onDelete,
 }: TemplatesTabProps) {
+  const { page, totalPages, pageItems, setPage } = usePagination(templates);
+
   if (templates.length === 0) {
     return (
       <Text c="dimmed" fs="italic">
@@ -23,7 +26,8 @@ export const TemplatesTab = observer(function TemplatesTab({
 
   return (
     <Stack gap="sm">
-      {templates.map((template) => (
+      <Title order={4}>Templates ({templates.length})</Title>
+      {pageItems.map((template) => (
         <Card key={template.id} withBorder padding="sm">
           <Group justify="space-between">
             <Stack gap={2}>
@@ -49,6 +53,11 @@ export const TemplatesTab = observer(function TemplatesTab({
           </Group>
         </Card>
       ))}
+      {totalPages > 1 && (
+        <Group justify="center" mt="md">
+          <Pagination total={totalPages} value={page} onChange={setPage} />
+        </Group>
+      )}
     </Stack>
   );
 });

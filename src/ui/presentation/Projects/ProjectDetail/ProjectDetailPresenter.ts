@@ -145,6 +145,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         name: m.name,
         groupSlug: m.groupSlug,
         fieldCount: m.fields.length,
+        fields: m.fields,
         syncedAt: m.syncedAt,
       })),
       seedJobs: seedJobs.map((j) => ({
@@ -174,6 +175,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         tenant: e.tenant,
         status: e.status,
         entryId: e.entryId,
+        entryData: e.entryData,
+        responseData: e.responseData,
+        error: e.error,
         createdAt: e.createdAt,
       })),
       syncLog: syncLogs.map((l) => ({

@@ -3,7 +3,8 @@ import path from "node:path";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { generateId } from "@webiny/stdlib";
-import { projects } from "./db/schema.js";
+import { projects, projectTenants } from "./db/schema.js";
+import { and } from "drizzle-orm";
 import type { DatabaseClient } from "./db/abstractions/DatabaseClient.js";
 import type { EncryptionService } from "./encryption/abstractions/EncryptionService.js";
 
@@ -50,7 +51,10 @@ export function seedProjectsFromFile(
 
     const encryptedToken = encryptionService.encrypt(project.apiToken);
 
+    let projectId: string;
+
     if (existing) {
+      projectId = existing.id;
       db.update(projects)
         .set({
           apiUrl: project.apiUrl,
@@ -62,9 +66,10 @@ export function seedProjectsFromFile(
         .where(eq(projects.id, existing.id))
         .run();
     } else {
+      projectId = generateId();
       db.insert(projects)
         .values({
-          id: generateId(),
+          id: projectId,
           name: project.name,
           apiUrl: project.apiUrl,
           apiToken: encryptedToken,
@@ -72,6 +77,26 @@ export function seedProjectsFromFile(
           webinyVersion: project.webinyVersion,
           createdAt: now,
           updatedAt: now,
+        })
+        .run();
+    }
+
+    const hasRootTenant = db
+      .select()
+      .from(projectTenants)
+      .where(
+        and(eq(projectTenants.projectId, projectId), eq(projectTenants.tenantId, project.tenant)),
+      )
+      .get();
+
+    if (!hasRootTenant) {
+      db.insert(projectTenants)
+        .values({
+          id: generateId(),
+          projectId,
+          tenantId: project.tenant,
+          name: project.tenant,
+          discoveredAt: now,
         })
         .run();
     }

@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
-import { Badge, Table, Text, Stack } from "@mantine/core";
+import { Badge, Group, Pagination, Table, Text, Stack, Title } from "@mantine/core";
+import { usePagination } from "~/ui/components/usePagination.js";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 
 interface TenantsTabProps {
@@ -7,6 +8,8 @@ interface TenantsTabProps {
 }
 
 export const TenantsTab = observer(function TenantsTab({ tenants }: TenantsTabProps) {
+  const { page, totalPages, pageItems, setPage } = usePagination(tenants);
+
   if (tenants.length === 0) {
     return (
       <Text c="dimmed" fs="italic">
@@ -17,6 +20,7 @@ export const TenantsTab = observer(function TenantsTab({ tenants }: TenantsTabPr
 
   return (
     <Stack gap="sm">
+      <Title order={4}>Tenants ({tenants.length})</Title>
       <Table>
         <Table.Thead>
           <Table.Tr>
@@ -26,7 +30,7 @@ export const TenantsTab = observer(function TenantsTab({ tenants }: TenantsTabPr
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {tenants.map((t) => (
+          {pageItems.map((t) => (
             <Table.Tr key={t.tenantId}>
               <Table.Td>
                 <Badge variant="outline" size="sm">
@@ -43,6 +47,11 @@ export const TenantsTab = observer(function TenantsTab({ tenants }: TenantsTabPr
           ))}
         </Table.Tbody>
       </Table>
+      {totalPages > 1 && (
+        <Group justify="center" mt="md">
+          <Pagination total={totalPages} value={page} onChange={setPage} />
+        </Group>
+      )}
     </Stack>
   );
 });
