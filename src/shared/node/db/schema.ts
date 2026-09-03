@@ -6,6 +6,7 @@ export const projects = sqliteTable("projects", {
   apiUrl: text("api_url").notNull(),
   apiToken: text("api_token").notNull(),
   tenant: text("tenant").default("root").notNull(),
+  webinyVersion: text("webiny_version").default("6.0.0").notNull(),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });

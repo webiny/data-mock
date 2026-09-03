@@ -38,17 +38,47 @@ project_tenants
 └── UNIQUE(project_id, tenant_id)
 ```
 
-## Re-Sync
+## Re-Sync with Change Detection
 
 Available on demand:
 - **CLI:** `yarn cli sync-tenants` (select project)
 - **UI:** "Sync Tenants" button on project detail page
 
-Re-sync replaces all stored tenants with freshly fetched ones.
+Re-sync compares remote tenants with local state and reports:
+
+```
+Tenant sync for "My Project":
+  + tenant-new (New Tenant)     — added remotely
+  - tenant-old (Old Tenant)     — removed remotely
+  = root (Root)                 — unchanged
+
+Accept changes? [Y/n]
+```
+
+### Change Detection Flow
+
+1. Fetch remote tenants from Webiny API
+2. Compare with locally stored `project_tenants`
+3. Classify each tenant: **added** (remote only), **removed** (local only), **unchanged** (both)
+4. Show diff to user
+5. On accept: apply the replace (delete + re-insert)
+6. On reject: keep local state as-is
+
+### TenantSyncService Output
+
+```ts
+interface TenantSyncResult {
+  added: Array<{ tenantId: string; name: string }>;
+  removed: Array<{ tenantId: string; name: string }>;
+  unchanged: Array<{ tenantId: string; name: string }>;
+}
+```
+
+The auto-sync after project creation skips the confirmation (no prior state to compare against).
 
 ## Why Auto-Sync After Create
 
 - Immediate feedback on whether the API key works
 - User doesn't need a separate step for common case
 - Graceful degradation if tenant listing isn't available
-- Manual re-sync for when tenant setup changes
+- Manual re-sync with change detection for when tenant setup changes

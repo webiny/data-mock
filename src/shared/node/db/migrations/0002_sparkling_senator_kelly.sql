@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `webiny_version` text DEFAULT '6.0.0' NOT NULL;

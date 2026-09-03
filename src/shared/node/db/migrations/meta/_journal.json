@@ -15,6 +15,13 @@
       "when": 1788423816518,
       "tag": "0001_spicy_black_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788424226026,
+      "tag": "0002_sparkling_senator_kelly",
+      "breakpoints": true
     }
   ]
 }

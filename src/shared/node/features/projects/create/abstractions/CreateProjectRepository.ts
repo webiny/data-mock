@@ -8,6 +8,7 @@ export interface ICreateProjectRepositoryInput {
   apiUrl: string;
   apiToken: string;
   tenant: string;
+  webinyVersion?: string;
 }
 
 export interface ICreateProjectRepository {

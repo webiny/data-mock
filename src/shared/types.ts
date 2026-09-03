@@ -53,6 +53,7 @@ export interface Project {
   apiUrl: string;
   apiToken: string;
   tenant: string;
+  webinyVersion: string;
   createdAt: number;
   updatedAt: number;
 }

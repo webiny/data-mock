@@ -64,11 +64,22 @@ class AddProjectCommandImpl implements Command.Interface {
       return;
     }
 
+    const webinyVersion = await this.prompts.text({
+      message: "Webiny version",
+      defaultValue: "6.0.0",
+      placeholder: "6.4.9",
+    });
+    if (isCancel(webinyVersion)) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+
     const result = await this.createProjectUseCase.execute({
       name,
       apiUrl,
       apiToken,
       tenant: tenant || "root",
+      webinyVersion: webinyVersion || "6.0.0",
     });
 
     if (result.isFail()) {

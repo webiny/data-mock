@@ -1,17 +1,25 @@
 import { Result } from "@webiny/stdlib";
 import { projects } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
+import { EncryptionService } from "~/shared/node/encryption/abstractions/EncryptionService.js";
 import { ListProjectsRepository as Abstraction } from "./abstractions/ListProjectsRepository.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
 import type { Project } from "~/shared/types.js";
 
 class ListProjectsRepositoryImpl implements Abstraction.Interface {
-  public constructor(private readonly databaseClient: DatabaseClient.Interface) {}
+  public constructor(
+    private readonly databaseClient: DatabaseClient.Interface,
+    private readonly encryptionService: EncryptionService.Interface,
+  ) {}
 
   public async execute(): Promise<Result<Project[], Abstraction.Error>> {
     try {
       const rows = this.databaseClient.db.select().from(projects).all();
-      return Result.ok(rows);
+      const decrypted = rows.map((row) => ({
+        ...row,
+        apiToken: this.encryptionService.decrypt(row.apiToken),
+      }));
+      return Result.ok(decrypted);
     } catch (error) {
       return Result.fail(new ProjectPersistenceError(toError(error)));
     }
@@ -24,5 +32,5 @@ function toError(value: unknown): Error {
 
 export const ListProjectsRepository = Abstraction.createImplementation({
   implementation: ListProjectsRepositoryImpl,
-  dependencies: [DatabaseClient],
+  dependencies: [DatabaseClient, EncryptionService],
 });

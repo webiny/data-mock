@@ -1,12 +1,13 @@
 import { Container } from "@webiny/di";
 import { join } from "node:path";
 import { mkdirSync, rmSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { PinoLoggerFeature, ProcessEnvFeature } from "@webiny/stdlib/node";
 import { createDatabaseClient } from "~/shared/node/db/client.js";
 import { runMigrations } from "~/shared/node/db/migrate.js";
 import { DatabaseFeature } from "~/shared/node/db/feature.js";
 import { CacheFeature } from "~/shared/node/cache/feature.js";
+import { EncryptionFeature } from "~/shared/node/encryption/feature.js";
 import { GeneratorFeature } from "~/shared/node/generators/feature.js";
 import { ProjectsFeature } from "~/shared/node/features/projects/feature.js";
 import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
@@ -46,6 +47,8 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   DatabaseFeature.register(container, { databaseClient });
 
   CacheFeature.register(container, { cacheDir });
+
+  EncryptionFeature.register(container, { encryptionKey: randomBytes(32).toString("hex") });
 
   GeneratorFeature.register(container);
   TenantsFeature.register(container);

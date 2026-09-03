@@ -6,6 +6,7 @@ export const projectSchema = z.object({
   apiUrl: z.string(),
   apiToken: z.string(),
   tenant: z.string(),
+  webinyVersion: z.string(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -17,6 +18,7 @@ export const createProjectBodySchema = z.object({
   apiUrl: z.string().url(),
   apiToken: z.string().min(1),
   tenant: z.string().optional().default("root"),
+  webinyVersion: z.string().optional().default("6.0.0"),
 });
 
 export type CreateProjectBody = z.infer<typeof createProjectBodySchema>;
