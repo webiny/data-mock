@@ -1,23 +1,11 @@
 import { z } from "zod";
 import { defineOperation } from "../defineOperation.js";
 
-const tenantValuesSchema = z
-  .object({
-    name: z.string(),
-    isInstalled: z.boolean().optional(),
-    status: z.string().optional(),
-    description: z.string().nullable().optional(),
-  })
-  .passthrough();
-
 const dataSchema = z.array(
-  z
-    .object({
-      id: z.string(),
-      entryId: z.string().optional(),
-      values: tenantValuesSchema,
-    })
-    .passthrough(),
+  z.object({
+    id: z.string(),
+    values: z.object({ name: z.string() }).strict(),
+  }).strict(),
 );
 
 interface Tenant {

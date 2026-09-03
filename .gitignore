@@ -25,5 +25,6 @@ dist/
 
 dryRuns
 dryRuns/*
+.projects.json
 .codegraph
 .webiny
