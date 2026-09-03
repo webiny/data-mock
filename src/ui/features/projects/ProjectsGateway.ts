@@ -21,8 +21,7 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
       return Result.fail(result.error);
     }
 
-    const response = result.value as { projects: { items: Project[]; total: number } };
-    return Result.ok(response.projects.items);
+    return Result.ok(result.value.projects.items);
   }
 
   public async getById(id: string): Promise<Result<Project, HTTPError>> {
@@ -34,8 +33,7 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
       return Result.fail(result.error);
     }
 
-    const response = result.value as { project: Project };
-    return Result.ok(response.project);
+    return Result.ok(result.value.project);
   }
 
   public async create(input: Abstraction.CreateInput): Promise<Result<Project, HTTPError>> {
@@ -48,8 +46,7 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
       return Result.fail(result.error);
     }
 
-    const response = result.value as { project: Project };
-    return Result.ok(response.project);
+    return Result.ok(result.value.project);
   }
 
   public async remove(id: string): Promise<Result<void, HTTPError>> {
