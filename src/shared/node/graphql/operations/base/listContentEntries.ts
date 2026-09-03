@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { IGraphQLOperation } from "../types.js";
+import type { IGraphQLOperation, OperationQuery } from "../types.js";
 import type { GenericRecord } from "~/shared/types.js";
 
 const listDataSchema = z.array(z.object({}).passthrough());
@@ -30,12 +30,11 @@ export const listContentEntries: IGraphQLOperation<ListEntriesInput, ListEntries
   path: "/cms/manage",
   query: "",
   getResult(json) {
-    const keys = Object.keys(json.data);
-    const operationKey = keys[0];
-    if (!operationKey) {
+    const key = Object.keys(json.data)[0];
+    if (!key) {
       return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };
     }
-    const result = json.data[operationKey] as Record<string, unknown>;
+    const result = json.data[key] as Record<string, unknown>;
     if (result["error"]) {
       return {
         data: null,
@@ -80,10 +79,13 @@ export const listContentEntries: IGraphQLOperation<ListEntriesInput, ListEntries
 export function buildListEntriesQuery(input: {
   pluralApiName: string;
   fieldSelection: string;
-}): string {
-  return `
+}): OperationQuery<GenericRecord[]> {
+  const operationName = `list${input.pluralApiName}`;
+
+  return {
+    query: `
     query ListEntries($limit: Int, $after: String) {
-      list${input.pluralApiName}(limit: $limit, after: $after) {
+      ${operationName}(limit: $limit, after: $after) {
         data {
           id
           entryId
@@ -101,5 +103,8 @@ export function buildListEntriesQuery(input: {
         }
       }
     }
-  `;
+  `,
+    responseKey: operationName,
+    dataSchema: listDataSchema,
+  };
 }

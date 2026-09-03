@@ -1,9 +1,16 @@
 import { z } from "zod";
-import type { IGraphQLOperation } from "../types.js";
+import { defineOperation } from "../defineOperation.js";
 import type { ApiCmsModel } from "~/shared/types.js";
 
 const dataSchema = z.array(
-  z.object({ name: z.string(), modelId: z.string(), fields: z.array(z.unknown()) }).passthrough(),
+  z
+    .object({
+      name: z.string(),
+      modelId: z.string(),
+      description: z.string().nullable().optional(),
+      fields: z.array(z.unknown()),
+    })
+    .passthrough(),
 );
 
 const CMS_MODEL_FIELDS_SUBSELECTION = `
@@ -35,9 +42,11 @@ const CMS_MODEL_FIELDS_SUBSELECTION = `
   }
 `;
 
-export const listContentModels: IGraphQLOperation<void, ApiCmsModel[]> = {
+export const listContentModels = defineOperation<void, z.infer<typeof dataSchema>, ApiCmsModel[]>({
   name: "listContentModels",
   path: "/cms/manage",
+  responseKey: "listContentModels",
+  dataSchema,
   query: `
     query ListContentModels {
       listContentModels {
@@ -47,6 +56,7 @@ export const listContentModels: IGraphQLOperation<void, ApiCmsModel[]> = {
           singularApiName
           pluralApiName
           tags
+          description
           group
           ${CMS_MODEL_FIELDS_SUBSELECTION}
         }
@@ -58,31 +68,4 @@ export const listContentModels: IGraphQLOperation<void, ApiCmsModel[]> = {
       }
     }
   `,
-  getResult(json) {
-    const result = json.data["listContentModels"] as Record<string, unknown> | undefined;
-    if (!result) {
-      return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };
-    }
-    if (result["error"]) {
-      return {
-        data: null,
-        error: result["error"] as {
-          message: string;
-          code: string;
-          data?: Record<string, unknown> | null;
-        },
-      };
-    }
-    const parsed = dataSchema.safeParse(result["data"]);
-    if (!parsed.success) {
-      return {
-        data: null,
-        error: {
-          message: `Invalid listContentModels response: ${parsed.error.issues[0]?.message ?? "unknown"}`,
-          code: "VALIDATION",
-        },
-      };
-    }
-    return { data: parsed.data as unknown as ApiCmsModel[] };
-  },
-};
+});

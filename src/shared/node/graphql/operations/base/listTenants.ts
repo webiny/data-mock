@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { IGraphQLOperation } from "../types.js";
+import { defineOperation } from "../defineOperation.js";
 
 const dataSchema = z.array(
   z.object({ id: z.string(), values: z.object({ name: z.string() }).passthrough() }).passthrough(),
@@ -10,9 +10,11 @@ interface Tenant {
   name: string;
 }
 
-export const listTenants: IGraphQLOperation<void, Tenant[]> = {
+export const listTenants = defineOperation<void, z.infer<typeof dataSchema>, Tenant[]>({
   name: "listTenants",
   path: "/cms/manage",
+  responseKey: "listTenants",
+  dataSchema,
   query: `
     query ListTenants {
       listTenants {
@@ -30,33 +32,5 @@ export const listTenants: IGraphQLOperation<void, Tenant[]> = {
       }
     }
   `,
-  getResult(json) {
-    const result = json.data["listTenants"] as Record<string, unknown> | undefined;
-    if (!result) {
-      return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };
-    }
-    if (result["error"]) {
-      return {
-        data: null,
-        error: result["error"] as {
-          message: string;
-          code: string;
-          data?: Record<string, unknown> | null;
-        },
-      };
-    }
-    const parsed = dataSchema.safeParse(result["data"]);
-    if (!parsed.success) {
-      return {
-        data: null,
-        error: {
-          message: `Invalid listTenants response: ${parsed.error.issues[0]?.message ?? "unknown"}`,
-          code: "VALIDATION",
-        },
-      };
-    }
-    return {
-      data: parsed.data.map((e) => ({ id: e.id, name: e.values.name })),
-    };
-  },
-};
+  transform: (data) => data.map((e) => ({ id: e.id, name: e.values.name })),
+});

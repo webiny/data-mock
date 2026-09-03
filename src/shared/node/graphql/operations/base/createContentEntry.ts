@@ -1,6 +1,7 @@
 import { z } from "zod";
-import type { IGraphQLOperation } from "../types.js";
+import type { IGraphQLOperation, OperationQuery } from "../types.js";
 import type { GenericRecord } from "~/shared/types.js";
+import { parseOperationResponse } from "../parseOperationResponse.js";
 
 const entryDataSchema = z.object({ id: z.string(), entryId: z.string() }).passthrough();
 
@@ -21,37 +22,11 @@ export const createContentEntry: IGraphQLOperation<CreateEntryInput, CreateEntry
   path: "/cms/manage",
   query: "",
   getResult(json) {
-    const keys = Object.keys(json.data);
-    const operationKey = keys[0];
-    if (!operationKey) {
-      return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };
+    const result = parseOperationResponse(json, null, entryDataSchema);
+    if (result.error) {
+      return result;
     }
-    const result = json.data[operationKey] as Record<string, unknown>;
-    if (result["error"]) {
-      return {
-        data: null,
-        error: result["error"] as { message: string; code: string; data?: GenericRecord | null },
-      };
-    }
-    const rawData = result["data"];
-    if (rawData != null) {
-      const parsed = entryDataSchema.safeParse(rawData);
-      if (!parsed.success) {
-        return {
-          data: null,
-          error: {
-            message: `Invalid create response: ${parsed.error.issues[0]?.message ?? "unknown"}`,
-            code: "VALIDATION",
-          },
-        };
-      }
-    }
-    return {
-      data: {
-        data: rawData as GenericRecord | null,
-        error: null,
-      },
-    };
+    return { data: { data: result.data as GenericRecord, error: null } };
   },
   getVariables(input) {
     return input.variables;
@@ -62,15 +37,18 @@ export function buildCreateEntryQuery(input: {
   singularApiName: string;
   fieldSelection: string;
   skipValidators?: string[];
-}): string {
+}): OperationQuery<z.infer<typeof entryDataSchema>> {
+  const operationName = `create${input.singularApiName}`;
+
   const skipValidatorsArg =
     input.skipValidators && input.skipValidators.length > 0
       ? `, options: { skipValidators: [${input.skipValidators.map((v) => `"${v}"`).join(", ")}] }`
       : "";
 
-  return `
+  return {
+    query: `
     mutation CreateEntry($data: ${input.singularApiName}Input!) {
-      create${input.singularApiName}(data: $data${skipValidatorsArg}) {
+      ${operationName}(data: $data${skipValidatorsArg}) {
         data {
           id
           entryId
@@ -83,5 +61,8 @@ export function buildCreateEntryQuery(input: {
         }
       }
     }
-  `;
+  `,
+    responseKey: operationName,
+    dataSchema: entryDataSchema,
+  };
 }

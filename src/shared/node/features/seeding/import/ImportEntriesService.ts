@@ -79,7 +79,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
   ): Promise<number> {
     const fieldSelection = createModelFields(model.fields);
     const { pluralApiName } = model;
-    const query = buildListEntriesQuery({ pluralApiName, fieldSelection });
+    const query = buildListEntriesQuery({ pluralApiName, fieldSelection }).query;
     const listOp = this.operationRegistry.resolve("listContentEntries", project.webinyVersion);
     const apiUrl = `${project.apiUrl}${listOp.path}`;
 

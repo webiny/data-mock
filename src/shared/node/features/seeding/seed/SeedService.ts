@@ -132,10 +132,13 @@ class SeedServiceImpl implements Abstraction.Interface {
 
         const fieldSelection = createModelFields(ctx.model.fields);
         const singularApiName = ctx.model.singularApiName;
-        const createMutation = buildCreateEntryQuery({ singularApiName, fieldSelection });
-        const revisionMutation = buildCreateRevisionQuery({ singularApiName, fieldSelection });
-        const publishMutation = buildPublishQuery(singularApiName);
-        const unpublishMutation = buildUnpublishQuery(singularApiName);
+        const createMutation = buildCreateEntryQuery({ singularApiName, fieldSelection }).query;
+        const revisionMutation = buildCreateRevisionQuery({
+          singularApiName,
+          fieldSelection,
+        }).query;
+        const publishMutation = buildPublishQuery(singularApiName).query;
+        const unpublishMutation = buildUnpublishQuery(singularApiName).query;
         const createOp = this.operationRegistry.resolve(
           "createContentEntry",
           project.webinyVersion,

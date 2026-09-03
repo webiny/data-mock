@@ -90,7 +90,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
 
       for (const model of orderedModels) {
         const modelEntries = grouped.get(model.modelId) ?? [];
-        const mutation = buildDeleteEntryQuery(model.singularApiName);
+        const mutation = buildDeleteEntryQuery(model.singularApiName).query;
 
         let deleted = 0;
         let errors = 0;

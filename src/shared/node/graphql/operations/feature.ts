@@ -12,8 +12,6 @@ import {
   unpublishEntryOperation,
   deleteEntryOperation,
 } from "./base/index.js";
-import { listContentModels as listContentModels_640 } from "./overrides/6.4.0/index.js";
-
 const BASE_VERSION = "6.0.0";
 
 export const OperationsFeature = createFeature({
@@ -31,7 +29,5 @@ export const OperationsFeature = createFeature({
     registry.register(BASE_VERSION, publishEntryOperation);
     registry.register(BASE_VERSION, unpublishEntryOperation);
     registry.register(BASE_VERSION, deleteEntryOperation);
-
-    registry.register("6.4.0", listContentModels_640);
   },
 });

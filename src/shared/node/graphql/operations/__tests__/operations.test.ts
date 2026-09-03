@@ -186,40 +186,47 @@ describe("GraphQL Operations", () => {
   });
 
   describe("Query builders", () => {
-    it("buildCreateEntryQuery should include model name", () => {
-      const query = buildCreateEntryQuery({
+    it("buildCreateEntryQuery should return query, responseKey, and dataSchema", () => {
+      const result = buildCreateEntryQuery({
         singularApiName: "Article",
         fieldSelection: "title body",
       });
-      expect(query).toContain("createArticle");
-      expect(query).toContain("ArticleInput");
-      expect(query).toContain("title body");
+      expect(result.query).toContain("createArticle");
+      expect(result.query).toContain("ArticleInput");
+      expect(result.query).toContain("title body");
+      expect(result.responseKey).toBe("createArticle");
+      expect(result.dataSchema).toBeDefined();
     });
 
-    it("buildCreateRevisionQuery should include createFrom", () => {
-      const query = buildCreateRevisionQuery({
+    it("buildCreateRevisionQuery should return query with createFrom", () => {
+      const result = buildCreateRevisionQuery({
         singularApiName: "Article",
         fieldSelection: "title",
       });
-      expect(query).toContain("createArticleFrom");
-      expect(query).toContain("$revision: ID!");
+      expect(result.query).toContain("createArticleFrom");
+      expect(result.query).toContain("$revision: ID!");
+      expect(result.responseKey).toBe("createArticleFrom");
+      expect(result.dataSchema).toBeDefined();
     });
 
-    it("buildPublishQuery should include publish mutation", () => {
-      const query = buildPublishQuery("Article");
-      expect(query).toContain("publishArticle");
-      expect(query).toContain("$revision: ID!");
+    it("buildPublishQuery should return query with publish mutation", () => {
+      const result = buildPublishQuery("Article");
+      expect(result.query).toContain("publishArticle");
+      expect(result.query).toContain("$revision: ID!");
+      expect(result.responseKey).toBe("publishArticle");
     });
 
-    it("buildUnpublishQuery should include unpublish mutation", () => {
-      const query = buildUnpublishQuery("Article");
-      expect(query).toContain("unpublishArticle");
+    it("buildUnpublishQuery should return query with unpublish mutation", () => {
+      const result = buildUnpublishQuery("Article");
+      expect(result.query).toContain("unpublishArticle");
+      expect(result.responseKey).toBe("unpublishArticle");
     });
 
-    it("buildDeleteEntryQuery should include delete mutation", () => {
-      const query = buildDeleteEntryQuery("Article");
-      expect(query).toContain("deleteArticle");
-      expect(query).toContain("$revision: ID!");
+    it("buildDeleteEntryQuery should return query with delete mutation", () => {
+      const result = buildDeleteEntryQuery("Article");
+      expect(result.query).toContain("deleteArticle");
+      expect(result.query).toContain("$revision: ID!");
+      expect(result.responseKey).toBe("deleteArticle");
     });
 
     it("deleteEntryOperation should parse success response", () => {
@@ -231,6 +238,44 @@ describe("GraphQL Operations", () => {
         }),
       );
       expect("data" in result && result.data).toBeTruthy();
+    });
+  });
+
+  describe("Zod validation on revision operations", () => {
+    it("createRevisionOperation should reject invalid data shape", () => {
+      const result = createRevisionOperation.getResult(
+        makeJson({
+          createArticleFrom: {
+            data: { notAnId: 123 },
+          },
+        }),
+      );
+      expect(result.error).toBeTruthy();
+      expect(result.error!.code).toBe("VALIDATION");
+    });
+
+    it("publishEntryOperation should reject invalid data shape", () => {
+      const result = publishEntryOperation.getResult(
+        makeJson({
+          publishArticle: {
+            data: "not-an-object",
+          },
+        }),
+      );
+      expect(result.error).toBeTruthy();
+      expect(result.error!.code).toBe("VALIDATION");
+    });
+
+    it("deleteEntryOperation should reject non-boolean data", () => {
+      const result = deleteEntryOperation.getResult(
+        makeJson({
+          deleteArticle: {
+            data: { unexpected: "object" },
+          },
+        }),
+      );
+      expect(result.error).toBeTruthy();
+      expect(result.error!.code).toBe("VALIDATION");
     });
   });
 });
