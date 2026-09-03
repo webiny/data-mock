@@ -30,3 +30,5 @@ export { listProjectFilesRoute, uploadProjectFileRoute, deleteProjectFileRoute }
 export { listSyncLogsRoute, deleteSyncLogRoute } from "./syncLogs.js";
 
 export { importEntriesRoute } from "./import.js";
+
+export { cleanupEntriesRoute } from "./cleanup.js";

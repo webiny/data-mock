@@ -2,7 +2,8 @@ import { Result } from "@webiny/stdlib";
 import type { SeedJob } from "~/shared/types.js";
 import { triggerSeedRoute, listSeedJobsRoute } from "~/shared/routes/seeding.js";
 import { importEntriesRoute } from "~/shared/routes/import.js";
-import type { IImportResult } from "./abstractions/SeedingGateway.js";
+import { cleanupEntriesRoute } from "~/shared/routes/cleanup.js";
+import type { IImportResult, ICleanupResult } from "./abstractions/SeedingGateway.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { SeedingGateway as Abstraction } from "./abstractions/SeedingGateway.js";
@@ -52,6 +53,22 @@ class SeedingGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(result.value.import);
+  }
+
+  public async cleanupEntries(
+    projectId: string,
+    input?: { jobId?: string },
+  ): Promise<Result<ICleanupResult, HTTPError>> {
+    const result = await this.httpClient.request(cleanupEntriesRoute, {
+      params: { projectId },
+      body: input ?? {},
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.cleanup);
   }
 }
 

@@ -98,8 +98,10 @@ export interface IProjectDetailVM {
   isPushing: boolean;
   isImporting: boolean;
   isClearingEntries: boolean;
+  isCleaningUp: boolean;
   showPushDialog: boolean;
   showEditDialog: boolean;
+  showCleanupDialog: boolean;
   isLoadingDiff: boolean;
   modelDiff: ModelDiffItem[];
 }
@@ -121,6 +123,9 @@ export interface IProjectDetailPresenter {
   deleteFile(fileId: string): Promise<void>;
   deleteSyncLog(logId: string): Promise<void>;
   importEntries(tenant: string, modelIds: string[]): Promise<void>;
+  openCleanupDialog(): void;
+  closeCleanupDialog(): void;
+  confirmCleanup(): Promise<void>;
 }
 
 export const ProjectDetailPresenter = createAbstraction<IProjectDetailPresenter>(

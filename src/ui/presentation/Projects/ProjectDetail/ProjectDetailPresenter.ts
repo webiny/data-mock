@@ -31,8 +31,10 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _isPushing = false;
   private _isImporting = false;
   private _isClearingEntries = false;
+  private _isCleaningUp = false;
   private _showPushDialog = false;
   private _showEditDialog = false;
+  private _showCleanupDialog = false;
   private _isLoadingDiff = false;
   private _modelDiff: ModelDiffItem[] = [];
 
@@ -170,7 +172,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       isPushing: this._isPushing,
       isImporting: this._isImporting,
       isClearingEntries: this._isClearingEntries,
+      isCleaningUp: this._isCleaningUp,
       showPushDialog: this._showPushDialog,
+      showCleanupDialog: this._showCleanupDialog,
       showEditDialog: this._showEditDialog,
       isLoadingDiff: this._isLoadingDiff,
       modelDiff: this._modelDiff,
@@ -382,6 +386,41 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       this.notifications.success("Sync log deleted.");
     } else {
       this.notifications.error("Failed to delete sync log.");
+    }
+  };
+
+  public openCleanupDialog = (): void => {
+    this._showCleanupDialog = true;
+  };
+
+  public closeCleanupDialog = (): void => {
+    this._showCleanupDialog = false;
+  };
+
+  public confirmCleanup = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    this._showCleanupDialog = false;
+    this._isCleaningUp = true;
+    try {
+      const result = await this.seedingGateway.cleanupEntries(this._projectId);
+      runInAction(() => {
+        if (result.isOk()) {
+          const { deleted, errors } = result.value;
+          if (errors > 0) {
+            this.notifications.warning(`Deleted ${deleted} entries with ${errors} errors.`);
+          } else {
+            this.notifications.success(`Deleted ${deleted} entries from Webiny.`);
+          }
+        } else {
+          this.notifications.error(`Cleanup failed: ${result.error.message}`);
+        }
+      });
+    } finally {
+      runInAction(() => {
+        this._isCleaningUp = false;
+      });
     }
   };
 

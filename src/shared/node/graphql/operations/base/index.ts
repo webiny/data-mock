@@ -7,7 +7,9 @@ export {
   createRevisionOperation,
   publishEntryOperation,
   unpublishEntryOperation,
+  deleteEntryOperation,
   buildCreateRevisionQuery,
   buildPublishQuery,
   buildUnpublishQuery,
+  buildDeleteEntryQuery,
 } from "./revisionOperations.js";

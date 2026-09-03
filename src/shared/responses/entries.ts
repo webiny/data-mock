@@ -10,7 +10,7 @@ export const seedEntrySchema = z.object({
   entryData: z.record(z.string(), z.unknown()),
   responseData: z.record(z.string(), z.unknown()).nullable(),
   httpStatus: z.number().nullable(),
-  status: z.enum(["created", "failed", "dry-run", "imported"]),
+  status: z.enum(["created", "failed", "dry-run", "imported", "deleted"]),
   error: z.string().nullable(),
   createdAt: z.number(),
 });

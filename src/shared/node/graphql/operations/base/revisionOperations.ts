@@ -105,3 +105,25 @@ export function buildUnpublishQuery(singularApiName: string): string {
     }
   `;
 }
+
+export const deleteEntryOperation: IGraphQLOperation<void, RevisionOutput> = {
+  name: "deleteEntry",
+  path: "/cms/manage",
+  query: "",
+  getResult: getResultFromFirstKey,
+};
+
+export function buildDeleteEntryQuery(singularApiName: string): string {
+  return `
+    mutation DeleteEntry($revision: ID!) {
+      delete${singularApiName}(revision: $revision) {
+        data
+        error {
+          message
+          code
+          data
+        }
+      }
+    }
+  `;
+}

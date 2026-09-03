@@ -23,6 +23,12 @@ export interface IImportResult {
   models: Array<{ modelId: string; count: number }>;
 }
 
+export interface ICleanupResult {
+  deleted: number;
+  errors: number;
+  models: Array<{ modelId: string; deleted: number; errors: number }>;
+}
+
 export interface ISeedingGateway {
   triggerSeed(projectId: string, input: ITriggerSeedInput): Promise<Result<SeedJob, HTTPError>>;
   listSeedJobs(projectId: string): Promise<Result<SeedJob[], HTTPError>>;
@@ -30,6 +36,10 @@ export interface ISeedingGateway {
     projectId: string,
     input: { tenant: string; models: string[] },
   ): Promise<Result<IImportResult, HTTPError>>;
+  cleanupEntries(
+    projectId: string,
+    input?: { jobId?: string },
+  ): Promise<Result<ICleanupResult, HTTPError>>;
 }
 
 export const SeedingGateway = createAbstraction<ISeedingGateway>("Ui/SeedingGateway");

@@ -82,8 +82,10 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
     isPushing,
     isImporting,
     isClearingEntries,
+    isCleaningUp,
     showPushDialog,
     showEditDialog,
+    showCleanupDialog,
     isLoadingDiff,
     modelDiff,
   } = vm;
@@ -211,6 +213,12 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onClick={() => goTo("import")}
               />
               <NavLink label="Push Models" onClick={() => void presenter.openPushDialog()} />
+              <NavLink
+                label="Cleanup Seeded Data"
+                disabled={isCleaningUp}
+                description={isCleaningUp ? "Cleaning..." : undefined}
+                onClick={() => presenter.openCleanupDialog()}
+              />
               <NavLink label="Edit Project" onClick={() => presenter.openEditDialog()} />
             </Stack>
           </Paper>
@@ -341,6 +349,26 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             onCancel={() => presenter.closeEditDialog()}
           />
         )}
+      </Modal>
+
+      <Modal
+        opened={showCleanupDialog}
+        onClose={() => presenter.closeCleanupDialog()}
+        title="Cleanup Seeded Data"
+        centered
+      >
+        <Text>
+          Delete all seeded entries from Webiny? This removes entries created by this tool from the
+          target CMS instance. Entries are deleted in reverse dependency order.
+        </Text>
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={() => presenter.closeCleanupDialog()}>
+            Cancel
+          </Button>
+          <Button color="red" onClick={() => void presenter.confirmCleanup()}>
+            Delete All Seeded Entries
+          </Button>
+        </Group>
       </Modal>
     </>
   );
