@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { CreateProjectUseCase } from "./useCases/CreateProject/abstractions/CreateProjectUseCase.js";
+import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 import { AddProjectPresenter as Abstraction } from "./abstractions/AddProjectPresenter.js";
 import { createProjectBodySchema } from "~/shared/responses/projects.js";
 import type { AddProjectVM } from "./abstractions/AddProjectPresenter.js";
@@ -13,7 +14,10 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
   private _isSubmitting = false;
   private _error: string | null = null;
 
-  public constructor(private readonly createProjectUseCase: CreateProjectUseCase.Interface) {
+  public constructor(
+    private readonly createProjectUseCase: CreateProjectUseCase.Interface,
+    private readonly notificationService: NotificationService.Interface,
+  ) {
     makeAutoObservable(this);
   }
 
@@ -76,9 +80,11 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
         runInAction(() => {
           this._error = result.error.message;
         });
+        this.notificationService.error(`Failed to add project: ${result.error.message}`);
         return false;
       }
 
+      this.notificationService.success(`Project "${this._name}" added.`);
       this.reset();
       return true;
     } finally {
@@ -101,5 +107,5 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
 
 export const AddProjectPresenter = Abstraction.createImplementation({
   implementation: AddProjectPresenterImpl,
-  dependencies: [CreateProjectUseCase],
+  dependencies: [CreateProjectUseCase, NotificationService],
 });

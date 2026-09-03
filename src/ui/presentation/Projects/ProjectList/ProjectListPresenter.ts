@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
 import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
+import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 import { LoadProjectsUseCase } from "./useCases/LoadProjects/abstractions/LoadProjectsUseCase.js";
 import { DeleteProjectUseCase } from "./useCases/DeleteProject/abstractions/DeleteProjectUseCase.js";
 import { LoadTenantsUseCase } from "./useCases/LoadTenants/abstractions/LoadTenantsUseCase.js";
@@ -21,6 +22,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     private readonly syncTenantsUseCase: SyncTenantsUseCase.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
     private readonly tenantsRepository: TenantsRepository.Interface,
+    private readonly notificationService: NotificationService.Interface,
   ) {
     makeAutoObservable(this);
   }
@@ -80,12 +82,14 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
 
   public executeRemove = async (): Promise<void> => {
     const id = this._removeProjectId;
+    const name = this._removeProjectName;
     if (!id) {
       return;
     }
     this._removeProjectId = null;
     this._removeProjectName = null;
     await this.deleteProjectUseCase.execute(id);
+    this.notificationService.success(`Project "${name}" removed.`);
     await this.load();
   };
 
@@ -93,6 +97,9 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     this._syncingProjectIds.add(projectId);
     try {
       await this.syncTenantsUseCase.execute(projectId);
+      this.notificationService.success("Tenants synced successfully.");
+    } catch {
+      this.notificationService.error("Failed to sync tenants.");
     } finally {
       runInAction(() => {
         this._syncingProjectIds.delete(projectId);
@@ -110,5 +117,6 @@ export const ProjectListPresenter = Abstraction.createImplementation({
     SyncTenantsUseCase,
     ProjectsRepository,
     TenantsRepository,
+    NotificationService,
   ],
 });

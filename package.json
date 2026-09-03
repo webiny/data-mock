@@ -10,6 +10,7 @@
     "@faker-js/faker": "^10.6.0",
     "@mantine/core": "^9.5.2",
     "@mantine/hooks": "^9.5.2",
+    "@mantine/notifications": "^9.5.2",
     "@webiny/api-headless-cms": "6.4.9",
     "@webiny/di": "^1.0.2",
     "@webiny/stdlib": "^0.0.17",
