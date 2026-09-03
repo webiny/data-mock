@@ -334,6 +334,7 @@ describe("Models Feature", () => {
                     pluralApiName: "Articles",
                     description: "Blog article",
                     group: "blog",
+                    tags: [],
                     fields: [testField],
                   },
                 ],

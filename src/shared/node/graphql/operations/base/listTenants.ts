@@ -2,10 +2,12 @@ import { z } from "zod";
 import { defineOperation } from "../defineOperation.js";
 
 const dataSchema = z.array(
-  z.object({
-    id: z.string(),
-    values: z.object({ name: z.string() }).strict(),
-  }).strict(),
+  z
+    .object({
+      id: z.string(),
+      values: z.object({ name: z.string() }).strict(),
+    })
+    .strict(),
 );
 
 interface Tenant {

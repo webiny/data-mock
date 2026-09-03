@@ -4,40 +4,40 @@ import type { ApiCmsModel } from "~/shared/types.js";
 
 const predefinedValueSchema = z
   .object({
-    label: z.string().nullable().optional(),
-    value: z.string().nullable().optional(),
-    selected: z.boolean().nullable().optional(),
+    label: z.string().nullable(),
+    value: z.string().nullable(),
+    selected: z.boolean().nullable(),
   })
-  .passthrough();
+  .strict();
 
 const predefinedValuesSchema = z
   .object({
-    enabled: z.boolean().nullable().optional(),
-    values: z.array(predefinedValueSchema).nullable().optional(),
+    enabled: z.boolean().nullable(),
+    values: z.array(predefinedValueSchema).nullable(),
   })
-  .passthrough();
+  .strict();
 
 const fieldValidationSchema = z
   .object({
     name: z.string(),
-    message: z.string().nullable().optional(),
+    message: z.string().nullable(),
     settings: z.unknown().optional(),
   })
-  .passthrough();
+  .strict();
 
 const fieldSchema = z
   .object({
     id: z.string(),
     fieldId: z.string(),
-    storageId: z.string().nullable().optional(),
+    storageId: z.string().nullable(),
     type: z.string(),
-    list: z.boolean().nullable().optional(),
+    list: z.boolean().nullable(),
     settings: z.unknown().optional(),
-    predefinedValues: predefinedValuesSchema.nullable().optional(),
-    validation: z.array(fieldValidationSchema).nullable().optional(),
-    listValidation: z.array(fieldValidationSchema).nullable().optional(),
+    predefinedValues: predefinedValuesSchema.nullable(),
+    validation: z.array(fieldValidationSchema).nullable(),
+    listValidation: z.array(fieldValidationSchema).nullable(),
   })
-  .passthrough();
+  .strict();
 
 const modelSchema = z
   .object({
@@ -45,12 +45,12 @@ const modelSchema = z
     modelId: z.string(),
     singularApiName: z.string(),
     pluralApiName: z.string(),
-    description: z.string().nullable().optional(),
+    description: z.string().nullable(),
     group: z.string(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()),
     fields: z.array(fieldSchema),
   })
-  .passthrough();
+  .strict();
 
 const dataSchema = z.array(modelSchema);
 

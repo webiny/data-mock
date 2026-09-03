@@ -7,7 +7,7 @@ import { projects } from "./db/schema.js";
 import type { DatabaseClient } from "./db/abstractions/DatabaseClient.js";
 import type { EncryptionService } from "./encryption/abstractions/EncryptionService.js";
 
-const SEED_FILE_PATH = ".webiny/projects.json";
+const SEED_FILE_PATH = ".projects.json";
 
 const projectSchema = z.object({
   name: z.string(),

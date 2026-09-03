@@ -7,10 +7,10 @@ const dataSchema = z.array(
       id: z.string(),
       name: z.string(),
       slug: z.string(),
-      description: z.string().nullable().optional(),
-      icon: z.string().nullable().optional(),
+      description: z.string().nullable(),
+      icon: z.string().nullable(),
     })
-    .passthrough(),
+    .strict(),
 );
 
 interface ContentModelGroup {
