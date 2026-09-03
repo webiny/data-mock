@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { defineOperation } from "../defineOperation.js";
 
+const iconSchema = z
+  .object({
+    type: z.string(),
+    name: z.string(),
+    value: z.string().optional(),
+  })
+  .strict();
+
 const dataSchema = z.array(
   z
     .object({
@@ -8,17 +16,23 @@ const dataSchema = z.array(
       name: z.string(),
       slug: z.string(),
       description: z.string().nullable(),
-      icon: z.string().nullable(),
+      icon: iconSchema.nullable(),
     })
     .strict(),
 );
+
+interface Icon {
+  type: string;
+  name: string;
+  value?: string;
+}
 
 interface ContentModelGroup {
   id: string;
   name: string;
   slug: string;
   description: string | null;
-  icon: string | null;
+  icon: Icon | null;
 }
 
 export const listContentModelGroups = defineOperation<

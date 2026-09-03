@@ -118,6 +118,7 @@ export const syncLogs = sqliteTable("sync_logs", {
   type: text("type").notNull(),
   status: text("status").notNull(),
   message: text("message").notNull(),
+  request: text("request"),
   response: text("response"),
   createdAt: integer("created_at").notNull(),
 });

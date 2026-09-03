@@ -6,6 +6,7 @@ export const syncLogSchema = z.object({
   type: z.enum(["tenants", "models"]),
   status: z.enum(["success", "error"]),
   message: z.string(),
+  request: z.unknown().nullable(),
   response: z.unknown().nullable(),
   createdAt: z.number(),
 });

@@ -8,12 +8,18 @@ import { SyncModelsService as Abstraction } from "./abstractions/SyncModelsServi
 import { GraphQLRequestError } from "~/shared/errors.js";
 import type { ApiCmsModelField, OperationLog } from "~/shared/types.js";
 
+interface RemoteIcon {
+  type: string;
+  name: string;
+  value?: string;
+}
+
 interface RemoteGroup {
   id: string;
   slug: string;
   name: string;
-  description: string;
-  icon: string;
+  description: string | null;
+  icon: RemoteIcon | null;
 }
 
 interface RemoteModel {
@@ -86,7 +92,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
         slug: g.slug,
         name: g.name,
         description: g.description,
-        icon: g.icon,
+        icon: g.icon ? JSON.stringify(g.icon) : null,
         remoteId: g.id,
       })),
     });

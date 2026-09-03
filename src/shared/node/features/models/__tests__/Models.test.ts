@@ -316,7 +316,13 @@ describe("Models Feature", () => {
             data: {
               listContentModelGroups: {
                 data: [
-                  { id: "g1", slug: "blog", name: "Blog", description: "Blog posts", icon: "icon" },
+                  {
+                    id: "g1",
+                    slug: "blog",
+                    name: "Blog",
+                    description: "Blog posts",
+                    icon: { type: "icon", name: "fas-folder" },
+                  },
                 ],
               },
             },

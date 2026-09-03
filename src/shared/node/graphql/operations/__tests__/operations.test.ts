@@ -25,7 +25,15 @@ describe("GraphQL Operations", () => {
       const result = listContentModelGroups.getResult(
         makeJson({
           listContentModelGroups: {
-            data: [{ id: "g1", name: "Group 1", slug: "group-1", description: "", icon: "" }],
+            data: [
+              {
+                id: "g1",
+                name: "Group 1",
+                slug: "group-1",
+                description: null,
+                icon: { type: "icon", name: "fas-folder" },
+              },
+            ],
           },
         }),
       );

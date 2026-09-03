@@ -12,6 +12,7 @@ class CreateSyncLogRepositoryImpl implements Abstraction.Interface {
     try {
       const now = Date.now();
       const id = generateId();
+      const request = input.request === undefined ? null : JSON.stringify(input.request);
       const response = input.response === undefined ? null : JSON.stringify(input.response);
 
       const row = {
@@ -20,13 +21,18 @@ class CreateSyncLogRepositoryImpl implements Abstraction.Interface {
         type: input.type,
         status: input.status,
         message: input.message,
+        request,
         response,
         createdAt: now,
       };
 
       this.databaseClient.db.insert(syncLogs).values(row).run();
 
-      return Result.ok({ ...row, response: input.response ?? null });
+      return Result.ok({
+        ...row,
+        request: input.request ?? null,
+        response: input.response ?? null,
+      });
     } catch (error) {
       return Result.fail(new SyncLogPersistenceError(toError(error)));
     }

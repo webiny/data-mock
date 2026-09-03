@@ -181,6 +181,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         type: l.type,
         status: l.status,
         message: l.message,
+        request: l.request,
         response: l.response,
         createdAt: l.createdAt,
       })),

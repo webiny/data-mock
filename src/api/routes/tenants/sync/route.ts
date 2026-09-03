@@ -21,12 +21,15 @@ export const syncProjectTenants = routeFactory(
       return send.error(result.error);
     }
 
+    const { operations, ...summary } = result.value;
+
     await syncLogRepository.execute({
       projectId: params.projectId,
       type: "tenants",
       status: "success",
-      message: `Synced ${result.value.synced} tenant(s)`,
-      response: result.value,
+      message: `Synced ${summary.synced} tenant(s)`,
+      request: operations,
+      response: summary,
     });
 
     return send.one("sync", result.value);

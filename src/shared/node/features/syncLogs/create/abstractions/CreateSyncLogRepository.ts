@@ -8,6 +8,7 @@ export interface ICreateSyncLogRepositoryInput {
   type: SyncLogType;
   status: SyncLogStatus;
   message: string;
+  request?: unknown;
   response?: unknown;
 }
 

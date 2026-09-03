@@ -26,6 +26,7 @@ class ListSyncLogsRepositoryImpl implements Abstraction.Interface {
         type: row.type as SyncLogType,
         status: row.status as SyncLogStatus,
         message: row.message,
+        request: row.request ? (JSON.parse(row.request) as unknown) : null,
         response: row.response ? (JSON.parse(row.response) as unknown) : null,
         createdAt: row.createdAt,
       }));

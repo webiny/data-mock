@@ -8,8 +8,8 @@ export interface ISyncProjectGroupsRepositoryInput {
   groups: Array<{
     slug: string;
     name: string;
-    description?: string;
-    icon?: string;
+    description?: string | null;
+    icon?: string | null;
     remoteId?: string;
   }>;
 }

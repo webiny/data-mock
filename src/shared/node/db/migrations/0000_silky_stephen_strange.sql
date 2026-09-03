@@ -110,6 +110,7 @@ CREATE TABLE `sync_logs` (
 	`type` text NOT NULL,
 	`status` text NOT NULL,
 	`message` text NOT NULL,
+	`request` text,
 	`response` text,
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade

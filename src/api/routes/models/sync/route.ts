@@ -21,12 +21,15 @@ export const syncProjectModels = routeFactory(
       return send.error(result.error);
     }
 
+    const { operations, ...summary } = result.value;
+
     await syncLogRepository.execute({
       projectId: params.projectId,
       type: "models",
       status: "success",
-      message: `Synced ${result.value.models} model(s)`,
-      response: result.value,
+      message: `Synced ${summary.models} model(s)`,
+      request: operations,
+      response: summary,
     });
 
     return send.one("sync", result.value);

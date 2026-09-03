@@ -172,6 +172,7 @@ export interface SyncLog {
   type: SyncLogType;
   status: SyncLogStatus;
   message: string;
+  request: unknown;
   response: unknown;
   createdAt: number;
 }

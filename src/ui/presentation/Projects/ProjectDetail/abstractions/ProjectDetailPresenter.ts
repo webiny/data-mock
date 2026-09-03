@@ -70,6 +70,7 @@ export interface ISyncLogVM {
   type: "tenants" | "models";
   status: "success" | "error";
   message: string;
+  request: unknown;
   response: unknown;
   createdAt: number;
 }
