@@ -6,9 +6,10 @@ interface SyncTenantsTabProps {
   logs: ProjectDetailPresenter.VM["syncLog"];
   isSyncing: boolean;
   onSync: () => void;
+  onDeleteLog: (logId: string) => void;
 }
 
-export function SyncTenantsTab({ logs, isSyncing, onSync }: SyncTenantsTabProps) {
+export function SyncTenantsTab({ logs, isSyncing, onSync, onDeleteLog }: SyncTenantsTabProps) {
   const tenantLogs = logs.filter((l) => l.type === "tenants");
 
   return (
@@ -22,7 +23,7 @@ export function SyncTenantsTab({ logs, isSyncing, onSync }: SyncTenantsTabProps)
       <Text size="sm" c="dimmed">
         Discover and sync tenants from the Webiny instance.
       </Text>
-      <SyncLogTable logs={tenantLogs} />
+      <SyncLogTable logs={tenantLogs} onDelete={onDeleteLog} />
     </Stack>
   );
 }

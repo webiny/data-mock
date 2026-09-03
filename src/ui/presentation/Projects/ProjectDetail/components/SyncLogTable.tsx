@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Group, Table, Text } from "@mantine/core";
+import { Badge, Button, Group, Modal, Stack, Table, Text } from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
 import type { ISyncLogVM } from "../abstractions/ProjectDetailPresenter.js";
 
@@ -30,10 +30,12 @@ function extractOperations(response: unknown): OperationEntry[] {
 
 interface SyncLogTableProps {
   logs: ISyncLogVM[];
+  onDelete: (logId: string) => void;
 }
 
-export function SyncLogTable({ logs }: SyncLogTableProps) {
+export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
   const [viewer, setViewer] = useState<ViewerState | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const showRequest = (op: OperationEntry) => {
     const info = [
@@ -52,6 +54,12 @@ export function SyncLogTable({ logs }: SyncLogTableProps) {
     setViewer({ title: `Response — ${op.name}`, value, language: "json" });
   };
 
+  const showRawResponse = (log: ISyncLogVM) => {
+    const value =
+      typeof log.response === "string" ? log.response : JSON.stringify(log.response, null, 2);
+    setViewer({ title: "Raw Response", value: value ?? "null", language: "json" });
+  };
+
   if (logs.length === 0) {
     return (
       <Text c="dimmed" ta="center" mt="md">
@@ -68,7 +76,8 @@ export function SyncLogTable({ logs }: SyncLogTableProps) {
             <Table.Th>Date</Table.Th>
             <Table.Th>Status</Table.Th>
             <Table.Th>Message</Table.Th>
-            <Table.Th>Operations</Table.Th>
+            <Table.Th>Details</Table.Th>
+            <Table.Th />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -89,7 +98,7 @@ export function SyncLogTable({ logs }: SyncLogTableProps) {
                 </Table.Td>
                 <Table.Td>
                   {operations.length > 0 ? (
-                    <Group gap={4} wrap="wrap">
+                    <Stack gap={4}>
                       {operations.map((op) => (
                         <Group key={op.name} gap={4}>
                           <Text size="xs" fw={500} c="dimmed">
@@ -111,12 +120,26 @@ export function SyncLogTable({ logs }: SyncLogTableProps) {
                           </Button>
                         </Group>
                       ))}
-                    </Group>
+                    </Stack>
+                  ) : log.response != null ? (
+                    <Button variant="subtle" size="compact-xs" onClick={() => showRawResponse(log)}>
+                      View Response
+                    </Button>
                   ) : (
                     <Text size="sm" c="dimmed">
                       —
                     </Text>
                   )}
+                </Table.Td>
+                <Table.Td>
+                  <Button
+                    variant="subtle"
+                    color="red"
+                    size="compact-xs"
+                    onClick={() => setDeleteConfirm(log.id)}
+                  >
+                    Delete
+                  </Button>
                 </Table.Td>
               </Table.Tr>
             );
@@ -133,6 +156,32 @@ export function SyncLogTable({ logs }: SyncLogTableProps) {
           language={viewer.language}
         />
       )}
+
+      <Modal
+        opened={deleteConfirm !== null}
+        onClose={() => setDeleteConfirm(null)}
+        title="Delete Sync Log"
+        centered
+        size="sm"
+      >
+        <Text>Delete this sync log entry?</Text>
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={() => setDeleteConfirm(null)}>
+            Cancel
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              if (deleteConfirm) {
+                onDelete(deleteConfirm);
+              }
+              setDeleteConfirm(null);
+            }}
+          >
+            Delete
+          </Button>
+        </Group>
+      </Modal>
     </>
   );
 }

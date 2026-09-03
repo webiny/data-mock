@@ -27,4 +27,4 @@ export { listSeedEntriesRoute, getSeedEntryRoute, deleteProjectEntriesRoute } fr
 
 export { listProjectFilesRoute, uploadProjectFileRoute, deleteProjectFileRoute } from "./files.js";
 
-export { listSyncLogsRoute } from "./syncLogs.js";
+export { listSyncLogsRoute, deleteSyncLogRoute } from "./syncLogs.js";

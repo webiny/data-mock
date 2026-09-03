@@ -5,6 +5,7 @@ export interface ISyncLogsRepository {
   readonly logs: SyncLog[];
   setLogs(logs: SyncLog[]): void;
   addLog(log: SyncLog): void;
+  removeLog(id: string): void;
   getLogsByProjectId(projectId: string): SyncLog[];
 }
 

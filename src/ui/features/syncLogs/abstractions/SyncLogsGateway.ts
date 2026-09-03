@@ -5,6 +5,7 @@ import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface ISyncLogsGateway {
   list(projectId: string): Promise<Result<SyncLog[], HTTPError>>;
+  remove(projectId: string, logId: string): Promise<Result<void, HTTPError>>;
 }
 
 export const SyncLogsGateway = createAbstraction<ISyncLogsGateway>("Ui/SyncLogsGateway");

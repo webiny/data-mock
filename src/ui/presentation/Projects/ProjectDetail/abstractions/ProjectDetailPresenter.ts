@@ -118,6 +118,7 @@ export interface IProjectDetailPresenter {
   submitEdit(input: IEditProjectInput): Promise<boolean>;
   clearEntries(): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
+  deleteSyncLog(logId: string): Promise<void>;
 }
 
 export const ProjectDetailPresenter = createAbstraction<IProjectDetailPresenter>(

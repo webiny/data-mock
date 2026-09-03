@@ -236,6 +236,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 logs={syncLog}
                 isSyncing={isSyncingTenants}
                 onSync={() => void presenter.syncTenants()}
+                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
             {activeView === "sync-models" && (
@@ -243,6 +244,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 logs={syncLog}
                 isSyncing={isSyncingModels}
                 onSync={() => void presenter.syncModels()}
+                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
             {activeView === "seed" && <EmbeddedSeedConfig projectId={projectId} />}

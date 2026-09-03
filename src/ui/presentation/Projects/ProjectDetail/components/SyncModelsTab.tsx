@@ -6,9 +6,10 @@ interface SyncModelsTabProps {
   logs: ProjectDetailPresenter.VM["syncLog"];
   isSyncing: boolean;
   onSync: () => void;
+  onDeleteLog: (logId: string) => void;
 }
 
-export function SyncModelsTab({ logs, isSyncing, onSync }: SyncModelsTabProps) {
+export function SyncModelsTab({ logs, isSyncing, onSync, onDeleteLog }: SyncModelsTabProps) {
   const modelLogs = logs.filter((l) => l.type === "models");
 
   return (
@@ -22,7 +23,7 @@ export function SyncModelsTab({ logs, isSyncing, onSync }: SyncModelsTabProps) {
       <Text size="sm" c="dimmed">
         Pull models and groups from the Webiny instance.
       </Text>
-      <SyncLogTable logs={modelLogs} />
+      <SyncLogTable logs={modelLogs} onDelete={onDeleteLog} />
     </Stack>
   );
 }

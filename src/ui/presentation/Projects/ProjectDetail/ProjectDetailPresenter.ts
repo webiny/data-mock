@@ -368,6 +368,19 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  public deleteSyncLog = async (logId: string): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const result = await this.syncLogsGateway.remove(this._projectId, logId);
+    if (result.isOk()) {
+      this.syncLogsRepository.removeLog(logId);
+      this.notifications.success("Sync log deleted.");
+    } else {
+      this.notifications.error("Failed to delete sync log.");
+    }
+  };
+
   private reloadSyncLogs = async (): Promise<void> => {
     if (!this._projectId) {
       return;
