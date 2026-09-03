@@ -1,9 +1,9 @@
 import { createFeature } from "@webiny/stdlib";
+import { ProjectsApiFeature } from "./features/projects/feature.js";
 
 export const ApiFeature = createFeature({
   name: "Api/ApiFeature",
-  register() {
-    // Route-level features will be registered here as they are added.
-    // ProjectRepositoryFeature is registered in AppFeature (shared concern).
+  register(container) {
+    ProjectsApiFeature.register(container);
   },
 });

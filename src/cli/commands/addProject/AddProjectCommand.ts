@@ -3,6 +3,7 @@ import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
 import { Command } from "~/cli/abstractions/Command.js";
+import { createProjectBodySchema } from "~/shared/responses/projects.js";
 
 class AddProjectCommandImpl implements Command.Interface {
   public readonly name = "add-project";
@@ -64,12 +65,19 @@ class AddProjectCommandImpl implements Command.Interface {
       return;
     }
 
-    const result = await this.projectRepository.create({
-      name: name as string,
-      apiUrl: apiUrl as string,
-      apiToken: apiToken as string,
+    const parsed = createProjectBodySchema.safeParse({
+      name,
+      apiUrl,
+      apiToken,
       tenant: (tenant as string) || "root",
     });
+
+    if (!parsed.success) {
+      this.ui.log.error(parsed.error.issues[0]?.message ?? "Invalid input");
+      return;
+    }
+
+    const result = await this.projectRepository.create(parsed.data);
 
     if (result.isFail()) {
       this.ui.log.error(`Failed to save project: ${result.error.message}`);

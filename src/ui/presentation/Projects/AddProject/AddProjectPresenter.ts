@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { CreateProjectUseCase } from "./useCases/CreateProject/abstractions/CreateProjectUseCase.js";
 import { AddProjectPresenter as Abstraction } from "./abstractions/AddProjectPresenter.js";
+import { createProjectBodySchema } from "~/shared/responses/projects.js";
 import type { AddProjectVM } from "./abstractions/AddProjectPresenter.js";
 
 class AddProjectPresenterImpl implements Abstraction.Interface {
@@ -46,8 +47,15 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
   };
 
   public submit = async (): Promise<boolean> => {
-    if (!this._name.trim() || !this._apiUrl.trim() || !this._apiToken.trim()) {
-      this._error = "Name, API URL, and API Token are required.";
+    const parsed = createProjectBodySchema.safeParse({
+      name: this._name.trim(),
+      apiUrl: this._apiUrl.trim(),
+      apiToken: this._apiToken.trim(),
+      tenant: this._tenant.trim() || "root",
+    });
+
+    if (!parsed.success) {
+      this._error = parsed.error.issues[0]?.message ?? "Invalid input";
       return false;
     }
 
@@ -55,12 +63,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     this._error = null;
 
     try {
-      const result = await this.createProjectUseCase.execute({
-        name: this._name.trim(),
-        apiUrl: this._apiUrl.trim(),
-        apiToken: this._apiToken.trim(),
-        tenant: this._tenant.trim() || "root",
-      });
+      const result = await this.createProjectUseCase.execute(parsed.data);
 
       if (result.isFail()) {
         runInAction(() => {

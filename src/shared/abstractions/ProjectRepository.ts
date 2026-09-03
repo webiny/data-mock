@@ -1,7 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { Project } from "../types.js";
-import type { ProjectNotFoundError, ProjectPersistenceError } from "../errors.js";
+import type { ProjectNotFoundError, ProjectPersistenceError, ValidationError } from "../errors.js";
 
 export interface IProjectCreateInput {
   name: string;
@@ -13,7 +13,9 @@ export interface IProjectCreateInput {
 export interface IProjectRepository {
   list(): Promise<Result<Project[], ProjectPersistenceError>>;
   getById(id: string): Promise<Result<Project, ProjectNotFoundError | ProjectPersistenceError>>;
-  create(input: ProjectRepository.CreateInput): Promise<Result<Project, ProjectPersistenceError>>;
+  create(
+    input: ProjectRepository.CreateInput,
+  ): Promise<Result<Project, ValidationError | ProjectPersistenceError>>;
   remove(id: string): Promise<Result<void, ProjectNotFoundError | ProjectPersistenceError>>;
 }
 

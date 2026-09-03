@@ -1,10 +1,10 @@
 import { createProjectRoute } from "~/shared/routes/projects.js";
-import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
+import { CreateProjectUseCase } from "~/api/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
 export const createProject = routeFactory(createProjectRoute, async ({ body, container, send }) => {
-  const repository = container.resolve(ProjectRepository);
-  const result = await repository.create(body);
+  const useCase = container.resolve(CreateProjectUseCase);
+  const result = await useCase.execute(body);
 
   if (result.isFail()) {
     return send.error(result.error);

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestContainer } from "~/testing/createTestContainer.js";
+import { ApiFeature } from "../feature.js";
 import { createServer } from "../server.js";
 import { registerApiRoutes } from "../routes/index.js";
 import type { FastifyInstance } from "fastify";
@@ -10,6 +11,7 @@ describe("Project API routes", () => {
 
   beforeEach(async () => {
     tc = createTestContainer();
+    ApiFeature.register(tc.container);
     app = await createServer(tc.container, [registerApiRoutes]);
   });
 

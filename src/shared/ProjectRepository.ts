@@ -1,8 +1,9 @@
 import { Result, generateId } from "@webiny/stdlib";
 import { eq } from "drizzle-orm";
-import { ProjectNotFoundError, ProjectPersistenceError } from "./errors.js";
+import { ProjectNotFoundError, ProjectPersistenceError, ValidationError } from "./errors.js";
 import { projects } from "~/db/schema.js";
 import { DatabaseClient } from "~/db/abstractions/DatabaseClient.js";
+import { createProjectBodySchema } from "./responses/projects.js";
 import type { Project } from "./types.js";
 import { ProjectRepository as Abstraction } from "./abstractions/ProjectRepository.js";
 
@@ -36,17 +37,22 @@ class ProjectRepositoryImpl implements Abstraction.Interface {
 
   public async create(
     input: Abstraction.CreateInput,
-  ): Promise<Result<Project, ProjectPersistenceError>> {
+  ): Promise<Result<Project, ValidationError | ProjectPersistenceError>> {
+    const parsed = createProjectBodySchema.safeParse(input);
+    if (!parsed.success) {
+      return Result.fail(new ValidationError(parsed.error.issues[0]?.message ?? "Invalid input"));
+    }
+
     try {
       const now = Date.now();
       const id = generateId();
 
       const row = {
         id,
-        name: input.name,
-        apiUrl: input.apiUrl,
-        apiToken: input.apiToken,
-        tenant: input.tenant ?? "root",
+        name: parsed.data.name,
+        apiUrl: parsed.data.apiUrl,
+        apiToken: parsed.data.apiToken,
+        tenant: parsed.data.tenant,
         createdAt: now,
         updatedAt: now,
       };
