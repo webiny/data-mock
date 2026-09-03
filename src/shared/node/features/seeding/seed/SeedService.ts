@@ -9,12 +9,18 @@ import { CreateSeedJobRepository } from "~/shared/node/features/seeding/create/a
 import { UpdateSeedJobRepository } from "~/shared/node/features/seeding/update/abstractions/UpdateSeedJobRepository.js";
 import { ModelDependencyResolver } from "~/shared/node/features/seeding/resolve/abstractions/ModelDependencyResolver.js";
 import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entries/abstractions/CreateSeedEntryRepository.js";
-import { createEntryVariables } from "~/shared/node/generators/createEntryVariables.js";
+import { createSingleEntryVariables } from "~/shared/node/generators/createEntryVariables.js";
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
 import { buildCreateEntryQuery } from "~/shared/node/graphql/operations/base/createContentEntry.js";
 import { SeedingError } from "~/shared/errors.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
 import type { ProjectModel } from "~/shared/types.js";
+
+interface ModelSeedContext {
+  model: ProjectModel;
+  amount: number;
+  modelId: string;
+}
 
 class SeedServiceImpl implements Abstraction.Interface {
   public constructor(
@@ -62,171 +68,84 @@ class SeedServiceImpl implements Abstraction.Interface {
     };
 
     try {
-      const allModels: ProjectModel[] = [];
-      const configByModelId = new Map<string, { modelId: string; amount: number }>();
-      for (const mc of input.models) {
-        configByModelId.set(mc.modelId, mc);
-        const r = await this.getProjectModelRepository.execute({
-          projectId: project.id,
-          modelId: mc.modelId,
-        });
-        if (r.isFail()) {
-          errors.push({ modelId: mc.modelId, message: r.error.message });
-          continue;
-        }
-        allModels.push(r.value);
-      }
-
-      const depResult = this.modelDependencyResolver.execute({ models: allModels });
-      const orderedModels = depResult.isOk() ? depResult.value.ordered : allModels;
-      if (depResult.isOk() && depResult.value.circular.length > 0) {
-        for (const cycle of depResult.value.circular) {
-          this.logger.warn(
-            `Circular dependency detected: ${cycle.join(" → ")}. Ref fields in these models will be null.`,
-          );
-        }
-      }
+      const contexts = await this.resolveModels(input, project.id, errors);
+      const orderedContexts = this.orderByDependencies(contexts);
 
       const availableRefs = new Map<string, string[]>();
 
-      for (const model of orderedModels) {
-        const modelConfig = configByModelId.get(model.modelId);
-        if (!modelConfig) {
-          continue;
-        }
+      for (const ctx of orderedContexts) {
+        const modelErrors: string[] = [];
 
         this.logger.info(
-          `${isDryRun ? "[DRY RUN] " : ""}Generating ${modelConfig.amount} entries for model "${model.name}"...`,
-        );
-
-        const entries = await createEntryVariables(
-          this.generatorRegistry,
-          this.logger,
-          { fields: model.fields },
-          modelConfig.amount,
-          { availableRefs },
+          `${isDryRun ? "[DRY RUN] " : ""}Generating ${ctx.amount} entries for model "${ctx.model.name}"...`,
         );
 
         if (isDryRun) {
-          generatedEntries.push({
-            modelId: modelConfig.modelId,
-            entries: entries.map((e) => e.values as Record<string, unknown>),
-          });
-          for (const entry of entries) {
-            await this.createSeedEntryRepository.execute({
-              jobId: job.id,
-              projectId: project.id,
-              tenant: input.tenant,
-              modelId: modelConfig.modelId,
-              entryId: "",
-              entryData: entry.values as Record<string, unknown>,
-              responseData: null,
-              httpStatus: null,
-              status: "dry-run",
-              error: null,
-            });
-          }
-          totalCreated += entries.length;
-          this.logger.info(
-            `[DRY RUN] Generated ${entries.length} entries for model "${model.name}" (not sent).`,
+          const dryRunEntries = await this.seedDryRun(
+            ctx,
+            availableRefs,
+            job.id,
+            project.id,
+            input.tenant,
           );
+          generatedEntries.push({ modelId: ctx.modelId, entries: dryRunEntries });
+          totalCreated += dryRunEntries.length;
           continue;
         }
 
-        const fieldSelection = createModelFields(model.fields);
-        const mutation = buildCreateEntryQuery({
-          singularApiName: model.modelId.charAt(0).toUpperCase() + model.modelId.slice(1),
-          fieldSelection,
-        });
-
+        const fieldSelection = createModelFields(ctx.model.fields);
+        const singularApiName =
+          ctx.model.modelId.charAt(0).toUpperCase() + ctx.model.modelId.slice(1);
+        const mutation = buildCreateEntryQuery({ singularApiName, fieldSelection });
         const createOp = this.operationRegistry.resolve(
           "createContentEntry",
           project.webinyVersion,
         );
         const apiUrl = `${project.apiUrl}${createOp.path}`;
 
-        for (let i = 0; i < entries.length; i++) {
+        for (let i = 0; i < ctx.amount; i++) {
+          const entry = await createSingleEntryVariables(
+            this.generatorRegistry,
+            { fields: ctx.model.fields },
+            availableRefs,
+          );
+          const entryData = entry.values as Record<string, unknown>;
+
           try {
-            const body = JSON.stringify({
-              query: mutation,
-              variables: { data: entries[i]!.values },
-            });
+            const created = await this.sendEntry(apiUrl, mutation, entryData, headers, createOp);
 
-            const response = await this.httpClient.post(apiUrl, body, headers);
-
-            const entryData = entries[i]!.values as Record<string, unknown>;
-
-            if (response.status !== 200) {
-              const text = await response.text().catch(() => "");
-              const errorMsg = `HTTP ${response.status}: ${text}`;
-              errors.push({ modelId: modelConfig.modelId, message: errorMsg });
-              await this.createSeedEntryRepository.execute({
-                jobId: job.id,
-                projectId: project.id,
-                tenant: input.tenant,
-                modelId: modelConfig.modelId,
-                entryId: "",
+            if (created.error) {
+              modelErrors.push(created.error);
+              errors.push({ modelId: ctx.modelId, message: created.error });
+              await this.logEntry(
+                job.id,
+                project.id,
+                input.tenant,
+                ctx.modelId,
                 entryData,
-                responseData: null,
-                httpStatus: response.status,
-                status: "failed",
-                error: errorMsg,
-              });
+                created,
+              );
               continue;
             }
 
-            const json = (await response.json()) as ApiGraphQLResultJson;
-            const result = createOp.getResult(json);
-
-            if (result.error) {
-              errors.push({ modelId: modelConfig.modelId, message: result.error.message });
-              await this.createSeedEntryRepository.execute({
-                jobId: job.id,
-                projectId: project.id,
-                tenant: input.tenant,
-                modelId: modelConfig.modelId,
-                entryId: "",
-                entryData,
-                responseData: json as unknown as Record<string, unknown>,
-                httpStatus: 200,
-                status: "failed",
-                error: result.error.message,
-              });
-            } else {
-              totalCreated++;
-              const data = result.data as Record<string, unknown> | undefined;
-              const entryId =
-                data && typeof (data as Record<string, unknown>)["id"] === "string"
-                  ? ((data as Record<string, unknown>)["id"] as string)
-                  : "";
-              if (entryId) {
-                const existing = availableRefs.get(model.modelId) ?? [];
-                existing.push(entryId);
-                availableRefs.set(model.modelId, existing);
-              }
-              await this.createSeedEntryRepository.execute({
-                jobId: job.id,
-                projectId: project.id,
-                tenant: input.tenant,
-                modelId: modelConfig.modelId,
-                entryId,
-                entryData,
-                responseData: data ?? null,
-                httpStatus: 200,
-                status: "created",
-                error: null,
-              });
+            totalCreated++;
+            if (created.entryId) {
+              const refs = availableRefs.get(ctx.model.modelId) ?? [];
+              refs.push(created.entryId);
+              availableRefs.set(ctx.model.modelId, refs);
             }
+            await this.logEntry(job.id, project.id, input.tenant, ctx.modelId, entryData, created);
           } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err);
-            errors.push({ modelId: modelConfig.modelId, message: errorMsg });
+            modelErrors.push(errorMsg);
+            errors.push({ modelId: ctx.modelId, message: errorMsg });
             await this.createSeedEntryRepository.execute({
               jobId: job.id,
               projectId: project.id,
               tenant: input.tenant,
-              modelId: modelConfig.modelId,
+              modelId: ctx.modelId,
               entryId: "",
-              entryData: entries[i]!.values as Record<string, unknown>,
+              entryData,
               responseData: null,
               httpStatus: null,
               status: "failed",
@@ -236,7 +155,7 @@ class SeedServiceImpl implements Abstraction.Interface {
         }
 
         this.logger.info(
-          `Completed model "${model.name}": ${entries.length} attempted, ${errors.length} errors.`,
+          `Completed model "${ctx.model.name}": ${ctx.amount} attempted, ${modelErrors.length} errors.`,
         );
       }
 
@@ -276,6 +195,161 @@ class SeedServiceImpl implements Abstraction.Interface {
 
       return Result.fail(new SeedingError(err instanceof Error ? err : new Error(String(err))));
     }
+  }
+
+  private async resolveModels(
+    input: Abstraction.Input,
+    projectId: string,
+    errors: Array<{ modelId: string; message: string }>,
+  ): Promise<ModelSeedContext[]> {
+    const contexts: ModelSeedContext[] = [];
+    for (const mc of input.models) {
+      const r = await this.getProjectModelRepository.execute({ projectId, modelId: mc.modelId });
+      if (r.isFail()) {
+        errors.push({ modelId: mc.modelId, message: r.error.message });
+        continue;
+      }
+      contexts.push({ model: r.value, amount: mc.amount, modelId: mc.modelId });
+    }
+    return contexts;
+  }
+
+  private orderByDependencies(contexts: ModelSeedContext[]): ModelSeedContext[] {
+    const models = contexts.map((c) => c.model);
+    const depResult = this.modelDependencyResolver.execute({ models });
+    if (depResult.isFail()) {
+      return contexts;
+    }
+
+    if (depResult.value.circular.length > 0) {
+      for (const cycle of depResult.value.circular) {
+        this.logger.warn(
+          `Circular dependency detected: ${cycle.join(" → ")}. Self-refs will resolve progressively.`,
+        );
+      }
+    }
+
+    const contextByModelId = new Map(contexts.map((c) => [c.model.modelId, c]));
+    return depResult.value.ordered
+      .map((m) => contextByModelId.get(m.modelId))
+      .filter((c): c is ModelSeedContext => c !== undefined);
+  }
+
+  private async sendEntry(
+    apiUrl: string,
+    mutation: string,
+    entryData: Record<string, unknown>,
+    headers: Record<string, string>,
+    createOp: {
+      getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
+    },
+  ): Promise<{
+    entryId: string;
+    responseData: Record<string, unknown> | null;
+    httpStatus: number;
+    status: "created" | "failed";
+    error: string | null;
+  }> {
+    const body = JSON.stringify({ query: mutation, variables: { data: entryData } });
+    const response = await this.httpClient.post(apiUrl, body, headers);
+
+    if (response.status !== 200) {
+      const text = await response.text().catch(() => "");
+      return {
+        entryId: "",
+        responseData: null,
+        httpStatus: response.status,
+        status: "failed",
+        error: `HTTP ${response.status}: ${text}`,
+      };
+    }
+
+    const json = (await response.json()) as ApiGraphQLResultJson;
+    const result = createOp.getResult(json);
+
+    if (result.error) {
+      return {
+        entryId: "",
+        responseData: json as unknown as Record<string, unknown>,
+        httpStatus: 200,
+        status: "failed",
+        error: result.error.message,
+      };
+    }
+
+    const data = result.data as Record<string, unknown> | undefined;
+    const entryId = data && typeof data["id"] === "string" ? (data["id"] as string) : "";
+
+    return {
+      entryId,
+      responseData: data ?? null,
+      httpStatus: 200,
+      status: "created",
+      error: null,
+    };
+  }
+
+  private async logEntry(
+    jobId: string,
+    projectId: string,
+    tenant: string,
+    modelId: string,
+    entryData: Record<string, unknown>,
+    result: {
+      entryId: string;
+      responseData: Record<string, unknown> | null;
+      httpStatus: number;
+      status: "created" | "failed";
+      error: string | null;
+    },
+  ): Promise<void> {
+    await this.createSeedEntryRepository.execute({
+      jobId,
+      projectId,
+      tenant,
+      modelId,
+      entryId: result.entryId,
+      entryData,
+      responseData: result.responseData,
+      httpStatus: result.httpStatus,
+      status: result.status,
+      error: result.error,
+    });
+  }
+
+  private async seedDryRun(
+    ctx: ModelSeedContext,
+    availableRefs: Map<string, string[]>,
+    jobId: string,
+    projectId: string,
+    tenant: string,
+  ): Promise<Record<string, unknown>[]> {
+    const entries: Record<string, unknown>[] = [];
+    for (let i = 0; i < ctx.amount; i++) {
+      const entry = await createSingleEntryVariables(
+        this.generatorRegistry,
+        { fields: ctx.model.fields },
+        availableRefs,
+      );
+      const entryData = entry.values as Record<string, unknown>;
+      entries.push(entryData);
+      await this.createSeedEntryRepository.execute({
+        jobId,
+        projectId,
+        tenant,
+        modelId: ctx.modelId,
+        entryId: "",
+        entryData,
+        responseData: null,
+        httpStatus: null,
+        status: "dry-run",
+        error: null,
+      });
+    }
+    this.logger.info(
+      `[DRY RUN] Generated ${entries.length} entries for model "${ctx.model.name}" (not sent).`,
+    );
+    return entries;
   }
 }
 
