@@ -37,6 +37,7 @@ export interface ISeedConfigVM {
   dryRun: boolean;
   isLoading: boolean;
   isSeeding: boolean;
+  showSeedConfirm: boolean;
   error: string | null;
   seedResult: { created: number; errors: number } | null;
 }
@@ -58,7 +59,9 @@ export interface ISeedConfigPresenter {
   setPublishPercent(percent: number): void;
   setIncludeUnpublish(value: boolean): void;
   setDryRun(value: boolean): void;
-  seed(): Promise<void>;
+  requestSeed(): void;
+  confirmSeed(): Promise<void>;
+  cancelSeed(): void;
 }
 
 export const SeedConfigPresenter =

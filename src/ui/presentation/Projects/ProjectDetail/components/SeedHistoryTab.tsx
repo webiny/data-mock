@@ -1,10 +1,11 @@
 import { observer } from "mobx-react-lite";
-import { Badge, Group, Pagination, Stack, Table, Text, Title } from "@mantine/core";
+import { Badge, Group, Pagination, Stack, Table, Text } from "@mantine/core";
 import { usePagination } from "~/ui/components/usePagination.js";
 import type { ISeedJobVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface SeedHistoryTabProps {
   seedJobs: ISeedJobVM[];
+  onJobClick: (jobId: string) => void;
 }
 
 function statusColor(status: string): string {
@@ -22,7 +23,10 @@ function statusColor(status: string): string {
   }
 }
 
-export const SeedHistoryTab = observer(function SeedHistoryTab({ seedJobs }: SeedHistoryTabProps) {
+export const SeedHistoryTab = observer(function SeedHistoryTab({
+  seedJobs,
+  onJobClick,
+}: SeedHistoryTabProps) {
   const { page, totalPages, pageItems, setPage } = usePagination(seedJobs);
 
   if (seedJobs.length === 0) {
@@ -35,7 +39,6 @@ export const SeedHistoryTab = observer(function SeedHistoryTab({ seedJobs }: See
 
   return (
     <Stack gap="sm">
-      <Title order={4}>Seed History ({seedJobs.length})</Title>
       <Table>
         <Table.Thead>
           <Table.Tr>
@@ -48,7 +51,7 @@ export const SeedHistoryTab = observer(function SeedHistoryTab({ seedJobs }: See
         </Table.Thead>
         <Table.Tbody>
           {pageItems.map((job) => (
-            <Table.Tr key={job.id}>
+            <Table.Tr key={job.id} onClick={() => onJobClick(job.id)} style={{ cursor: "pointer" }}>
               <Table.Td>
                 <Text size="sm">{new Date(job.createdAt).toLocaleString()}</Text>
               </Table.Td>

@@ -316,3 +316,45 @@ describe("Validator Integration", () => {
     }
   });
 });
+
+describe("createSingleEntryVariables", () => {
+  it("should produce non-null values for all text fields in a model", async () => {
+    const { createSingleEntryVariables } = await import("../createEntryVariables.js");
+    const { container } = setup();
+    const registry = container.resolve(GeneratorRegistry);
+
+    const fields = [
+      createField({
+        id: "firstName",
+        fieldId: "firstName",
+        storageId: "text@firstName",
+        type: "text",
+      }),
+      createField({
+        id: "lastName",
+        fieldId: "lastName",
+        storageId: "text@lastName",
+        type: "text",
+      }),
+      createField({ id: "email", fieldId: "email", storageId: "text@email", type: "text" }),
+      createField({ id: "phone", fieldId: "phone", storageId: "text@phone", type: "text" }),
+      createField({
+        id: "message",
+        fieldId: "message",
+        storageId: "long-text@message",
+        type: "long-text",
+      }),
+    ];
+
+    const entry = await createSingleEntryVariables(registry, { fields });
+
+    for (const field of fields) {
+      const value = entry.values[field.fieldId];
+      expect(value, `${field.fieldId} should not be null`).not.toBeNull();
+      expect(typeof value, `${field.fieldId} should be a string`).toBe("string");
+      expect((value as string).length, `${field.fieldId} should have length > 0`).toBeGreaterThan(
+        0,
+      );
+    }
+  });
+});

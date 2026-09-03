@@ -3,7 +3,8 @@ import type { SeedEntry } from "~/shared/types.js";
 
 export interface IEntriesRepository {
   readonly entries: SeedEntry[];
-  setEntries(entries: SeedEntry[]): void;
+  readonly totalEntries: number;
+  setEntries(entries: SeedEntry[], total: number): void;
   clearEntries(projectId: string): void;
   getEntriesByProjectId(projectId: string): SeedEntry[];
 }

@@ -1,4 +1,4 @@
-import { Badge, Button, Group, Pagination, Stack, Table, Text, Title } from "@mantine/core";
+import { Badge, Button, Group, Pagination, Stack, Table, Text } from "@mantine/core";
 import { usePagination } from "~/ui/components/usePagination.js";
 import type { IFileVM } from "../abstractions/ProjectDetailPresenter.js";
 
@@ -20,7 +20,6 @@ export function FilesTab({ files, onDelete }: FilesTabProps) {
 
   return (
     <Stack gap="md">
-      <Title order={4}>Uploaded Files ({files.length})</Title>
       <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>

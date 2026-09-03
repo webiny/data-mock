@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Text, Title } from "@mantine/core";
+import { Button, Group, Stack, Text } from "@mantine/core";
 import type { ISyncLogVM } from "../abstractions/ProjectDetailPresenter.js";
 import { SyncLogTable } from "./SyncLogTable.js";
 
@@ -15,7 +15,6 @@ export function SyncTenantsTab({ logs, isSyncing, onSync, onDeleteLog }: SyncTen
   return (
     <Stack gap="md">
       <Group justify="space-between">
-        <Title order={4}>Sync Tenants</Title>
         <Button loading={isSyncing} onClick={onSync}>
           Run Sync
         </Button>

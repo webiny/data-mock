@@ -96,6 +96,12 @@ export interface IProjectDetailVM {
   templates: ITemplateVM[];
   files: IFileVM[];
   entries: IEntryVM[];
+  entriesTotalCount: number;
+  entriesPage: number;
+  entriesJobFilter: string | null;
+  entriesModelFilter: string | null;
+  entriesTenantFilter: string | null;
+  entriesStatusFilter: string | null;
   syncLog: ISyncLogVM[];
   isLoading: boolean;
   isSyncingTenants: boolean;
@@ -125,6 +131,10 @@ export interface IProjectDetailPresenter {
   openEditDialog(): void;
   closeEditDialog(): void;
   submitEdit(input: IEditProjectInput): Promise<boolean>;
+  loadEntriesPage(page: number): Promise<void>;
+  viewJobEntries(jobId: string): Promise<void>;
+  setEntriesFilter(key: string, value: string | null): Promise<void>;
+  clearEntriesFilter(): Promise<void>;
   clearEntries(): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
   deleteSyncLog(logId: string): Promise<void>;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
-import { Accordion, Badge, Group, Pagination, Stack, Text, Title } from "@mantine/core";
+import { Accordion, Badge, Group, Pagination, Stack, Text } from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
 import { usePagination } from "~/ui/components/usePagination.js";
 import type { IGroupVM, IModelVM } from "../abstractions/ProjectDetailPresenter.js";
@@ -24,9 +24,6 @@ export const ModelsTab = observer(function ModelsTab({ groups, models }: ModelsT
 
   return (
     <Stack gap="sm">
-      <Title order={4}>
-        {groups.length} Groups, {models.length} Models
-      </Title>
       <Accordion variant="separated">
         {pageGroups.map((group) => {
           const groupModels = models.filter((m) => m.groupSlug === group.slug);

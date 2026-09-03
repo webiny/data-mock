@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { Badge, Button, Card, Group, Pagination, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Card, Group, Pagination, Stack, Text } from "@mantine/core";
 import { usePagination } from "~/ui/components/usePagination.js";
 import type { ITemplateVM } from "../abstractions/ProjectDetailPresenter.js";
 
@@ -26,7 +26,6 @@ export const TemplatesTab = observer(function TemplatesTab({
 
   return (
     <Stack gap="sm">
-      <Title order={4}>Templates ({templates.length})</Title>
       {pageItems.map((template) => (
         <Card key={template.id} withBorder padding="sm">
           <Group justify="space-between">

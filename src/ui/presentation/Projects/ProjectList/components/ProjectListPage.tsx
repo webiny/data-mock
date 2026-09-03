@@ -44,8 +44,6 @@ export const ProjectListPage = observer(function ProjectListPage({
 
   return (
     <Stack gap="md">
-      <Title order={3}>Projects</Title>
-
       {projects.map((project) => (
         <Card key={project.id} withBorder padding="md">
           <Stack gap="sm">

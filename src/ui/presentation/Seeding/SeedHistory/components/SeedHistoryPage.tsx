@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
-import { Stack, Title, Text, Table, Badge, Loader } from "@mantine/core";
+import { Stack, Text, Table, Badge, Loader } from "@mantine/core";
 import type { SeedHistoryPresenter } from "../abstractions/SeedHistoryPresenter.js";
 
 interface SeedHistoryPageProps {
@@ -47,7 +47,6 @@ export const SeedHistoryPage = observer(function SeedHistoryPage({
   if (vm.isEmpty) {
     return (
       <Stack py="md">
-        <Title order={4}>Seed History</Title>
         <Text c="dimmed">No seed jobs yet for this project.</Text>
       </Stack>
     );
@@ -55,7 +54,6 @@ export const SeedHistoryPage = observer(function SeedHistoryPage({
 
   return (
     <Stack gap="md">
-      <Title order={4}>Seed History</Title>
       <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>

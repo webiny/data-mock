@@ -54,6 +54,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _loadedDatasets = new Set<string>();
   private _loadingDatasets = new Set<string>();
   private _loadingProjectId: string | null = null;
+  private _entriesPage = 1;
+  private _entriesJobFilter: string | null = null;
+  private _entriesModelFilter: string | null = null;
+  private _entriesTenantFilter: string | null = null;
+  private _entriesStatusFilter: string | null = null;
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
@@ -180,6 +185,12 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         error: e.error,
         createdAt: e.createdAt,
       })),
+      entriesTotalCount: this._projectId ? this.entriesRepository.totalEntries : 0,
+      entriesPage: this._entriesPage,
+      entriesJobFilter: this._entriesJobFilter,
+      entriesModelFilter: this._entriesModelFilter,
+      entriesTenantFilter: this._entriesTenantFilter,
+      entriesStatusFilter: this._entriesStatusFilter,
       syncLog: syncLogs.map((l) => ({
         id: l.id,
         type: l.type,
@@ -236,6 +247,60 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
     await Promise.all(needed.map((d) => this.loadDataset(d)));
+  };
+
+  public loadEntriesPage = async (page: number): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    this._entriesPage = page;
+    const result = await this.entriesGateway.list(this._projectId, this.buildEntriesParams());
+    runInAction(() => {
+      if (result.isOk()) {
+        this.entriesRepository.setEntries(result.value.entries, result.value.total);
+      }
+    });
+  };
+
+  public setEntriesFilter = async (key: string, value: string | null): Promise<void> => {
+    switch (key) {
+      case "modelId":
+        this._entriesModelFilter = value;
+        break;
+      case "tenant":
+        this._entriesTenantFilter = value;
+        break;
+      case "status":
+        this._entriesStatusFilter = value;
+        break;
+    }
+    this._entriesPage = 1;
+    this._loadedDatasets.delete("entries");
+    await this.loadDataset("entries");
+  };
+
+  public viewJobEntries = async (jobId: string): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    this._entriesJobFilter = jobId;
+    this._entriesPage = 1;
+    this._loadedDatasets.delete("entries");
+    navigate(AppRoutes.projectTab(this._projectId, "entries"));
+    await this.loadDataset("entries");
+  };
+
+  public clearEntriesFilter = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    this._entriesJobFilter = null;
+    this._entriesModelFilter = null;
+    this._entriesTenantFilter = null;
+    this._entriesStatusFilter = null;
+    this._entriesPage = 1;
+    this._loadedDatasets.delete("entries");
+    await this.loadDataset("entries");
   };
 
   public loadTemplate = (_templateId: string): void => {
@@ -493,6 +558,23 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  private buildEntriesParams(): Record<string, string | number> {
+    const params: Record<string, string | number> = { page: this._entriesPage };
+    if (this._entriesJobFilter) {
+      params.jobId = this._entriesJobFilter;
+    }
+    if (this._entriesModelFilter) {
+      params.modelId = this._entriesModelFilter;
+    }
+    if (this._entriesTenantFilter) {
+      params.tenant = this._entriesTenantFilter;
+    }
+    if (this._entriesStatusFilter) {
+      params.status = this._entriesStatusFilter;
+    }
+    return params;
+  }
+
   private loadDataset = async (dataset: string): Promise<void> => {
     if (
       !this._projectId ||
@@ -536,10 +618,10 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "entries": {
-        const result = await this.entriesGateway.list(projectId);
+        const result = await this.entriesGateway.list(projectId, this.buildEntriesParams());
         runInAction(() => {
           if (result.isOk()) {
-            this.entriesRepository.setEntries(result.value);
+            this.entriesRepository.setEntries(result.value.entries, result.value.total);
           }
           this._loadedDatasets.add(dataset);
         });

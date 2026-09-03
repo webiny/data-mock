@@ -47,9 +47,10 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   private _publishStrategy: PublishStrategy = "none";
   private _publishPercent = 50;
   private _includeUnpublish = false;
-  private _dryRun = false;
+  private _dryRun = true;
   private _isLoading = false;
   private _isSeeding = false;
+  private _showSeedConfirm = false;
   private _error: string | null = null;
   private _seedResult: { created: number; errors: number } | null = null;
 
@@ -109,6 +110,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
       dryRun: this._dryRun,
       isLoading: this._isLoading,
       isSeeding: this._isSeeding,
+      showSeedConfirm: this._showSeedConfirm,
       error: this._error,
       seedResult: this._seedResult,
     };
@@ -233,7 +235,24 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     this._dryRun = value;
   };
 
-  public seed = async (): Promise<void> => {
+  public requestSeed = (): void => {
+    if (this._dryRun) {
+      void this.executeSeed();
+    } else {
+      this._showSeedConfirm = true;
+    }
+  };
+
+  public confirmSeed = async (): Promise<void> => {
+    this._showSeedConfirm = false;
+    await this.executeSeed();
+  };
+
+  public cancelSeed = (): void => {
+    this._showSeedConfirm = false;
+  };
+
+  private executeSeed = async (): Promise<void> => {
     if (!this._projectId || !this._selectedTenant) {
       return;
     }

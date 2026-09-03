@@ -17,6 +17,7 @@ export interface RouteSend {
 export interface RouteHandlerContext<TParams = unknown, TBody = unknown> {
   readonly params: TParams;
   readonly body: TBody;
+  readonly query: Record<string, string | undefined>;
   readonly container: Container;
   readonly send: RouteSend;
 }

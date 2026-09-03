@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, Card, Checkbox, Group, Select, Stack, Text } from "@mantine/core";
 import type { ITenantVM, IModelVM } from "../abstractions/ProjectDetailPresenter.js";
 
 interface ImportEntriesTabProps {
@@ -47,7 +47,6 @@ export function ImportEntriesTab({
 
   return (
     <Stack gap="md">
-      <Title order={4}>Import Entries</Title>
       <Text size="sm" c="dimmed">
         Pull existing entries from Webiny and store them locally. Imported entries can be used as
         references when seeding new data.

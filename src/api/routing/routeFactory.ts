@@ -41,10 +41,12 @@ export function routeFactory<
           }
         }
 
+        const query = (request.query ?? {}) as Record<string, string | undefined>;
         const send = createSend(reply);
         return handler({
           params,
           body,
+          query,
           container: request.container,
           send,
         });

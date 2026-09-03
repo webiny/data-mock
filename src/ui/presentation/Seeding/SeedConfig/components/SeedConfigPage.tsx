@@ -10,6 +10,7 @@ import {
   Divider,
   Group,
   Loader,
+  Modal,
   NumberInput,
   Select,
   Slider,
@@ -17,7 +18,6 @@ import {
   Switch,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import type { SeedConfigPresenter } from "../abstractions/SeedConfigPresenter.js";
 import type { IModelConfigVM } from "../abstractions/SeedConfigPresenter.js";
@@ -61,8 +61,6 @@ export const SeedConfigPage = observer(function SeedConfigPage({
 
   return (
     <Stack gap="lg">
-      <Title order={3}>Seed Data — {vm.project?.name}</Title>
-
       {vm.tenants.length > 0 && (
         <Select
           label="Target Tenant"
@@ -234,13 +232,32 @@ export const SeedConfigPage = observer(function SeedConfigPage({
       )}
 
       <Button
-        onClick={() => void presenter.seed()}
+        onClick={() => presenter.requestSeed()}
         loading={vm.isSeeding}
         disabled={selectedCount === 0}
+        {...(vm.dryRun ? {} : { color: "red" })}
         size="lg"
       >
         {vm.dryRun ? "Dry Run" : "Seed Data"} ({selectedCount} models)
       </Button>
+
+      <Modal
+        opened={vm.showSeedConfirm}
+        onClose={() => presenter.cancelSeed()}
+        title="Confirm Seeding"
+        centered
+        size="sm"
+      >
+        <Text>This will create real entries in your Webiny CMS instance. Are you sure?</Text>
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={() => presenter.cancelSeed()}>
+            Cancel
+          </Button>
+          <Button color="red" onClick={() => void presenter.confirmSeed()}>
+            Seed {selectedCount} models
+          </Button>
+        </Group>
+      </Modal>
     </Stack>
   );
 });

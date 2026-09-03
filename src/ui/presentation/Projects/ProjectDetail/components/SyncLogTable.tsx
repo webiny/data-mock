@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Group, Modal, Pagination, Stack, Table, Text, Title } from "@mantine/core";
+import { Badge, Button, Group, Modal, Pagination, Stack, Table, Text } from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
 import { usePagination } from "~/ui/components/usePagination.js";
 import type { ISyncLogVM } from "../abstractions/ProjectDetailPresenter.js";
@@ -79,9 +79,6 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
 
   return (
     <>
-      <Title order={4} mb="sm">
-        Sync Log ({logs.length})
-      </Title>
       <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>

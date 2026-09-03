@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { Badge, Group, Pagination, Table, Text, Stack, Title } from "@mantine/core";
+import { Badge, Group, Pagination, Table, Text, Stack } from "@mantine/core";
 import { usePagination } from "~/ui/components/usePagination.js";
 import type { ITenantVM } from "../abstractions/ProjectDetailPresenter.js";
 
@@ -20,7 +20,6 @@ export const TenantsTab = observer(function TenantsTab({ tenants }: TenantsTabPr
 
   return (
     <Stack gap="sm">
-      <Title order={4}>Tenants ({tenants.length})</Title>
       <Table>
         <Table.Thead>
           <Table.Tr>

@@ -238,11 +238,27 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             {activeView === "entries" && (
               <AuditLogTab
                 entries={entries}
+                totalCount={vm.entriesTotalCount}
+                page={vm.entriesPage}
+                jobFilter={vm.entriesJobFilter}
+                modelFilter={vm.entriesModelFilter}
+                tenantFilter={vm.entriesTenantFilter}
+                statusFilter={vm.entriesStatusFilter}
+                models={vm.models}
+                tenants={vm.tenants}
                 isClearing={isClearingEntries}
+                onPageChange={(p) => void presenter.loadEntriesPage(p)}
+                onFilterChange={(k, v) => void presenter.setEntriesFilter(k, v)}
+                onClearFilter={() => void presenter.clearEntriesFilter()}
                 onClear={() => void presenter.clearEntries()}
               />
             )}
-            {activeView === "history" && <SeedHistoryTab seedJobs={seedJobs} />}
+            {activeView === "history" && (
+              <SeedHistoryTab
+                seedJobs={seedJobs}
+                onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
+              />
+            )}
             {activeView === "templates" && (
               <TemplatesTab
                 templates={templates}
