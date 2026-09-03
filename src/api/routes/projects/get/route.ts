@@ -1,19 +1,17 @@
-import type { FastifyInstance } from "fastify";
+import { getProjectRoute } from "~/shared/routes/projects.js";
 import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
-import "~/api/types.js";
+import { routeFactory } from "~/api/routing/routeFactory.js";
 
-export async function getProjectRoute(app: FastifyInstance): Promise<void> {
-  app.get<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) => {
-    const repository = request.container.resolve(ProjectRepository);
-    const result = await repository.getById(request.params.id);
+export const getProject = routeFactory<{ id: string }>(
+  getProjectRoute,
+  async ({ params, container, send }) => {
+    const repository = container.resolve(ProjectRepository);
+    const result = await repository.getById(params.id);
 
     if (result.isFail()) {
-      const statusCode = result.error.code === "Project/NotFound" ? 404 : 500;
-      return reply
-        .code(statusCode)
-        .send({ error: { code: result.error.code, message: result.error.message } });
+      return send.error(result.error);
     }
 
-    return reply.code(200).send({ project: result.value });
-  });
-}
+    return send.one("project", result.value);
+  },
+);

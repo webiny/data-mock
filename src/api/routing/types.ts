@@ -1,4 +1,5 @@
 import type { Container } from "@webiny/di";
+import type { FastifyInstance } from "fastify";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -6,15 +7,11 @@ declare module "fastify" {
   }
 }
 
-export type HTTPMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-
-export type ResponseType = "list" | "one" | "none";
-
-export interface RouteConfig {
-  readonly method: HTTPMethod;
-  readonly path: string;
-  readonly responseType: ResponseType;
-  readonly responseKey?: string;
+export interface RouteSend {
+  list<T>(key: string, items: T[], total: number): Promise<void>;
+  one<T>(key: string, value: T, statusCode?: number): Promise<void>;
+  none(): Promise<void>;
+  error(error: unknown): Promise<void>;
 }
 
 export interface RouteHandlerContext<TParams = unknown, TBody = unknown> {
@@ -24,15 +21,8 @@ export interface RouteHandlerContext<TParams = unknown, TBody = unknown> {
   readonly send: RouteSend;
 }
 
-export interface RouteSend {
-  list<T>(key: string, items: T[], total: number): Promise<void>;
-  one<T>(key: string, value: T): Promise<void>;
-  none(): Promise<void>;
-  error(error: unknown): Promise<void>;
-}
-
 export type RouteHandler<TParams = unknown, TBody = unknown> = (
   context: RouteHandlerContext<TParams, TBody>,
 ) => Promise<void>;
 
-export type RouteRegistrar = (app: import("fastify").FastifyInstance) => Promise<void>;
+export type RouteRegistrar = (app: FastifyInstance) => Promise<void>;

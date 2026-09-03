@@ -1,19 +1,15 @@
-import type { FastifyInstance } from "fastify";
+import { listProjectsRoute } from "~/shared/routes/projects.js";
 import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
-import "~/api/types.js";
+import { routeFactory } from "~/api/routing/routeFactory.js";
 
-export async function listProjectsRoute(app: FastifyInstance): Promise<void> {
-  app.get("/api/projects", async (request, reply) => {
-    const repository = request.container.resolve(ProjectRepository);
-    const result = await repository.list();
+export const listProjects = routeFactory(listProjectsRoute, async ({ container, send }) => {
+  const repository = container.resolve(ProjectRepository);
+  const result = await repository.list();
 
-    if (result.isFail()) {
-      return reply
-        .code(500)
-        .send({ error: { code: result.error.code, message: result.error.message } });
-    }
+  if (result.isFail()) {
+    return send.error(result.error);
+  }
 
-    const projects = result.value;
-    return reply.code(200).send({ projects: { items: projects, total: projects.length } });
-  });
-}
+  const projects = result.value;
+  return send.list("projects", projects, projects.length);
+});

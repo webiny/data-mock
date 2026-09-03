@@ -10,8 +10,8 @@ export function createSend(reply: FastifyReply): RouteSend {
       });
     },
 
-    async one<T>(key: string, value: T): Promise<void> {
-      await reply.status(200).send({
+    async one<T>(key: string, value: T, statusCode?: number): Promise<void> {
+      await reply.status(statusCode ?? 200).send({
         [key]: value,
       });
     },

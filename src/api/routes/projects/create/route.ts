@@ -1,36 +1,18 @@
-import type { FastifyInstance } from "fastify";
-import { z } from "zod";
+import { createProjectRoute } from "~/shared/routes/projects.js";
 import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
-import "~/api/types.js";
+import { routeFactory } from "~/api/routing/routeFactory.js";
+import type { CreateProjectBody } from "~/shared/responses/projects.js";
 
-const createProjectSchema = z.object({
-  name: z.string().min(1),
-  apiUrl: z.string().url(),
-  apiToken: z.string().min(1),
-  tenant: z.string().optional().default("root"),
-});
-
-export async function createProjectRoute(app: FastifyInstance): Promise<void> {
-  app.post("/api/projects", async (request, reply) => {
-    const parsed = createProjectSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({
-        error: {
-          code: "Validation/Error",
-          message: parsed.error.issues[0]?.message ?? "Invalid input",
-        },
-      });
-    }
-
-    const repository = request.container.resolve(ProjectRepository);
-    const result = await repository.create(parsed.data);
+export const createProject = routeFactory<Record<string, never>, CreateProjectBody>(
+  createProjectRoute,
+  async ({ body, container, send }) => {
+    const repository = container.resolve(ProjectRepository);
+    const result = await repository.create(body);
 
     if (result.isFail()) {
-      return reply
-        .code(500)
-        .send({ error: { code: result.error.code, message: result.error.message } });
+      return send.error(result.error);
     }
 
-    return reply.code(201).send({ project: result.value });
-  });
-}
+    return send.one("project", result.value, 201);
+  },
+);

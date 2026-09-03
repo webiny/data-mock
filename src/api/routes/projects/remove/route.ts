@@ -1,19 +1,17 @@
-import type { FastifyInstance } from "fastify";
+import { removeProjectRoute } from "~/shared/routes/projects.js";
 import { ProjectRepository } from "~/shared/abstractions/ProjectRepository.js";
-import "~/api/types.js";
+import { routeFactory } from "~/api/routing/routeFactory.js";
 
-export async function removeProjectRoute(app: FastifyInstance): Promise<void> {
-  app.delete<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) => {
-    const repository = request.container.resolve(ProjectRepository);
-    const result = await repository.remove(request.params.id);
+export const removeProject = routeFactory<{ id: string }>(
+  removeProjectRoute,
+  async ({ params, container, send }) => {
+    const repository = container.resolve(ProjectRepository);
+    const result = await repository.remove(params.id);
 
     if (result.isFail()) {
-      const statusCode = result.error.code === "Project/NotFound" ? 404 : 500;
-      return reply
-        .code(statusCode)
-        .send({ error: { code: result.error.code, message: result.error.message } });
+      return send.error(result.error);
     }
 
-    return reply.code(204).send();
-  });
-}
+    return send.none();
+  },
+);
