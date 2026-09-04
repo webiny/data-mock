@@ -128,7 +128,6 @@ src/
 | `yarn cli list-projects` | Show all configured projects |
 | `yarn cli remove-project` | Select + confirm + remove a project |
 | `yarn cli sync-models` | Pull models/groups from a Webiny project into local DB |
-| `yarn cli push-models` | Push local models/groups to a Webiny project |
 | `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
 | `yarn cli rotate-key` | Rotate the API token encryption key |
 | `yarn cli upload-files` | Upload files to a Webiny project's file manager |
@@ -160,8 +159,6 @@ All long-running operations (seed, sync-tenants, sync-models, import, cleanup) r
 |---|---|---|
 | GET | `/api/projects/:projectId/models` | List local models |
 | POST | `/api/projects/:projectId/models/sync` | Pull models from Webiny (logs to sync_logs) |
-| GET | `/api/projects/:projectId/models/diff` | Compare local vs remote |
-| POST | `/api/projects/:projectId/models/push` | Push local models to Webiny |
 
 ### Seeding
 | Method | Path | Purpose |
@@ -237,7 +234,7 @@ The project detail route uses a `/*` wildcard — `subPath` determines the activ
 
 URL is the source of truth for tab selection — no presenter state for active tab.
 
-Sidebar sections: **Data** (6 tabs), **Sync** (2 tabs), **Actions** (Seed Data, Import, Push Models, Cleanup, Edit Project).
+Sidebar sections: **Data** (6 tabs), **Sync** (2 tabs), **Actions** (Seed Data, Import, Cleanup, Edit Project).
 
 ---
 

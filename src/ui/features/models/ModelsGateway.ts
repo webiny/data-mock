@@ -1,12 +1,6 @@
 import { Result } from "@webiny/stdlib";
 import type { ProjectModel, Job, ApiCmsModelField } from "~/shared/types.js";
-import type { ModelDiffItem, ModelPushResult } from "~/shared/responses/models.js";
-import {
-  listProjectModelsRoute,
-  syncProjectModelsRoute,
-  pushProjectModelsRoute,
-  diffProjectModelsRoute,
-} from "~/shared/routes/models.js";
+import { listProjectModelsRoute, syncProjectModelsRoute } from "~/shared/routes/models.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { ModelsGateway as Abstraction } from "./abstractions/ModelsGateway.js";
@@ -42,30 +36,6 @@ class ModelsGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(result.value.job);
-  }
-
-  public async pushModels(projectId: string): Promise<Result<ModelPushResult, HTTPError>> {
-    const result = await this.httpClient.request(pushProjectModelsRoute, {
-      params: { projectId },
-    });
-
-    if (result.isFail()) {
-      return Result.fail(result.error);
-    }
-
-    return Result.ok(result.value.push);
-  }
-
-  public async diffModels(projectId: string): Promise<Result<ModelDiffItem[], HTTPError>> {
-    const result = await this.httpClient.request(diffProjectModelsRoute, {
-      params: { projectId },
-    });
-
-    if (result.isFail()) {
-      return Result.fail(result.error);
-    }
-
-    return Result.ok(result.value.diff.items);
   }
 }
 

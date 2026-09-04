@@ -6,7 +6,6 @@ import { SyncProjectModelsRepository } from "./sync/SyncProjectModelsRepository.
 import { SyncModelsService } from "./sync/SyncModelsService.js";
 import { CompareModelsService } from "./sync/CompareModelsService.js";
 import { GetProjectModelRepository } from "./get/GetProjectModelRepository.js";
-import { PushModelsService } from "./push/PushModelsService.js";
 
 export const ModelsFeature = createFeature({
   name: "Shared/ModelsFeature",
@@ -19,6 +18,5 @@ export const ModelsFeature = createFeature({
 
     container.register(SyncModelsService);
     container.register(CompareModelsService);
-    container.register(PushModelsService);
   },
 });

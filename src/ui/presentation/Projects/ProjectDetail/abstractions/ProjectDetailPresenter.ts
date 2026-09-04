@@ -1,6 +1,5 @@
 import { createAbstraction } from "@webiny/stdlib";
-import type { SeedTemplateConfig, SeedEntryStatus } from "~/shared/types.js";
-import type { ModelDiffItem } from "~/shared/responses/models.js";
+import type { SeedTemplateConfig, SeedEntryStatus, Job } from "~/shared/types.js";
 
 export interface IProjectVM {
   id: string;
@@ -104,20 +103,17 @@ export interface IProjectDetailVM {
   entriesTenantFilter: string | null;
   entriesStatusFilter: string | null;
   syncLog: ISyncLogVM[];
+  jobs: Job[];
   projectHealth: "unknown" | "checking" | "reachable" | "unreachable";
   projectHealthError: string | null;
   isLoading: boolean;
   isSyncingTenants: boolean;
   isSyncingModels: boolean;
-  isPushing: boolean;
   isImporting: boolean;
   isClearingEntries: boolean;
   isCleaningUp: boolean;
-  showPushDialog: boolean;
   showEditDialog: boolean;
   showCleanupDialog: boolean;
-  isLoadingDiff: boolean;
-  modelDiff: ModelDiffItem[];
 }
 
 export interface IProjectDetailPresenter {
@@ -129,9 +125,6 @@ export interface IProjectDetailPresenter {
   deleteTemplate(templateId: string): Promise<void>;
   syncTenants(): Promise<void>;
   syncModels(): Promise<void>;
-  openPushDialog(): Promise<void>;
-  closePushDialog(): void;
-  confirmPush(): Promise<void>;
   openEditDialog(): void;
   closeEditDialog(): void;
   submitEdit(input: IEditProjectInput): Promise<boolean>;

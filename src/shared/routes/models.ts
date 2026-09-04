@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { defineListRoute, defineOneRoute } from "../routing/defineTypedRoutes.js";
-import {
-  projectModelSchema,
-  modelDiffItemSchema,
-  modelPushResultSchema,
-} from "../responses/models.js";
+import { projectModelSchema } from "../responses/models.js";
 import { jobSchema } from "./jobs.js";
 
 export const listProjectModelsRoute = defineListRoute("models", {
@@ -20,19 +16,4 @@ export const syncProjectModelsRoute = defineOneRoute("job", {
   description: "Sync models from Webiny for a project",
   params: z.object({ projectId: z.string() }),
   item: jobSchema,
-});
-
-export const pushProjectModelsRoute = defineOneRoute("push", {
-  method: "POST",
-  path: "/api/projects/:projectId/models/push",
-  description: "Push local models to Webiny for a project",
-  params: z.object({ projectId: z.string() }),
-  item: modelPushResultSchema,
-});
-
-export const diffProjectModelsRoute = defineListRoute("diff", {
-  path: "/api/projects/:projectId/models/diff",
-  description: "Compare local vs remote models for a project",
-  params: z.object({ projectId: z.string() }),
-  item: modelDiffItemSchema,
 });

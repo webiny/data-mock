@@ -32,25 +32,9 @@ export const projectModelSchema = z.object({
 
 export type ProjectModelResponse = z.infer<typeof projectModelSchema>;
 
-export const modelDiffItemSchema = z.object({
-  modelId: z.string(),
-  name: z.string(),
-  status: z.enum(["added", "removed", "changed", "unchanged"]),
-  changes: z.array(z.string()).optional(),
-});
-
-export type ModelDiffItem = z.infer<typeof modelDiffItemSchema>;
-
 export const modelSyncResultSchema = z.object({
   groups: z.number(),
   models: z.number(),
 });
 
 export type ModelSyncResult = z.infer<typeof modelSyncResultSchema>;
-
-export const modelPushResultSchema = z.object({
-  pushed: z.object({ groups: z.number(), models: z.number() }),
-  skipped: z.object({ groups: z.number(), models: z.number() }),
-});
-
-export type ModelPushResult = z.infer<typeof modelPushResultSchema>;

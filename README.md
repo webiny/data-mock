@@ -82,7 +82,6 @@ All operations run as background jobs with real-time progress via WebSocket.
 | `yarn cli list-projects` | Show all configured projects |
 | `yarn cli remove-project` | Select + confirm + remove a project |
 | `yarn cli sync-models` | Pull models/groups from a Webiny project |
-| `yarn cli push-models` | Push local models/groups to a Webiny project |
 | `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
 | `yarn cli rotate-key` | Rotate the API token encryption key |
 | `yarn cli upload-files` | Upload files to a Webiny project's file manager |

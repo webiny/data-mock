@@ -11,7 +11,6 @@ import {
   NavLink,
   Paper,
   Stack,
-  Table,
   Text,
   Title,
   Tooltip,
@@ -29,6 +28,7 @@ import { AuditLogTab } from "./AuditLogTab.js";
 import { SyncTenantsTab } from "./SyncTenantsTab.js";
 import { SyncModelsTab } from "./SyncModelsTab.js";
 import { ImportEntriesTab } from "./ImportEntriesTab.js";
+import { JobsTab } from "./JobsTab.js";
 import { EditProjectForm } from "./EditProjectForm.js";
 import { navigate } from "~/ui/features/router/Router.js";
 import { AppRoutes } from "~/ui/features/router/routePaths.js";
@@ -47,13 +47,6 @@ function resolveView(subPath: string): string {
   }
   return subPath;
 }
-
-const diffStatusColor: Record<string, string> = {
-  added: "green",
-  removed: "red",
-  changed: "yellow",
-  unchanged: "gray",
-};
 
 export const ProjectDetailPage = observer(function ProjectDetailPage({
   presenter,
@@ -85,15 +78,11 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
     isLoading,
     isSyncingTenants,
     isSyncingModels,
-    isPushing,
     isImporting,
     isClearingEntries,
     isCleaningUp,
-    showPushDialog,
     showEditDialog,
     showCleanupDialog,
-    isLoadingDiff,
-    modelDiff,
   } = vm;
 
   if (isLoading) {
@@ -191,6 +180,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 active={activeView === "templates"}
                 onClick={() => goTo("templates")}
               />
+              <NavLink label="Jobs" active={activeView === "jobs"} onClick={() => goTo("jobs")} />
 
               <Divider my="xs" />
 
@@ -223,7 +213,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 active={activeView === "import"}
                 onClick={() => goTo("import")}
               />
-              <NavLink label="Push Models" onClick={() => void presenter.openPushDialog()} />
               <NavLink
                 label="Cleanup Seeded Data"
                 disabled={isCleaningUp}
@@ -266,6 +255,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
               />
             )}
+            {activeView === "jobs" && <JobsTab jobs={vm.jobs} />}
             {activeView === "templates" && (
               <TemplatesTab
                 templates={templates}
@@ -289,6 +279,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
+            {activeView === "jobs" && <JobsTab jobs={vm.jobs} />}
             {activeView === "seed" && <EmbeddedSeedConfig projectId={projectId} />}
             {activeView === "import" && (
               <ImportEntriesTab
@@ -301,67 +292,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           </Box>
         </Group>
       </Stack>
-
-      <Modal
-        opened={showPushDialog}
-        onClose={() => presenter.closePushDialog()}
-        title="Push Models"
-        size="lg"
-        centered
-      >
-        {isLoadingDiff ? (
-          <Stack align="center" py="md">
-            <Loader size="sm" />
-            <Text size="sm" c="dimmed">
-              Loading diff...
-            </Text>
-          </Stack>
-        ) : modelDiff.length === 0 ? (
-          <Text c="dimmed">No differences found. Local and remote models are in sync.</Text>
-        ) : (
-          <Stack gap="md">
-            <Table striped>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Model</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {modelDiff.map((item) => (
-                  <Table.Tr key={item.modelId}>
-                    <Table.Td>
-                      <Text size="sm" fw={500}>
-                        {item.name}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge color={diffStatusColor[item.status] ?? "gray"} size="sm">
-                        {item.status}
-                      </Badge>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-            <Text size="sm" c="dimmed">
-              {modelDiff.filter((d) => d.status !== "unchanged").length} change(s) will be pushed.
-            </Text>
-          </Stack>
-        )}
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={() => presenter.closePushDialog()}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => void presenter.confirmPush()}
-            loading={isPushing}
-            disabled={isLoadingDiff || modelDiff.length === 0}
-          >
-            Push
-          </Button>
-        </Group>
-      </Modal>
 
       <Modal
         opened={showEditDialog}

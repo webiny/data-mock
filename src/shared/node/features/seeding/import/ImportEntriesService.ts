@@ -50,6 +50,10 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 
     try {
       for (const modelId of input.models) {
+        if (modelId.startsWith("wby")) {
+          this.logger.info(`Skipping system model "${modelId}" (wby* prefix).`);
+          continue;
+        }
         const modelResult = await this.getProjectModelRepository.execute({
           projectId: project.id,
           modelId,

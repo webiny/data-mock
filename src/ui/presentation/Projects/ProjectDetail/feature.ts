@@ -10,6 +10,7 @@ import { SyncLogsFeature } from "~/ui/features/syncLogs/feature.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
 import { URLListStateFeature } from "~/ui/features/router/URLListStateFeature.js";
 import { EventsFeature } from "~/ui/infrastructure/events/feature.js";
+import { JobsFeature } from "~/ui/features/jobs/feature.js";
 import { ProjectDetailPresenter as ProjectDetailPresenterAbstraction } from "./abstractions/ProjectDetailPresenter.js";
 import { ProjectDetailPresenter } from "./ProjectDetailPresenter.js";
 import { LoadProjectDetailUseCase } from "./useCases/LoadProjectDetail/LoadProjectDetailUseCase.js";
@@ -33,6 +34,7 @@ export const ProjectDetailPresentationFeature = createFeature<void, ProjectDetai
     NotificationsFeature,
     URLListStateFeature,
     EventsFeature,
+    JobsFeature,
   ],
   register(container) {
     container.register(LoadProjectDetailUseCase);

@@ -4,20 +4,8 @@ export type { ProjectResponse, CreateProjectBody, UpdateProjectBody } from "./pr
 export { projectTenantSchema } from "./tenants.js";
 export type { ProjectTenantResponse } from "./tenants.js";
 
-export {
-  projectGroupSchema,
-  projectModelSchema,
-  modelDiffItemSchema,
-  modelSyncResultSchema,
-  modelPushResultSchema,
-} from "./models.js";
-export type {
-  ProjectGroupResponse,
-  ProjectModelResponse,
-  ModelDiffItem,
-  ModelSyncResult,
-  ModelPushResult,
-} from "./models.js";
+export { projectGroupSchema, projectModelSchema, modelSyncResultSchema } from "./models.js";
+export type { ProjectGroupResponse, ProjectModelResponse, ModelSyncResult } from "./models.js";
 
 export { seedJobSchema, triggerSeedBodySchema } from "./seeding.js";
 export type { SeedJobResponse, TriggerSeedBody } from "./seeding.js";

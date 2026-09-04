@@ -8,12 +8,7 @@ export {
 
 export { listProjectTenantsRoute, syncProjectTenantsRoute } from "./tenants.js";
 
-export {
-  listProjectModelsRoute,
-  syncProjectModelsRoute,
-  pushProjectModelsRoute,
-  diffProjectModelsRoute,
-} from "./models.js";
+export { listProjectModelsRoute, syncProjectModelsRoute } from "./models.js";
 
 export { triggerSeedRoute, listSeedJobsRoute } from "./seeding.js";
 

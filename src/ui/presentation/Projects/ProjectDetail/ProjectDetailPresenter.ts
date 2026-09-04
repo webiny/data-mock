@@ -27,7 +27,8 @@ import { NotificationService } from "~/ui/features/notifications/abstractions/No
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { WSJobStatus } from "~/shared/websocket/types.js";
 import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
-import type { ModelDiffItem } from "~/shared/responses/models.js";
+import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
+import { JobsRepository } from "~/ui/features/jobs/abstractions/JobsRepository.js";
 
 const VIEW_DATASETS: Record<string, string[]> = {
   tenants: ["tenants"],
@@ -38,16 +39,17 @@ const VIEW_DATASETS: Record<string, string[]> = {
   templates: ["templates"],
   "sync-tenants": ["syncLogs"],
   "sync-models": ["syncLogs"],
+  jobs: ["jobs"],
   seed: ["tenants", "models"],
   import: ["tenants", "models"],
 };
 
 const JOB_TYPE_DATASETS: Record<string, string[]> = {
-  seed: ["entries", "seedJobs"],
-  "sync-tenants": ["tenants", "syncLogs"],
-  "sync-models": ["models", "syncLogs"],
-  cleanup: ["entries"],
-  import: ["entries"],
+  seed: ["entries", "seedJobs", "jobs"],
+  "sync-tenants": ["tenants", "syncLogs", "jobs"],
+  "sync-models": ["models", "syncLogs", "jobs"],
+  cleanup: ["entries", "jobs"],
+  import: ["entries", "jobs"],
 };
 
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
@@ -55,15 +57,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _isSyncingTenants = false;
   private _isSyncingModels = false;
-  private _isPushing = false;
   private _isImporting = false;
   private _isClearingEntries = false;
   private _isCleaningUp = false;
-  private _showPushDialog = false;
   private _showEditDialog = false;
   private _showCleanupDialog = false;
-  private _isLoadingDiff = false;
-  private _modelDiff: ModelDiffItem[] = [];
   private _loadedDatasets = new Set<string>();
   private _loadingDatasets = new Set<string>();
   private _loadingProjectId: string | null = null;
@@ -91,6 +89,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly seedingGateway: SeedingGateway.Interface,
     private readonly syncLogsGateway: SyncLogsGateway.Interface,
     private readonly syncLogsRepository: SyncLogsRepository.Interface,
+    private readonly jobsGateway: JobsGateway.Interface,
+    private readonly jobsRepository: JobsRepository.Interface,
     private readonly notifications: NotificationService.Interface,
     urlListStateFactory: URLListStateFactory.Interface,
     eventBridge: EventBridge.Interface,
@@ -136,6 +136,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
 
     const seedJobs = this._projectId ? this.seedingRepository.seedJobs : [];
+    const jobs = this._projectId ? this.jobsRepository.jobs : [];
 
     const templates = this._projectId
       ? this.templatesRepository.getTemplatesByProjectId(this._projectId)
@@ -225,20 +226,17 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         response: l.response,
         createdAt: l.createdAt,
       })),
+      jobs,
       projectHealth: this._projectHealth,
       projectHealthError: this._projectHealthError,
       isLoading: this._isLoading,
       isSyncingTenants: this._isSyncingTenants,
       isSyncingModels: this._isSyncingModels,
-      isPushing: this._isPushing,
       isImporting: this._isImporting,
       isClearingEntries: this._isClearingEntries,
       isCleaningUp: this._isCleaningUp,
-      showPushDialog: this._showPushDialog,
       showCleanupDialog: this._showCleanupDialog,
       showEditDialog: this._showEditDialog,
-      isLoadingDiff: this._isLoadingDiff,
-      modelDiff: this._modelDiff,
     };
   }
 
@@ -369,61 +367,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     } catch {
       runInAction(() => {
         this._isSyncingModels = false;
-      });
-    }
-  };
-
-  public openPushDialog = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._showPushDialog = true;
-    this._isLoadingDiff = true;
-    this._modelDiff = [];
-    try {
-      const result = await this.modelsGateway.diffModels(this._projectId);
-      runInAction(() => {
-        if (result.isOk()) {
-          this._modelDiff = result.value;
-        } else {
-          this.notifications.error("Failed to load model diff.");
-          this._showPushDialog = false;
-        }
-      });
-    } finally {
-      runInAction(() => {
-        this._isLoadingDiff = false;
-      });
-    }
-  };
-
-  public closePushDialog = (): void => {
-    this._showPushDialog = false;
-    this._modelDiff = [];
-  };
-
-  public confirmPush = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._isPushing = true;
-    try {
-      const result = await this.modelsGateway.pushModels(this._projectId);
-      runInAction(() => {
-        if (result.isOk()) {
-          const { pushed } = result.value;
-          this.notifications.success(
-            `Pushed ${pushed.groups} group(s) and ${pushed.models} model(s).`,
-          );
-        } else {
-          this.notifications.error("Failed to push models.");
-        }
-        this._showPushDialog = false;
-        this._modelDiff = [];
-      });
-    } finally {
-      runInAction(() => {
-        this._isPushing = false;
       });
     }
   };
@@ -696,6 +639,16 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         });
         break;
       }
+      case "jobs": {
+        const result = await this.jobsGateway.list(projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.jobsRepository.setJobs(result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
     }
     this._loadingDatasets.delete(dataset);
   };
@@ -734,6 +687,8 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     SeedingGateway,
     SyncLogsGateway,
     SyncLogsRepository,
+    JobsGateway,
+    JobsRepository,
     NotificationService,
     URLListStateFactory,
     EventBridge,
