@@ -30,6 +30,15 @@ interface CreatedFmFile {
   size: number;
 }
 
+interface UploadOperationLogEntry {
+  name: string;
+  url: string;
+  query: string;
+  variables?: unknown;
+  httpStatus: number;
+  response: unknown;
+}
+
 class FileUploadServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
@@ -62,7 +71,11 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       "x-tenant": input.tenant,
     };
 
+    const operations: UploadOperationLogEntry[] = [];
+
     // Step 1: get a presigned S3 POST payload for the file.
+    const presignedQuery = `query GetPreSignedPostPayload($data: PreSignedPostPayloadInput!) { fileManager { getPreSignedPostPayload(data: $data) { data { data file { id name type size key } } error { message code } } } }`;
+    const presignedVariables = { data: { name: fileName, type: fileType, size: fileSize } };
     const presignedResult = await this.getPreSignedPostPayload(
       graphqlUrl,
       headers,
@@ -70,18 +83,57 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       fileType,
       fileSize,
     );
+    operations.push({
+      name: "getPreSignedPostPayload",
+      url: graphqlUrl,
+      query: presignedQuery,
+      variables: presignedVariables,
+      httpStatus: presignedResult.isOk() ? 200 : 0,
+      response: presignedResult.isOk() ? presignedResult.value : presignedResult.error.data,
+    });
     if (presignedResult.isFail()) {
+      await this.logUpload(
+        input.projectId,
+        fileName,
+        "error",
+        presignedResult.error.message,
+        operations,
+      );
       return Result.fail(presignedResult.error);
     }
     const { payload, file: presignedFile } = presignedResult.value;
 
     // Step 2: upload the actual file bytes directly to S3.
     const uploadResult = await this.uploadToS3(payload, input.filePath, fileName, fileType);
+    operations.push({
+      name: "uploadToS3",
+      url: payload.url,
+      query: "(multipart POST)",
+      httpStatus: uploadResult.isOk() ? 204 : 0,
+      response: uploadResult.isOk() ? { status: 204 } : uploadResult.error.data,
+    });
     if (uploadResult.isFail()) {
+      await this.logUpload(
+        input.projectId,
+        fileName,
+        "error",
+        uploadResult.error.message,
+        operations,
+      );
       return Result.fail(uploadResult.error);
     }
 
     // Step 3: create the file record in File Manager, pointing at the uploaded S3 object.
+    const createFileMutation = `mutation CreateFile($data: FmFileCreateInput!) { fileManager { createFile(data: $data) { data { id key src name type size } error { message code } } } }`;
+    const createFileVariables = {
+      data: {
+        id: presignedFile.id,
+        key: presignedFile.key,
+        name: fileName,
+        type: fileType,
+        size: fileSize,
+      },
+    };
     const createFileResult = await this.createFileRecord(
       graphqlUrl,
       headers,
@@ -90,7 +142,22 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       fileType,
       fileSize,
     );
+    operations.push({
+      name: "createFile",
+      url: graphqlUrl,
+      query: createFileMutation,
+      variables: createFileVariables,
+      httpStatus: createFileResult.isOk() ? 200 : 0,
+      response: createFileResult.isOk() ? createFileResult.value : createFileResult.error.data,
+    });
     if (createFileResult.isFail()) {
+      await this.logUpload(
+        input.projectId,
+        fileName,
+        "error",
+        createFileResult.error.message,
+        operations,
+      );
       return Result.fail(createFileResult.error);
     }
     const createdFile = createFileResult.value;
@@ -110,17 +177,32 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       return Result.fail(storeResult.error);
     }
 
-    await this.createSyncLogRepository.execute({
-      projectId: input.projectId,
-      type: "upload-file",
-      status: "success",
-      message: `Uploaded "${fileName}" to File Manager`,
-      request: { fileName, fileType, fileSize, fmFileId: presignedFile.id, fmKey: createdFile.key },
-      response: { src: createdFile.src, key: createdFile.key, id: createdFile.id },
-    });
+    await this.logUpload(
+      input.projectId,
+      fileName,
+      "success",
+      `Uploaded "${fileName}" to File Manager`,
+      operations,
+    );
 
     this.logger.info(`Uploaded "${fileName}" → ${createdFile.key}`);
     return Result.ok({ file: storeResult.value });
+  }
+
+  private async logUpload(
+    projectId: string,
+    fileName: string,
+    status: "success" | "error",
+    message: string,
+    operations: unknown[],
+  ): Promise<void> {
+    await this.createSyncLogRepository.execute({
+      projectId,
+      type: "upload-file",
+      status,
+      message,
+      request: operations,
+    });
   }
 
   private async getPreSignedPostPayload(
