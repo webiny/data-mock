@@ -86,7 +86,7 @@ export interface IEntryVM {
 
 export interface ISyncLogVM {
   id: string;
-  type: "tenants" | "models";
+  type: "tenants" | "models" | "upload-file" | "pull-files";
   status: "success" | "error";
   message: string;
   request: unknown;

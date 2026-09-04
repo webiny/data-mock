@@ -149,7 +149,7 @@ export interface OperationLog {
   response: unknown;
 }
 
-export type SyncLogType = "tenants" | "models";
+export type SyncLogType = "tenants" | "models" | "upload-file" | "pull-files";
 export type SyncLogStatus = "success" | "error";
 
 export interface SyncLog {

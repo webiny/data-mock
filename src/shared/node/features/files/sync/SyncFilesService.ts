@@ -2,6 +2,7 @@ import { Result, Logger } from "@webiny/stdlib";
 import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { SyncProjectFilesRepository } from "./abstractions/SyncProjectFilesRepository.js";
+import { CreateSyncLogRepository } from "~/shared/node/features/syncLogs/create/abstractions/CreateSyncLogRepository.js";
 import { SyncFilesService as Abstraction } from "./abstractions/SyncFilesService.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
 import type { ISyncFileInput } from "./abstractions/SyncProjectFilesRepository.js";
@@ -61,6 +62,7 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
     private readonly getProjectRepository: GetProjectRepository.Interface,
     private readonly httpClient: HttpClient.Interface,
     private readonly syncProjectFilesRepository: SyncProjectFilesRepository.Interface,
+    private readonly createSyncLogRepository: CreateSyncLogRepository.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -137,11 +139,21 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
       return Result.fail(syncResult.error);
     }
 
+    const syncedCount = syncResult.value.length;
+
+    await this.createSyncLogRepository.execute({
+      projectId: input.projectId,
+      type: "pull-files",
+      status: "success",
+      message: `Pulled ${syncedCount} file(s) from File Manager`,
+      response: { synced: syncedCount },
+    });
+
     this.logger.info(
-      `Synced ${syncResult.value.length} file(s) for project "${project.name}" (tenant "${input.tenant}").`,
+      `Pulled ${syncedCount} file(s) for project "${project.name}" (tenant "${input.tenant}").`,
     );
 
-    return Result.ok({ synced: syncResult.value.length, files: syncResult.value });
+    return Result.ok({ synced: syncedCount, files: syncResult.value });
   }
 }
 
@@ -159,5 +171,11 @@ function extractListFilesResult(json: Record<string, unknown>): IListFilesResult
 
 export const SyncFilesService = Abstraction.createImplementation({
   implementation: SyncFilesServiceImpl,
-  dependencies: [GetProjectRepository, HttpClient, SyncProjectFilesRepository, Logger],
+  dependencies: [
+    GetProjectRepository,
+    HttpClient,
+    SyncProjectFilesRepository,
+    CreateSyncLogRepository,
+    Logger,
+  ],
 });

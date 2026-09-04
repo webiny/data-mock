@@ -4,6 +4,7 @@ import { Result, Logger } from "@webiny/stdlib";
 import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { UploadFileRepository } from "./abstractions/UploadFileRepository.js";
+import { CreateSyncLogRepository } from "~/shared/node/features/syncLogs/create/abstractions/CreateSyncLogRepository.js";
 import { FileUploadService as Abstraction } from "./abstractions/FileUploadService.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
 
@@ -34,6 +35,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     private readonly getProjectRepository: GetProjectRepository.Interface,
     private readonly httpClient: HttpClient.Interface,
     private readonly uploadFileRepository: UploadFileRepository.Interface,
+    private readonly createSyncLogRepository: CreateSyncLogRepository.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -107,6 +109,15 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     if (storeResult.isFail()) {
       return Result.fail(storeResult.error);
     }
+
+    await this.createSyncLogRepository.execute({
+      projectId: input.projectId,
+      type: "upload-file",
+      status: "success",
+      message: `Uploaded "${fileName}" to File Manager`,
+      request: { fileName, fileType, fileSize, fmFileId: presignedFile.id, fmKey: createdFile.key },
+      response: { src: createdFile.src, key: createdFile.key, id: createdFile.id },
+    });
 
     this.logger.info(`Uploaded "${fileName}" → ${createdFile.key}`);
     return Result.ok({ file: storeResult.value });
@@ -336,5 +347,11 @@ function guessContentType(fileName: string): string {
 
 export const FileUploadService = Abstraction.createImplementation({
   implementation: FileUploadServiceImpl,
-  dependencies: [GetProjectRepository, HttpClient, UploadFileRepository, Logger],
+  dependencies: [
+    GetProjectRepository,
+    HttpClient,
+    UploadFileRepository,
+    CreateSyncLogRepository,
+    Logger,
+  ],
 });
