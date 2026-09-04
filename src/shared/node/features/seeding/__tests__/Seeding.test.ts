@@ -273,5 +273,65 @@ describe("Seeding Feature", () => {
         tc.cleanup();
       }
     });
+
+    it("should generate entries in dry-run mode without sending to Webiny", async () => {
+      const mockHttpClient = createMockHttpClient();
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupProject(tc);
+
+        const seedService = tc.container.resolve(SeedService);
+        const result = await seedService.execute({
+          projectId: project.id,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 3 }],
+          dryRun: true,
+        });
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.created).toBe(3);
+          expect(result.value.errors).toHaveLength(0);
+        }
+
+        const seedCalls = vi.mocked(mockHttpClient.post).mock.calls.filter((c) => {
+          const body = JSON.parse(c[1] as string) as { query?: string };
+          return body.query?.includes("createArticle");
+        });
+        expect(seedCalls).toHaveLength(0);
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("should handle GraphQL response with null data gracefully", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
+        createMockResponse(200, {
+          errors: [{ message: "Cannot query field on type" }],
+          data: null,
+        }),
+      );
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupProject(tc);
+
+        const seedService = tc.container.resolve(SeedService);
+        const result = await seedService.execute({
+          projectId: project.id,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 1 }],
+        });
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.errors).toHaveLength(1);
+          expect(result.value.created).toBe(0);
+        }
+      } finally {
+        tc.cleanup();
+      }
+    });
   });
 });
