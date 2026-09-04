@@ -96,7 +96,9 @@ export function buildListEntriesQuery(input: {
         data {
           id
           entryId
-          ${input.fieldSelection}
+          values {
+            ${input.fieldSelection}
+          }
         }
         meta {
           totalCount

@@ -71,7 +71,9 @@ export function buildCreateRevisionQuery(input: {
         data {
           id
           entryId
-          ${input.fieldSelection}
+          values {
+            ${input.fieldSelection}
+          }
         }
         error {
           message

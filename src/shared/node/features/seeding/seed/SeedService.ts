@@ -168,7 +168,7 @@ class SeedServiceImpl implements Abstraction.Interface {
             const created = await this.sendMutation(
               apiUrl,
               createMutation,
-              { data: entryData },
+              { data: { values: entryData } },
               headers,
               createOp,
             );
@@ -209,7 +209,7 @@ class SeedServiceImpl implements Abstraction.Interface {
               const revResult = await this.sendMutation(
                 apiUrl,
                 revisionMutation,
-                { revision: latestRevisionId, data: revData },
+                { revision: latestRevisionId, data: { values: revData } },
                 headers,
                 revisionOp,
               );
