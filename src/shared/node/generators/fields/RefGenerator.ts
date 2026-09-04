@@ -5,7 +5,6 @@ import type { IGeneratorGenerateParams } from "../types.js";
 interface Ref {
   modelId: string;
   id: string;
-  entryId: string;
 }
 
 function pickRef(params: IGeneratorGenerateParams): Ref | null {
@@ -19,7 +18,7 @@ function pickRef(params: IGeneratorGenerateParams): Ref | null {
     const ids = availableRefs.get(m.modelId);
     if (ids && ids.length > 0) {
       const id = faker.helpers.arrayElement(ids);
-      return { modelId: m.modelId, id, entryId: id };
+      return { modelId: m.modelId, id };
     }
   }
 
@@ -52,7 +51,7 @@ export class MultiRefGenerator extends BaseMultiGenerator<Ref> {
         const count = faker.number.int({ min: 1, max: Math.min(3, ids.length) });
         const picked = faker.helpers.arrayElements(ids, count);
         for (const id of picked) {
-          results.push({ modelId: m.modelId, id, entryId: id });
+          results.push({ modelId: m.modelId, id });
         }
       }
     }

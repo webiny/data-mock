@@ -185,7 +185,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                 entryData,
                 created,
               );
-              continue;
+              break;
             }
 
             totalCreated++;
