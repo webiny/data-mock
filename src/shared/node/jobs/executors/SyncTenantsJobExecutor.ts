@@ -4,7 +4,7 @@ import { CreateSyncLogRepository } from "~/shared/node/features/syncLogs/create/
 import type { JobExecutor } from "../abstractions/JobExecutor.js";
 
 class SyncTenantsJobExecutorImpl implements Abstraction.Interface {
-  public readonly type = "sync-tenants";
+  public readonly type = "pull-tenants";
 
   public constructor(
     private readonly tenantSyncService: TenantSyncService.Interface,

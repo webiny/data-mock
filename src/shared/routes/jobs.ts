@@ -17,7 +17,7 @@ export const jobSchema = z.object({
 });
 
 const enqueueJobBodySchema = z.object({
-  type: z.enum(["seed", "sync-tenants", "sync-models", "cleanup", "import"]),
+  type: z.enum(["seed", "pull-tenants", "pull-models", "cleanup", "import"]),
   config: z.record(z.string(), z.unknown()).optional(),
 });
 

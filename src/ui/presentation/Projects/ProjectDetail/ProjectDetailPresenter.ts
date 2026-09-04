@@ -45,8 +45,8 @@ const VIEW_DATASETS: Record<string, string[]> = {
   entries: ["entries"],
   history: ["seedJobs"],
   templates: ["templates"],
-  "sync-tenants": ["syncLogs"],
-  "sync-models": ["syncLogs"],
+  "pull-tenants": ["syncLogs"],
+  "pull-models": ["syncLogs"],
   jobs: ["jobs"],
   seed: ["tenants", "models"],
   import: ["tenants", "models"],
@@ -54,8 +54,8 @@ const VIEW_DATASETS: Record<string, string[]> = {
 
 const JOB_TYPE_DATASETS: Record<string, string[]> = {
   seed: ["entries", "seedJobs", "jobs"],
-  "sync-tenants": ["tenants", "syncLogs", "jobs"],
-  "sync-models": ["models", "syncLogs", "jobs"],
+  "pull-tenants": ["tenants", "syncLogs", "jobs"],
+  "pull-models": ["models", "syncLogs", "jobs"],
   cleanup: ["entries", "jobs"],
   import: ["entries", "jobs"],
 };
@@ -342,7 +342,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this.notifications.success("Template deleted.");
   };
 
-  public syncTenants = async (): Promise<void> => {
+  public pullTenants = async (): Promise<void> => {
     if (!this._projectId) {
       return;
     }
@@ -351,9 +351,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       const result = await this.tenantsGateway.syncForProject(this._projectId);
       runInAction(() => {
         if (result.isOk()) {
-          this.notifications.success("Tenant sync job started.");
+          this.notifications.success("Tenant pull job started.");
         } else {
-          this.notifications.error(`Failed to start tenant sync: ${result.error.message}`);
+          this.notifications.error(`Failed to start tenant pull: ${result.error.message}`);
         }
         this._isSyncingTenants = false;
       });
@@ -364,18 +364,18 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  public syncModels = async (): Promise<void> => {
+  public pullModels = async (): Promise<void> => {
     if (!this._projectId) {
       return;
     }
     this._isSyncingModels = true;
     try {
-      const result = await this.modelsGateway.syncModels(this._projectId);
+      const result = await this.modelsGateway.pullModels(this._projectId);
       runInAction(() => {
         if (result.isOk()) {
-          this.notifications.success("Model sync job started.");
+          this.notifications.success("Model pull job started.");
         } else {
-          this.notifications.error(`Failed to start model sync: ${result.error.message}`);
+          this.notifications.error(`Failed to start model pull: ${result.error.message}`);
         }
         this._isSyncingModels = false;
       });

@@ -137,13 +137,13 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     await this.load();
   };
 
-  public syncTenants = async (projectId: string): Promise<void> => {
+  public pullTenants = async (projectId: string): Promise<void> => {
     this._syncingProjectIds.add(projectId);
     try {
       await this.syncTenantsUseCase.execute(projectId);
-      this.notificationService.success("Tenants synced successfully.");
+      this.notificationService.success("Tenants pulled successfully.");
     } catch {
-      this.notificationService.error("Failed to sync tenants.");
+      this.notificationService.error("Failed to pull tenants.");
     } finally {
       runInAction(() => {
         this._syncingProjectIds.delete(projectId);
@@ -151,13 +151,13 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  public syncModels = async (projectId: string): Promise<void> => {
+  public pullModels = async (projectId: string): Promise<void> => {
     this._syncingModelsProjectIds.add(projectId);
     try {
       await this.syncModelsUseCase.execute(projectId);
-      this.notificationService.success("Models synced successfully.");
+      this.notificationService.success("Models pulled successfully.");
     } catch {
-      this.notificationService.error("Failed to sync models.");
+      this.notificationService.error("Failed to pull models.");
     } finally {
       runInAction(() => {
         this._syncingModelsProjectIds.delete(projectId);

@@ -26,7 +26,7 @@ class ModelsGatewayImpl implements Abstraction.Interface {
     return Result.ok(models);
   }
 
-  public async syncModels(projectId: string): Promise<Result<Job, HTTPError>> {
+  public async pullModels(projectId: string): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(syncProjectModelsRoute, {
       params: { projectId },
     });

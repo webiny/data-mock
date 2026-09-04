@@ -24,8 +24,8 @@ const statusColor: Record<string, string> = {
 
 const typeLabels: Record<string, string> = {
   seed: "Seed data",
-  "sync-tenants": "Sync tenants",
-  "sync-models": "Sync models",
+  "pull-tenants": "Pull tenants",
+  "pull-models": "Pull models",
   cleanup: "Cleanup",
   import: "Import",
 };

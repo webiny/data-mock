@@ -4,7 +4,7 @@ import { CreateSyncLogRepository } from "~/shared/node/features/syncLogs/create/
 import type { JobExecutor } from "../abstractions/JobExecutor.js";
 
 class SyncModelsJobExecutorImpl implements Abstraction.Interface {
-  public readonly type = "sync-models";
+  public readonly type = "pull-models";
 
   public constructor(
     private readonly syncModelsService: SyncModelsService.Interface,

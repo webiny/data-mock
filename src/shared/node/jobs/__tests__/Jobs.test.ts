@@ -54,13 +54,13 @@ describe("Jobs System", () => {
 
     it("should get a job by id", async () => {
       const worker = tc.container.resolve(JobWorker);
-      const id = await worker.enqueue({ projectId, type: "sync-tenants" });
+      const id = await worker.enqueue({ projectId, type: "pull-tenants" });
 
       const job = await worker.getJob(id);
       expect(job).not.toBeNull();
       expect(job!.id).toBe(id);
       expect(job!.projectId).toBe(projectId);
-      expect(job!.type).toBe("sync-tenants");
+      expect(job!.type).toBe("pull-tenants");
       expect(job!.status).toBe("pending");
       expect(job!.createdAt).toBeGreaterThan(0);
     });
@@ -74,18 +74,18 @@ describe("Jobs System", () => {
     it("should list jobs for a project", async () => {
       const worker = tc.container.resolve(JobWorker);
       await worker.enqueue({ projectId, type: "seed" });
-      await worker.enqueue({ projectId, type: "sync-tenants" });
+      await worker.enqueue({ projectId, type: "pull-tenants" });
       await worker.enqueue({ projectId, type: "cleanup" });
 
       const all = await worker.listJobs(projectId);
       expect(all).toHaveLength(3);
-      expect(all.map((j) => j.type).sort()).toEqual(["cleanup", "seed", "sync-tenants"]);
+      expect(all.map((j) => j.type).sort()).toEqual(["cleanup", "pull-tenants", "seed"]);
     });
 
     it("should list jobs filtered by status", async () => {
       const worker = tc.container.resolve(JobWorker);
       await worker.enqueue({ projectId, type: "seed" });
-      await worker.enqueue({ projectId, type: "sync-tenants" });
+      await worker.enqueue({ projectId, type: "pull-tenants" });
 
       const pending = await worker.listJobs(projectId, "pending");
       expect(pending).toHaveLength(2);
@@ -112,7 +112,7 @@ describe("Jobs System", () => {
     it("should recover stale jobs on startup", async () => {
       const worker = tc.container.resolve(JobWorker);
       const id1 = await worker.enqueue({ projectId, type: "seed" });
-      const id2 = await worker.enqueue({ projectId, type: "sync-tenants" });
+      const id2 = await worker.enqueue({ projectId, type: "pull-tenants" });
 
       const db = tc.databaseClient.db;
       db.update(jobs).set({ status: "running" }).where(eq(jobs.id, id1)).run();
@@ -134,16 +134,16 @@ describe("Jobs System", () => {
       expect(executor.type).toBe("seed");
     });
 
-    it("should resolve sync-tenants executor", () => {
+    it("should resolve pull-tenants executor", () => {
       const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("sync-tenants");
-      expect(executor.type).toBe("sync-tenants");
+      const executor = registry.getExecutor("pull-tenants");
+      expect(executor.type).toBe("pull-tenants");
     });
 
-    it("should resolve sync-models executor", () => {
+    it("should resolve pull-models executor", () => {
       const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("sync-models");
-      expect(executor.type).toBe("sync-models");
+      const executor = registry.getExecutor("pull-models");
+      expect(executor.type).toBe("pull-models");
     });
 
     it("should resolve cleanup executor", () => {
@@ -184,7 +184,7 @@ describe("Jobs System", () => {
         .values({
           id: "pending-job",
           projectId,
-          type: "sync-tenants",
+          type: "pull-tenants",
           status: "pending",
           createdAt: now - 8000,
         })
@@ -260,7 +260,7 @@ describe("Jobs API routes", () => {
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
         payload: {
-          type: "sync-tenants",
+          type: "pull-tenants",
         },
       });
 
@@ -269,7 +269,7 @@ describe("Jobs API routes", () => {
       expect(body.job).toBeDefined();
       expect(body.job.id).toBeDefined();
       expect(body.job.projectId).toBe(projectId);
-      expect(body.job.type).toBe("sync-tenants");
+      expect(body.job.type).toBe("pull-tenants");
       expect(body.job.status).toBe("pending");
     });
 
@@ -319,12 +319,12 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "sync-tenants" },
+        payload: { type: "pull-tenants" },
       });
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "sync-models" },
+        payload: { type: "pull-models" },
       });
 
       const response = await app.inject({

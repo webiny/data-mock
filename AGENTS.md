@@ -14,7 +14,7 @@ A multi-project tool for generating and seeding mock data into Webiny CMS projec
 yarn install
 yarn cli init            # generate .env (encryption key + ports)
 yarn cli add-project     # add a Webiny project connection
-yarn cli sync-models     # pull models from Webiny
+yarn cli pull-models     # pull models from Webiny
 yarn cli seed            # generate + send mock data
 yarn dev                 # start API (port 4000) + UI (port 4001)
 ```
@@ -111,7 +111,7 @@ src/
 | `project_tenants` | project_id FK, tenant_id, name | Discovered tenants per project |
 | `project_groups` | project_id FK, slug, name, remote_id | CMS content model groups |
 | `project_models` | project_id FK, model_id, singular_api_name, plural_api_name, group_slug, plugin, fields (JSON) | CMS models + field definitions + API names + plugin flag from Webiny |
-| `jobs` | project_id FK, type, status, config (JSON), logs, progress, progress_label, parent_job_id | Background job execution (seed, sync-tenants, sync-models, cleanup, import) |
+| `jobs` | project_id FK, type, status, config (JSON), logs, progress, progress_label, parent_job_id | Background job execution (seed, pull-tenants, pull-models, cleanup, import) |
 | `seed_jobs` | project_id FK, status, config (JSON), result (JSON) | Legacy seeding job tracking |
 | `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations |
 | `seed_entries` | job_id FK (nullable), project_id FK, tenant, model_id, entry_data (JSON), request_data (JSON), response_data (raw), status | Per-entry audit log with full request/response |
@@ -128,7 +128,7 @@ src/
 | `yarn cli add-project` | Add a Webiny project (prompts for name, URL, token, version, tenant) |
 | `yarn cli list-projects` | Show all configured projects |
 | `yarn cli remove-project` | Select + confirm + remove a project |
-| `yarn cli sync-models` | Pull models/groups from a Webiny project into local DB |
+| `yarn cli pull-models` | Pull models/groups from a Webiny project into local DB |
 | `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
 | `yarn cli rotate-key` | Rotate the API token encryption key |
 | `yarn cli upload-files` | Upload files to a Webiny project's file manager |
@@ -137,7 +137,7 @@ src/
 
 ## API Routes (34)
 
-All long-running operations (seed, sync-tenants, sync-models, import, cleanup) return a `Job` object with HTTP 202 — work runs in the background. Progress is pushed via WebSocket.
+All long-running operations (seed, pull-tenants, pull-models, import, cleanup) return a `Job` object with HTTP 202 — work runs in the background. Progress is pushed via WebSocket.
 
 ### Projects
 | Method | Path | Purpose |
@@ -153,13 +153,13 @@ All long-running operations (seed, sync-tenants, sync-models, import, cleanup) r
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/projects/:projectId/tenants` | List project tenants |
-| POST | `/api/projects/:projectId/tenants/sync` | Sync tenants from Webiny (logs to sync_logs) |
+| POST | `/api/projects/:projectId/tenants/pull` | Pull tenants from Webiny (logs to sync_logs) |
 
 ### Models
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/projects/:projectId/models` | List local models |
-| POST | `/api/projects/:projectId/models/sync` | Pull models from Webiny (logs to sync_logs) |
+| POST | `/api/projects/:projectId/models/pull` | Pull models from Webiny (logs to sync_logs) |
 
 ### Seeding
 | Method | Path | Purpose |
@@ -189,7 +189,7 @@ All long-running operations (seed, sync-tenants, sync-models, import, cleanup) r
 | GET | `/api/projects/:projectId/files` | List uploaded files |
 | POST | `/api/projects/:projectId/files/upload` | Upload a file |
 | DELETE | `/api/projects/:projectId/files/:fileId` | Delete file reference |
-| POST | `/api/projects/:projectId/files/sync` | Sync files from a project's file manager |
+| POST | `/api/projects/:projectId/files/pull` | Pull files from a project's file manager |
 | POST | `/api/projects/:projectId/files/upload-global` | Upload all unlinked global pool images to a project's file manager |
 | POST | `/api/files/picsum/pull` | Pull placeholder images from picsum.photos into the local image pool |
 | GET | `/api/files/local` | List local files in `.webiny/images/` with per-project upload status |
@@ -235,15 +235,15 @@ The project detail route uses a `/*` wildcard — `subPath` determines the activ
 | `entries` | Audit Log tab |
 | `history` | Seed History tab |
 | `templates` | Templates tab |
-| `sync-tenants` | Sync Tenants (log table + run button) |
-| `sync-models` | Sync Models (log table + run button) |
+| `pull-tenants` | Pull Tenants (log table + run button) |
+| `pull-models` | Pull Models (log table + run button) |
 | `seed` | Seed Config (embedded, group accordion) |
 | `import` | Import Entries |
 | `jobs` | Background Jobs |
 
 URL is the source of truth for tab selection — no presenter state for active tab.
 
-Sidebar sections: **Data** (7 tabs), **Sync** (2 tabs), **Actions** (Seed Data, Import, Cleanup, Edit Project).
+Sidebar sections: **Data** (7 tabs), **Pull** (2 tabs), **Actions** (Seed Data, Import, Cleanup, Edit Project).
 
 ---
 

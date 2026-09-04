@@ -19,8 +19,8 @@ const STATUS_CONFIG: Record<string, { color: string; message: string; autoClose:
 
 const JOB_TYPE_LABELS: Record<string, string> = {
   seed: "Seed data",
-  "sync-tenants": "Sync tenants",
-  "sync-models": "Sync models",
+  "pull-tenants": "Pull tenants",
+  "pull-models": "Pull models",
   cleanup: "Cleanup entries",
   import: "Import entries",
 };

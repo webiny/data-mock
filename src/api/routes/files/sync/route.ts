@@ -1,9 +1,9 @@
-import { syncProjectFilesRoute } from "~/shared/routes/files.js";
+import { pullProjectFilesRoute } from "~/shared/routes/files.js";
 import { SyncFilesService } from "~/shared/node/features/files/sync/abstractions/SyncFilesService.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
-export const syncProjectFiles = routeFactory(
-  syncProjectFilesRoute,
+export const pullProjectFiles = routeFactory(
+  pullProjectFilesRoute,
   async ({ params, body, container, send }) => {
     const service = container.resolve(SyncFilesService);
     const result = await service.execute({

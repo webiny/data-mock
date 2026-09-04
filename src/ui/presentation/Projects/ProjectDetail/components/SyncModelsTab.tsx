@@ -16,7 +16,7 @@ export function SyncModelsTab({ logs, isSyncing, onSync, onDeleteLog }: SyncMode
     <Stack gap="md">
       <Group justify="space-between">
         <Button loading={isSyncing} onClick={onSync}>
-          Run Sync
+          Pull Models
         </Button>
       </Group>
       <Text size="sm" c="dimmed">

@@ -37,10 +37,10 @@ export const deleteProjectFileRoute = defineVoidRoute({
   params: z.object({ projectId: z.string(), fileId: z.string() }),
 });
 
-export const syncProjectFilesRoute = defineOneRoute("result", {
+export const pullProjectFilesRoute = defineOneRoute("result", {
   method: "POST",
-  path: "/api/projects/:projectId/files/sync",
-  description: "Sync files from a Webiny project's file manager",
+  path: "/api/projects/:projectId/files/pull",
+  description: "Pull files from a Webiny project's file manager",
   params: z.object({ projectId: z.string() }),
   body: syncFilesBodySchema,
   item: syncFilesResponseSchema,

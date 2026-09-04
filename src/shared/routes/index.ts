@@ -24,7 +24,7 @@ export {
   listProjectFilesRoute,
   uploadProjectFileRoute,
   deleteProjectFileRoute,
-  syncProjectFilesRoute,
+  pullProjectFilesRoute,
   pullPicsumImagesRoute,
 } from "./files.js";
 

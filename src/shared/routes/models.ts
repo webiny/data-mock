@@ -12,8 +12,8 @@ export const listProjectModelsRoute = defineListRoute("models", {
 
 export const syncProjectModelsRoute = defineOneRoute("job", {
   method: "POST",
-  path: "/api/projects/:projectId/models/sync",
-  description: "Sync models from Webiny for a project",
+  path: "/api/projects/:projectId/models/pull",
+  description: "Pull models from Webiny for a project",
   params: z.object({ projectId: z.string() }),
   item: jobSchema,
 });

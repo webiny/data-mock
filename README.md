@@ -71,15 +71,15 @@ If not already seeded via `.projects.json`, add a project:
 1. Click **Add Project** on the project list page
 2. Enter project name, Webiny API URL, API token, tenant, and version
 
-### 6. Sync tenants and models
+### 6. Pull tenants and models
 
-Before seeding or importing, the project needs tenants and models synced from Webiny:
+Before seeding or importing, the project needs tenants and models pulled from Webiny:
 
 1. Open the project
-2. Go to **Sync Tenants** — click **Sync** to discover tenants from the Webiny instance
-3. Go to **Sync Models** — click **Sync** to pull CMS model definitions and groups
+2. Go to **Pull Tenants** — click **Pull Tenants** to discover tenants from the Webiny instance
+3. Go to **Pull Models** — click **Pull Models** to pull CMS model definitions and groups
 
-These must be done in order — tenants first, then models. After syncing, the tenants and models tabs show what was discovered.
+These must be done in order — tenants first, then models. After pulling, the tenants and models tabs show what was discovered.
 
 ### 7. Seed data or import existing entries
 
@@ -118,7 +118,7 @@ All operations run as background jobs with real-time progress via WebSocket. Che
 | `yarn cli add-project` | Add a Webiny project interactively |
 | `yarn cli list-projects` | Show all configured projects |
 | `yarn cli remove-project` | Select + confirm + remove a project |
-| `yarn cli sync-models` | Pull models/groups from a Webiny project |
+| `yarn cli pull-models` | Pull models/groups from a Webiny project |
 | `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
 | `yarn cli rotate-key` | Rotate the API token encryption key |
 | `yarn cli upload-files` | Upload files to a Webiny project's file manager |
@@ -146,7 +146,7 @@ All long-running operations (seed, sync, import, cleanup) run as background jobs
 4. UI shows toast notification on completion/failure
 5. Affected data auto-refreshes in the UI
 
-Job types: `seed`, `sync-tenants`, `sync-models`, `cleanup`, `import`.
+Job types: `seed`, `pull-tenants`, `pull-models`, `cleanup`, `import`.
 
 ### Audit Log
 

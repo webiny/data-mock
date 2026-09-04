@@ -185,17 +185,17 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
               <Divider my="xs" />
 
               <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pb={4}>
-                Sync
+                Pull
               </Text>
               <NavLink
-                label="Sync Tenants"
-                active={activeView === "sync-tenants"}
-                onClick={() => goTo("sync-tenants")}
+                label="Pull Tenants"
+                active={activeView === "pull-tenants"}
+                onClick={() => goTo("pull-tenants")}
               />
               <NavLink
-                label="Sync Models"
-                active={activeView === "sync-models"}
-                onClick={() => goTo("sync-models")}
+                label="Pull Models"
+                active={activeView === "pull-models"}
+                onClick={() => goTo("pull-models")}
               />
 
               <Divider my="xs" />
@@ -273,19 +273,19 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onDelete={(id) => void presenter.deleteTemplate(id)}
               />
             )}
-            {activeView === "sync-tenants" && (
+            {activeView === "pull-tenants" && (
               <SyncTenantsTab
                 logs={syncLog}
                 isSyncing={isSyncingTenants}
-                onSync={() => void presenter.syncTenants()}
+                onSync={() => void presenter.pullTenants()}
                 onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
-            {activeView === "sync-models" && (
+            {activeView === "pull-models" && (
               <SyncModelsTab
                 logs={syncLog}
                 isSyncing={isSyncingModels}
-                onSync={() => void presenter.syncModels()}
+                onSync={() => void presenter.pullModels()}
                 onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}

@@ -16,11 +16,11 @@ export function SyncTenantsTab({ logs, isSyncing, onSync, onDeleteLog }: SyncTen
     <Stack gap="md">
       <Group justify="space-between">
         <Button loading={isSyncing} onClick={onSync}>
-          Run Sync
+          Pull Tenants
         </Button>
       </Group>
       <Text size="sm" c="dimmed">
-        Discover and sync tenants from the Webiny instance.
+        Pull tenants from the Webiny instance.
       </Text>
       <SyncLogTable logs={tenantLogs} onDelete={onDeleteLog} />
     </Stack>

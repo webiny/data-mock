@@ -12,8 +12,8 @@ export const listProjectTenantsRoute = defineListRoute("tenants", {
 
 export const syncProjectTenantsRoute = defineOneRoute("job", {
   method: "POST",
-  path: "/api/projects/:projectId/tenants/sync",
-  description: "Sync tenants from Webiny for a project",
+  path: "/api/projects/:projectId/tenants/pull",
+  description: "Pull tenants from Webiny for a project",
   params: z.object({ projectId: z.string() }),
   item: jobSchema,
 });

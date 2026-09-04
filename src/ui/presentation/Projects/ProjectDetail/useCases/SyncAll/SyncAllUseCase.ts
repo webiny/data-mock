@@ -17,7 +17,7 @@ class SyncAllUseCaseImpl implements Abstraction.Interface {
 
     const [tenantsResult, modelsResult] = await Promise.all([
       this.tenantsGateway.syncForProject(input.projectId),
-      this.modelsGateway.syncModels(input.projectId),
+      this.modelsGateway.pullModels(input.projectId),
     ]);
 
     let tenantsSynced = false;

@@ -72,7 +72,7 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
   if (logs.length === 0) {
     return (
       <Text c="dimmed" ta="center" mt="md">
-        No sync history. Click &ldquo;Run Sync&rdquo; to start.
+        No pull history yet.
       </Text>
     );
   }

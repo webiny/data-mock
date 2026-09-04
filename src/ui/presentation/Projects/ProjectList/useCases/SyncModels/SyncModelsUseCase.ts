@@ -5,7 +5,7 @@ class SyncModelsUseCaseImpl implements Abstraction.Interface {
   public constructor(private readonly modelsGateway: ModelsGateway.Interface) {}
 
   public async execute(projectId: string): Promise<void> {
-    await this.modelsGateway.syncModels(projectId);
+    await this.modelsGateway.pullModels(projectId);
   }
 }
 

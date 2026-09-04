@@ -37,8 +37,8 @@ export interface IProjectListPresenter {
   confirmRemove(projectId: string, projectName: string): void;
   cancelRemove(): void;
   executeRemove(): Promise<void>;
-  syncTenants(projectId: string): Promise<void>;
-  syncModels(projectId: string): Promise<void>;
+  pullTenants(projectId: string): Promise<void>;
+  pullModels(projectId: string): Promise<void>;
   refreshHealth(projectId: string): void;
 }
 

@@ -140,8 +140,8 @@ export interface IProjectDetailPresenter {
   checkHealth(): Promise<void>;
   loadTemplate(templateId: string): void;
   deleteTemplate(templateId: string): Promise<void>;
-  syncTenants(): Promise<void>;
-  syncModels(): Promise<void>;
+  pullTenants(): Promise<void>;
+  pullModels(): Promise<void>;
   openEditDialog(): void;
   closeEditDialog(): void;
   submitEdit(input: IEditProjectInput): Promise<boolean>;
