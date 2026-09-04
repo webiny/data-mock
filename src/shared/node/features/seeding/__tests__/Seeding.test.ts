@@ -207,6 +207,7 @@ describe("Seeding Feature", () => {
           projectId: project.id,
           tenant: "root",
           models: [{ modelId: "article", amount: 2 }],
+          batchSize: 1,
         });
 
         expect(result.isOk()).toBe(true);
@@ -236,6 +237,7 @@ describe("Seeding Feature", () => {
           projectId: "non-existent",
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
         });
 
         expect(result.isFail()).toBe(true);
@@ -262,6 +264,7 @@ describe("Seeding Feature", () => {
           projectId: project.id,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
         });
 
         expect(result.isOk()).toBe(true);
@@ -285,6 +288,7 @@ describe("Seeding Feature", () => {
           projectId: project.id,
           tenant: "root",
           models: [{ modelId: "article", amount: 3 }],
+          batchSize: 1,
           dryRun: true,
         });
 
@@ -322,6 +326,7 @@ describe("Seeding Feature", () => {
           projectId: project.id,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
         });
 
         expect(result.isOk()).toBe(true);

@@ -20,6 +20,7 @@ class SeedJobExecutorImpl implements Abstraction.Interface {
     const result = await this.seedService.execute({
       ...config,
       projectId: context.projectId,
+      signal: context.signal,
     });
 
     if (result.isFail()) {

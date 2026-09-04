@@ -114,6 +114,7 @@ class SeedCommandImpl implements Command.Interface {
         tenant: tenantId,
         models: modelConfigs,
         dryRun,
+        batchSize: 1,
       });
 
       if (result.isFail()) {

@@ -121,6 +121,8 @@ export function JobsTab({ jobs, onCancel }: JobsTabProps) {
 }
 
 function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | undefined }) {
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   return (
     <Stack gap="md">
       <Group gap="xl">
@@ -156,10 +158,30 @@ function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | unde
         )}
       </Group>
 
-      {onCancel && (
-        <Button color="red" variant="light" size="xs" onClick={onCancel}>
+      {onCancel && !showCancelConfirm && (
+        <Button color="red" variant="light" size="xs" onClick={() => setShowCancelConfirm(true)}>
           Cancel Job
         </Button>
+      )}
+      {onCancel && showCancelConfirm && (
+        <Group gap="xs">
+          <Text size="sm" fw={500}>
+            Cancel this job?
+          </Text>
+          <Button
+            color="red"
+            size="xs"
+            onClick={() => {
+              onCancel();
+              setShowCancelConfirm(false);
+            }}
+          >
+            Yes, cancel
+          </Button>
+          <Button variant="default" size="xs" onClick={() => setShowCancelConfirm(false)}>
+            No
+          </Button>
+        </Group>
       )}
 
       {job.config != null && (

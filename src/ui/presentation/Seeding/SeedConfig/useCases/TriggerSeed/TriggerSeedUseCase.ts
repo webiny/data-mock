@@ -15,6 +15,7 @@ class TriggerSeedUseCaseImpl implements Abstraction.Interface {
       publishPercent: input.publishPercent,
       includeUnpublish: input.includeUnpublish,
       dryRun: input.dryRun,
+      batchSize: input.batchSize,
     });
   }
 }

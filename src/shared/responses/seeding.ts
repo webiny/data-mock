@@ -49,7 +49,7 @@ export const triggerSeedBodySchema = z.object({
   publishPercent: z.number().int().min(0).max(100).optional(),
   includeUnpublish: z.boolean().optional().default(false),
   dryRun: z.boolean().optional().default(false),
-  batchSize: z.number().int().min(1).max(50).optional().default(1),
+  batchSize: z.number().int().min(1).max(50),
 });
 
 export type TriggerSeedBody = z.infer<typeof triggerSeedBodySchema>;

@@ -17,6 +17,7 @@ export const triggerSeed = routeFactory(
         publishPercent: body.publishPercent,
         includeUnpublish: body.includeUnpublish,
         dryRun: body.dryRun,
+        batchSize: body.batchSize,
       },
     });
     const job = await jobWorker.getJob(jobId);

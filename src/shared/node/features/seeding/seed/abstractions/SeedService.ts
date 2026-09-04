@@ -21,7 +21,8 @@ export interface ISeedServiceInput {
   publishPercent?: number | undefined;
   includeUnpublish?: boolean | undefined;
   dryRun?: boolean | undefined;
-  batchSize?: number | undefined;
+  batchSize: number;
+  signal?: AbortSignal | undefined;
 }
 
 export interface ISeedServiceOutput {

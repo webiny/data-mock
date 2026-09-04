@@ -104,7 +104,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     const publishStrategy = input.publishStrategy ?? "none";
     const publishPercent = input.publishPercent ?? 50;
     const includeUnpublish = input.includeUnpublish ?? false;
-    const batchSize = Math.max(1, input.batchSize ?? 1);
+    const batchSize = input.batchSize;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -120,7 +120,14 @@ class SeedServiceImpl implements Abstraction.Interface {
 
       await this.preloadExistingRefs(project.id, availableRefs);
 
+      const signal = input.signal;
+
       for (const ctx of orderedContexts) {
+        if (signal?.aborted) {
+          this.logger.info("Job cancelled — stopping before next model.");
+          break;
+        }
+
         const modelErrors: string[] = [];
 
         this.logger.info(
@@ -159,7 +166,11 @@ class SeedServiceImpl implements Abstraction.Interface {
         const apiUrl = project.apiUrl;
 
         let modelFailed = false;
-        for (let batchStart = 0; batchStart < ctx.amount && !modelFailed; batchStart += batchSize) {
+        for (
+          let batchStart = 0;
+          batchStart < ctx.amount && !modelFailed && !signal?.aborted;
+          batchStart += batchSize
+        ) {
           const batchEnd = Math.min(batchStart + batchSize, ctx.amount);
           const batchEntries: Record<string, unknown>[] = [];
 
