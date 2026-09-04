@@ -3,7 +3,8 @@ import type { SeedJob } from "~/shared/types.js";
 
 export interface ISeedingRepository {
   readonly seedJobs: SeedJob[];
-  setSeedJobs(jobs: SeedJob[]): void;
+  readonly totalSeedJobs: number;
+  setSeedJobs(jobs: SeedJob[], total: number): void;
   addSeedJob(job: SeedJob): void;
 }
 

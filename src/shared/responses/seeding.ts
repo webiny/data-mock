@@ -1,8 +1,12 @@
 import { z } from "zod";
 
 export const revisionsSchema = z.union([
-  z.number().int().min(1),
-  z.object({ min: z.number().int().min(1), max: z.number().int().min(1) }),
+  z.number().int().min(1).max(50),
+  z
+    .object({ min: z.number().int().min(1), max: z.number().int().max(50) })
+    .refine((data) => data.min <= data.max, {
+      message: "revisions.min must be less than or equal to revisions.max",
+    }),
 ]);
 
 export const publishStrategySchema = z.enum(["none", "all", "random", "first", "last"]);
@@ -41,12 +45,12 @@ export const triggerSeedBodySchema = z.object({
   models: z.array(
     z.object({
       modelId: z.string().min(1),
-      amount: z.number().int().min(1),
+      amount: z.number().int().min(1).max(100000),
       revisions: revisionsSchema.optional().default(1),
     }),
   ),
   publishStrategy: publishStrategySchema.optional().default("none"),
-  publishPercent: z.number().int().min(0).max(100).optional(),
+  publishPercent: z.number().int().min(1).max(100).optional(),
   includeUnpublish: z.boolean().optional().default(false),
   dryRun: z.boolean().optional().default(false),
   batchSize: z.number().int().min(1).max(50),

@@ -19,9 +19,25 @@ export interface ITriggerSeedInput {
   batchSize: number;
 }
 
+export interface SeedJobsListParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  sortField?: string;
+  sortDir?: string;
+}
+
+export interface SeedJobsListResult {
+  seedJobs: SeedJob[];
+  total: number;
+}
+
 export interface ISeedingGateway {
   triggerSeed(projectId: string, input: ITriggerSeedInput): Promise<Result<Job, HTTPError>>;
-  listSeedJobs(projectId: string): Promise<Result<SeedJob[], HTTPError>>;
+  listSeedJobs(
+    projectId: string,
+    params?: SeedJobsListParams,
+  ): Promise<Result<SeedJobsListResult, HTTPError>>;
   importEntries(
     projectId: string,
     input: { tenant: string; models: string[] },

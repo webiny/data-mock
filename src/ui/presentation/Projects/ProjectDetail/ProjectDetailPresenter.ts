@@ -82,6 +82,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private readonly entriesListState: URLListState.Interface;
   private readonly jobsListState: URLListState.Interface;
   private readonly syncLogsListState: URLListState.Interface;
+  private readonly seedJobsListState: URLListState.Interface;
   private readonly disposeJobSubscription: () => void;
 
   public constructor(
@@ -133,6 +134,12 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         logStatus: { type: "dropdown" },
       },
       onChange: () => this.reloadSyncLogs(),
+    });
+    this.seedJobsListState = urlListStateFactory.create({
+      filters: {
+        seedStatus: { type: "dropdown" },
+      },
+      onChange: () => this.reloadSeedJobs(),
     });
     makeAutoObservable(this);
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
@@ -218,6 +225,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         errorCount: j.result?.errors.length ?? 0,
         createdAt: j.createdAt,
       })),
+      seedJobsTotalCount: this._projectId ? this.seedingRepository.totalSeedJobs : 0,
+      seedJobsPage: this.seedJobsListState.page,
+      seedJobsStatusFilter: this.seedJobsListState.get("seedStatus") || null,
       templates: templates.map((t) => ({
         id: t.id,
         name: t.name,
@@ -644,6 +654,15 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     return params;
   }
 
+  private buildSeedJobsParams(): Record<string, string | number> {
+    const params: Record<string, string | number> = { page: this.seedJobsListState.page };
+    const status = this.seedJobsListState.get("seedStatus");
+    if (status) {
+      params.status = status;
+    }
+    return params;
+  }
+
   private buildSyncLogsParams(): Record<string, string | number> {
     const params: Record<string, string | number> = { page: this.syncLogsListState.page };
     const type = this.syncLogsListState.get("logType");
@@ -677,6 +696,18 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
     return params;
   }
+
+  public loadSeedJobsPage = (page: number): void => {
+    this.seedJobsListState.setPage(page);
+  };
+
+  public setSeedJobsFilter = (key: string, value: string | null): void => {
+    this.seedJobsListState.set(key, value ?? "");
+  };
+
+  public clearSeedJobsFilter = (): void => {
+    this.seedJobsListState.setBatch({ seedStatus: null });
+  };
 
   public loadJobsPage = (page: number): void => {
     this.jobsListState.setPage(page);
@@ -837,10 +868,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "seedJobs": {
-        const result = await this.seedingGateway.listSeedJobs(projectId);
+        const result = await this.seedingGateway.listSeedJobs(
+          projectId,
+          this.buildSeedJobsParams(),
+        );
         runInAction(() => {
           if (result.isOk()) {
-            this.seedingRepository.setSeedJobs(result.value);
+            this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
           }
           this._loadedDatasets.add(dataset);
         });
@@ -878,6 +912,22 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       }
     }
     this._loadingDatasets.delete(dataset);
+  };
+
+  private reloadSeedJobs = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const result = await this.seedingGateway.listSeedJobs(
+      this._projectId,
+      this.buildSeedJobsParams(),
+    );
+    runInAction(() => {
+      if (result.isOk()) {
+        this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
+      }
+      this._loadedDatasets.add("seedJobs");
+    });
   };
 
   private reloadJobs = async (): Promise<void> => {

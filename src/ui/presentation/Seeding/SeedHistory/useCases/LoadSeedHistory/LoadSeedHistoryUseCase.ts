@@ -1,5 +1,5 @@
 import type { Result } from "@webiny/stdlib";
-import type { SeedJob } from "~/shared/types.js";
+import type { SeedJobsListResult } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { SeedingGateway } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
 import { SeedingRepository } from "~/ui/features/seeding/abstractions/SeedingRepository.js";
@@ -11,11 +11,11 @@ class LoadSeedHistoryUseCaseImpl implements Abstraction.Interface {
     private readonly seedingRepository: SeedingRepository.Interface,
   ) {}
 
-  public async execute(projectId: string): Promise<Result<SeedJob[], HTTPError>> {
+  public async execute(projectId: string): Promise<Result<SeedJobsListResult, HTTPError>> {
     const result = await this.seedingGateway.listSeedJobs(projectId);
 
     if (result.isOk()) {
-      this.seedingRepository.setSeedJobs(result.value);
+      this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
     }
 
     return result;

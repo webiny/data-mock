@@ -268,6 +268,12 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             {activeView === "history" && (
               <SeedHistoryTab
                 seedJobs={seedJobs}
+                totalCount={vm.seedJobsTotalCount}
+                page={vm.seedJobsPage}
+                statusFilter={vm.seedJobsStatusFilter}
+                onPageChange={(p) => presenter.loadSeedJobsPage(p)}
+                onFilterChange={(k, v) => presenter.setSeedJobsFilter(k, v)}
+                onClearFilter={() => presenter.clearSeedJobsFilter()}
                 onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
               />
             )}

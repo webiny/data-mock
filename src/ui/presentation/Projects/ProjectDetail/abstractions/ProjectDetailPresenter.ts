@@ -108,6 +108,9 @@ export interface IProjectDetailVM {
   groups: IGroupVM[];
   models: IModelVM[];
   seedJobs: ISeedJobVM[];
+  seedJobsTotalCount: number;
+  seedJobsPage: number;
+  seedJobsStatusFilter: string | null;
   templates: ITemplateVM[];
   files: IFileVM[];
   mergedFiles: IMergedFileVM[];
@@ -168,6 +171,9 @@ export interface IProjectDetailPresenter {
   openCleanupDialog(): void;
   closeCleanupDialog(): void;
   confirmCleanup(): Promise<void>;
+  loadSeedJobsPage(page: number): void;
+  setSeedJobsFilter(key: string, value: string | null): void;
+  clearSeedJobsFilter(): void;
   loadJobsPage(page: number): void;
   setJobsFilter(key: string, value: string | null): void;
   clearJobsFilter(): void;

@@ -4,6 +4,7 @@ import { SeedingRepository as Abstraction } from "./abstractions/SeedingReposito
 
 class SeedingRepositoryImpl implements Abstraction.Interface {
   private _seedJobs: SeedJob[] = [];
+  private _total = 0;
 
   public constructor() {
     makeAutoObservable(this);
@@ -13,8 +14,13 @@ class SeedingRepositoryImpl implements Abstraction.Interface {
     return this._seedJobs;
   }
 
-  public setSeedJobs(jobs: SeedJob[]): void {
+  public get totalSeedJobs(): number {
+    return this._total;
+  }
+
+  public setSeedJobs(jobs: SeedJob[], total: number): void {
     this._seedJobs = jobs;
+    this._total = total;
   }
 
   public addSeedJob(job: SeedJob): void {
