@@ -134,10 +134,10 @@ export interface IProjectDetailPresenter {
   openEditDialog(): void;
   closeEditDialog(): void;
   submitEdit(input: IEditProjectInput): Promise<boolean>;
-  loadEntriesPage(page: number): Promise<void>;
-  viewJobEntries(jobId: string): Promise<void>;
-  setEntriesFilter(key: string, value: string | null): Promise<void>;
-  clearEntriesFilter(): Promise<void>;
+  loadEntriesPage(page: number): void;
+  viewJobEntries(jobId: string): void;
+  setEntriesFilter(key: string, value: string | null): void;
+  clearEntriesFilter(): void;
   clearEntries(): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
   deleteSyncLog(logId: string): Promise<void>;

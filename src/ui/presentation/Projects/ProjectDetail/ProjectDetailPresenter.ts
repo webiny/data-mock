@@ -21,6 +21,8 @@ import { SyncLogsGateway } from "~/ui/features/syncLogs/abstractions/SyncLogsGat
 import { SyncLogsRepository } from "~/ui/features/syncLogs/abstractions/SyncLogsRepository.js";
 import { navigate } from "~/ui/features/router/Router.js";
 import { AppRoutes } from "~/ui/features/router/routePaths.js";
+import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
+import type { URLListState } from "~/ui/features/router/abstractions/URLListState.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 import type { ModelDiffItem } from "~/shared/responses/models.js";
 
@@ -56,11 +58,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _loadingProjectId: string | null = null;
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
-  private _entriesPage = 1;
-  private _entriesJobFilter: string | null = null;
-  private _entriesModelFilter: string | null = null;
-  private _entriesTenantFilter: string | null = null;
-  private _entriesStatusFilter: string | null = null;
+  private readonly entriesListState: URLListState.Interface;
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
@@ -82,7 +80,17 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly syncLogsGateway: SyncLogsGateway.Interface,
     private readonly syncLogsRepository: SyncLogsRepository.Interface,
     private readonly notifications: NotificationService.Interface,
+    urlListStateFactory: URLListStateFactory.Interface,
   ) {
+    this.entriesListState = urlListStateFactory.create({
+      filters: {
+        jobId: { type: "dropdown" },
+        modelId: { type: "dropdown" },
+        tenant: { type: "dropdown" },
+        status: { type: "dropdown" },
+      },
+      onChange: () => this.reloadEntries(),
+    });
     makeAutoObservable(this);
   }
 
@@ -188,11 +196,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         createdAt: e.createdAt,
       })),
       entriesTotalCount: this._projectId ? this.entriesRepository.totalEntries : 0,
-      entriesPage: this._entriesPage,
-      entriesJobFilter: this._entriesJobFilter,
-      entriesModelFilter: this._entriesModelFilter,
-      entriesTenantFilter: this._entriesTenantFilter,
-      entriesStatusFilter: this._entriesStatusFilter,
+      entriesPage: this.entriesListState.page,
+      entriesJobFilter: this.entriesListState.get("jobId") || null,
+      entriesModelFilter: this.entriesListState.get("modelId") || null,
+      entriesTenantFilter: this.entriesListState.get("tenant") || null,
+      entriesStatusFilter: this.entriesListState.get("status") || null,
       syncLog: syncLogs.map((l) => ({
         id: l.id,
         type: l.type,
@@ -272,58 +280,24 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     await Promise.all(needed.map((d) => this.loadDataset(d)));
   };
 
-  public loadEntriesPage = async (page: number): Promise<void> => {
+  public loadEntriesPage = (page: number): void => {
+    this.entriesListState.setPage(page);
+  };
+
+  public setEntriesFilter = (key: string, value: string | null): void => {
+    this.entriesListState.set(key, value ?? "");
+  };
+
+  public viewJobEntries = (jobId: string): void => {
     if (!this._projectId) {
       return;
     }
-    this._entriesPage = page;
-    const result = await this.entriesGateway.list(this._projectId, this.buildEntriesParams());
-    runInAction(() => {
-      if (result.isOk()) {
-        this.entriesRepository.setEntries(result.value.entries, result.value.total);
-      }
-    });
-  };
-
-  public setEntriesFilter = async (key: string, value: string | null): Promise<void> => {
-    switch (key) {
-      case "modelId":
-        this._entriesModelFilter = value;
-        break;
-      case "tenant":
-        this._entriesTenantFilter = value;
-        break;
-      case "status":
-        this._entriesStatusFilter = value;
-        break;
-    }
-    this._entriesPage = 1;
-    this._loadedDatasets.delete("entries");
-    await this.loadDataset("entries");
-  };
-
-  public viewJobEntries = async (jobId: string): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._entriesJobFilter = jobId;
-    this._entriesPage = 1;
-    this._loadedDatasets.delete("entries");
     navigate(AppRoutes.projectTab(this._projectId, "entries"));
-    await this.loadDataset("entries");
+    this.entriesListState.setBatch({ jobId, modelId: null, tenant: null, status: null });
   };
 
-  public clearEntriesFilter = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._entriesJobFilter = null;
-    this._entriesModelFilter = null;
-    this._entriesTenantFilter = null;
-    this._entriesStatusFilter = null;
-    this._entriesPage = 1;
-    this._loadedDatasets.delete("entries");
-    await this.loadDataset("entries");
+  public clearEntriesFilter = (): void => {
+    this.entriesListState.setBatch({ jobId: null, modelId: null, tenant: null, status: null });
   };
 
   public loadTemplate = (_templateId: string): void => {
@@ -582,21 +556,33 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private buildEntriesParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this._entriesPage };
-    if (this._entriesJobFilter) {
-      params.jobId = this._entriesJobFilter;
+    const params: Record<string, string | number> = { page: this.entriesListState.page };
+    const jobId = this.entriesListState.get("jobId");
+    const modelId = this.entriesListState.get("modelId");
+    const tenant = this.entriesListState.get("tenant");
+    const status = this.entriesListState.get("status");
+    if (jobId) {
+      params.jobId = jobId;
     }
-    if (this._entriesModelFilter) {
-      params.modelId = this._entriesModelFilter;
+    if (modelId) {
+      params.modelId = modelId;
     }
-    if (this._entriesTenantFilter) {
-      params.tenant = this._entriesTenantFilter;
+    if (tenant) {
+      params.tenant = tenant;
     }
-    if (this._entriesStatusFilter) {
-      params.status = this._entriesStatusFilter;
+    if (status) {
+      params.status = status;
     }
     return params;
   }
+
+  private reloadEntries = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    this._loadedDatasets.delete("entries");
+    await this.loadDataset("entries");
+  };
 
   private loadDataset = async (dataset: string): Promise<void> => {
     if (
@@ -719,5 +705,6 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     SyncLogsGateway,
     SyncLogsRepository,
     NotificationService,
+    URLListStateFactory,
   ],
 });
