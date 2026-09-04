@@ -19,6 +19,7 @@ import {
   buildUnpublishQuery,
 } from "~/shared/node/graphql/operations/base/revisionOperations.js";
 import { SeedingError } from "~/shared/errors.js";
+import type { IHttpResponse } from "~/shared/abstractions/HttpClient.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
 import type { ProjectModel, Revisions, PublishStrategy } from "~/shared/types.js";
 
@@ -371,8 +372,25 @@ class SeedServiceImpl implements Abstraction.Interface {
       headers: safeHeaders,
     };
     const body = JSON.stringify({ query: mutation, variables });
-    const response = await this.cmsManageClient.post(apiUrl, body, headers);
-    const rawBody = await response.text().catch(() => "");
+
+    let response: IHttpResponse;
+    let rawBody: string;
+    const maxRetries = 3;
+
+    for (let attempt = 0; ; attempt++) {
+      response = await this.cmsManageClient.post(apiUrl, body, headers);
+      rawBody = await response.text().catch(() => "");
+
+      if (response.status === 429 && attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        this.logger.warn(
+          `HTTP ${response.status} on attempt ${attempt + 1}, retrying in ${delay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      break;
+    }
 
     if (response.status !== 200) {
       return {
