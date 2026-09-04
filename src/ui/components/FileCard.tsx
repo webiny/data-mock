@@ -1,4 +1,15 @@
-import { ActionIcon, Badge, Box, Card, Group, Image, Stack, Text, ThemeIcon } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Box,
+  Card,
+  Checkbox,
+  Group,
+  Image,
+  Stack,
+  Text,
+  ThemeIcon,
+} from "@mantine/core";
 
 interface FileCardBadge {
   label: string;
@@ -13,6 +24,8 @@ interface FileCardProps {
   badges: FileCardBadge[];
   onClick: () => void;
   onDelete?: () => void;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
 export function FileCard({
@@ -23,14 +36,32 @@ export function FileCard({
   badges,
   onClick,
   onDelete,
+  selected,
+  onSelect,
 }: FileCardProps) {
   return (
     <Card
       withBorder
       padding="xs"
-      style={{ cursor: "pointer", position: "relative" }}
+      style={{
+        cursor: "pointer",
+        position: "relative",
+        outline: selected ? "2px solid var(--mantine-color-blue-5)" : undefined,
+      }}
       onClick={onClick}
     >
+      {onSelect && (
+        <Checkbox
+          checked={selected ?? false}
+          onChange={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+          onClick={(event) => event.stopPropagation()}
+          size="sm"
+          style={{ position: "absolute", top: 6, left: 6, zIndex: 1 }}
+        />
+      )}
       {onDelete && (
         <ActionIcon
           variant="filled"

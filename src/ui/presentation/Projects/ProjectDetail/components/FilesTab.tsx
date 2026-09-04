@@ -10,6 +10,7 @@ interface FilesTabProps {
   mergedFiles: IMergedFileVM[];
   onUploadFiles: (files: File[]) => void;
   onUploadAllGlobal: () => void;
+  onUploadSelected: (fileNames: string[]) => void;
   onDelete: (fileId: string) => void;
   isUploadingGlobal: boolean;
   selectedTenant: string;
@@ -19,14 +20,38 @@ export function FilesTab({
   mergedFiles,
   onUploadFiles,
   onUploadAllGlobal,
+  onUploadSelected,
   onDelete,
   isUploadingGlobal,
 }: FilesTabProps) {
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const projectFileCount = mergedFiles.filter((f) => f.source === "project").length;
-  const globalFileCount = mergedFiles.filter((f) => f.source === "global").length;
+  const globalFiles = mergedFiles.filter((f) => f.source === "global");
+  const globalFileCount = globalFiles.length;
   const previewFile = mergedFiles.find((f) => f.id === previewFileId) ?? null;
+  const selectedGlobalCount = globalFiles.filter((f) => selectedIds.has(f.id)).length;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleUploadSelected = () => {
+    const fileNames = globalFiles.filter((f) => selectedIds.has(f.id)).map((f) => f.fileName);
+    if (fileNames.length > 0) {
+      onUploadSelected(fileNames);
+      setSelectedIds(new Set());
+    }
+  };
 
   return (
     <Stack gap="md">
@@ -35,14 +60,21 @@ export function FilesTab({
           {projectFileCount} project file{projectFileCount === 1 ? "" : "s"}, {globalFileCount}{" "}
           global file{globalFileCount === 1 ? "" : "s"}
         </Text>
-        <Button
-          variant="light"
-          loading={isUploadingGlobal}
-          disabled={globalFileCount === 0}
-          onClick={onUploadAllGlobal}
-        >
-          Upload All Global Images
-        </Button>
+        <Group gap="xs">
+          {selectedGlobalCount > 0 && (
+            <Button variant="filled" loading={isUploadingGlobal} onClick={handleUploadSelected}>
+              Upload Selected ({selectedGlobalCount})
+            </Button>
+          )}
+          <Button
+            variant="light"
+            loading={isUploadingGlobal}
+            disabled={globalFileCount === 0}
+            onClick={onUploadAllGlobal}
+          >
+            Upload All Global Images
+          </Button>
+        </Group>
       </Group>
 
       <Dropzone
@@ -77,6 +109,12 @@ export function FilesTab({
               badges={file.badges}
               onClick={() => setPreviewFileId(file.id)}
               {...(file.source === "project" ? { onDelete: () => onDelete(file.id) } : {})}
+              {...(file.source === "global"
+                ? {
+                    selected: selectedIds.has(file.id),
+                    onSelect: () => toggleSelect(file.id),
+                  }
+                : {})}
             />
           ))}
         </SimpleGrid>

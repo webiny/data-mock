@@ -9,6 +9,7 @@ export const uploadGlobalFiles = routeFactory(
     const result = await service.execute({
       projectId: params.projectId,
       tenant: body.tenant,
+      fileNames: body.fileNames,
     });
 
     if (result.isFail()) {

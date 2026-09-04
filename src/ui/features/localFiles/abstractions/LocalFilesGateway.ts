@@ -27,6 +27,7 @@ export interface ILocalFilesPullPicsumInput {
 
 export interface ILocalFilesUploadGlobalToProjectInput {
   tenant: string;
+  fileNames?: string[];
 }
 
 export interface ILocalFilesGateway {

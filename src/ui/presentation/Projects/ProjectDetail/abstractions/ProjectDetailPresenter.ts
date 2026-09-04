@@ -153,6 +153,7 @@ export interface IProjectDetailPresenter {
   deleteFile(fileId: string): Promise<void>;
   uploadFilesToProject(files: File[]): Promise<void>;
   uploadAllGlobalImages(): Promise<void>;
+  uploadSelectedGlobalImages(fileNames: string[]): Promise<void>;
   deleteSyncLog(logId: string): Promise<void>;
   importEntries(tenant: string, modelIds: string[]): Promise<void>;
   openCleanupDialog(): void;

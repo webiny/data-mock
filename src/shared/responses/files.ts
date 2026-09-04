@@ -84,6 +84,7 @@ export type LocalFileUploadResult = z.infer<typeof localFileUploadResultSchema>;
 
 export const uploadGlobalBodySchema = z.object({
   tenant: z.string().min(1),
+  fileNames: z.array(z.string()).optional(),
 });
 
 export type UploadGlobalBody = z.infer<typeof uploadGlobalBodySchema>;

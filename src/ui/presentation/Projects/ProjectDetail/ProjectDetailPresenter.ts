@@ -504,6 +504,33 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  public uploadSelectedGlobalImages = async (fileNames: string[]): Promise<void> => {
+    if (!this._projectId || fileNames.length === 0) {
+      return;
+    }
+    const projectId = this._projectId;
+    const tenant = this.currentTenant();
+    this._isUploadingGlobal = true;
+    try {
+      const result = await this.localFilesGateway.uploadGlobalToProject(projectId, {
+        tenant,
+        fileNames,
+      });
+      runInAction(() => {
+        if (result.isOk()) {
+          this.notifications.success(`Uploaded ${result.value.uploaded} selected image(s).`);
+        } else {
+          this.notifications.error(`Failed to upload selected images: ${result.error.message}`);
+        }
+      });
+      await this.reloadFiles();
+    } finally {
+      runInAction(() => {
+        this._isUploadingGlobal = false;
+      });
+    }
+  };
+
   public deleteSyncLog = async (logId: string): Promise<void> => {
     if (!this._projectId) {
       return;

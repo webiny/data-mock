@@ -10,6 +10,7 @@ import type {
 export interface IUploadGlobalFilesToProjectServiceInput {
   projectId: string;
   tenant: string;
+  fileNames?: string[] | undefined;
 }
 
 export interface IUploadGlobalFilesToProjectServiceOutput {

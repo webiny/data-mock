@@ -233,6 +233,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 mergedFiles={vm.mergedFiles}
                 onUploadFiles={(files) => void presenter.uploadFilesToProject(files)}
                 onUploadAllGlobal={() => void presenter.uploadAllGlobalImages()}
+                onUploadSelected={(names) => void presenter.uploadSelectedGlobalImages(names)}
                 onDelete={(id) => void presenter.deleteFile(id)}
                 isUploadingGlobal={isUploadingGlobal}
                 selectedTenant={project.tenant}
