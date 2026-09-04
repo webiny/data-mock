@@ -195,102 +195,107 @@ class SeedServiceImpl implements Abstraction.Interface {
             ),
           );
 
-          const firstError = batchResults.find((r) => r.result.error);
-          if (firstError) {
-            modelErrors.push(firstError.result.error!);
-            errors.push({ modelId: ctx.modelId, message: firstError.result.error! });
-            await this.logEntry(
-              job.id,
-              project.id,
-              input.tenant,
-              ctx.modelId,
-              firstError.entryData,
-              firstError.result,
-            );
-            modelFailed = true;
-          } else {
-            for (const { result: created } of batchResults) {
-              if (created.entryId) {
-                const refs = availableRefs.get(ctx.model.modelId) ?? [];
-                refs.push(created.entryId);
-                availableRefs.set(ctx.model.modelId, refs);
-              }
+          const failed: typeof batchResults = [];
+          const succeeded: typeof batchResults = [];
+          for (const entry of batchResults) {
+            if (entry.result.error) {
+              failed.push(entry);
+            } else {
+              succeeded.push(entry);
             }
+          }
 
-            const postProcessResults = await Promise.all(
-              batchResults.map(async ({ entryData, result: created }) => {
+          for (const { entryData, result: created } of failed) {
+            modelErrors.push(created.error!);
+            errors.push({ modelId: ctx.modelId, message: created.error! });
+            await this.logEntry(job.id, project.id, input.tenant, ctx.modelId, entryData, created);
+          }
+
+          if (failed.length > 0) {
+            modelFailed = true;
+          }
+
+          for (const { result: created } of succeeded) {
+            if (created.entryId) {
+              const refs = availableRefs.get(ctx.model.modelId) ?? [];
+              refs.push(created.entryId);
+              availableRefs.set(ctx.model.modelId, refs);
+            }
+          }
+
+          const postProcessResults = await Promise.all(
+            succeeded.map(async ({ entryData, result: created }) => {
+              await this.logEntry(
+                job.id,
+                project.id,
+                input.tenant,
+                ctx.modelId,
+                entryData,
+                created,
+              );
+
+              let entryCreatedCount = 1;
+              const entryErrors: Array<{ modelId: string; message: string }> = [];
+              const revisionCount = resolveRevisionCount(ctx.revisions);
+              let latestRevisionId = created.entryId;
+
+              for (let rev = 1; rev < revisionCount; rev++) {
+                const revEntry = await createSingleEntryVariables(
+                  this.generatorRegistry,
+                  { fields: ctx.model.fields },
+                  availableRefs,
+                );
+                const revData = revEntry.values as Record<string, unknown>;
+
+                const revResult = await this.sendMutation(
+                  apiUrl,
+                  revisionMutation,
+                  { revision: latestRevisionId, data: { values: revData } },
+                  headers,
+                  revisionOp,
+                );
+
                 await this.logEntry(
                   job.id,
                   project.id,
                   input.tenant,
                   ctx.modelId,
-                  entryData,
-                  created,
+                  revData,
+                  revResult,
                 );
 
-                let entryCreatedCount = 1;
-                const entryErrors: Array<{ modelId: string; message: string }> = [];
-                const revisionCount = resolveRevisionCount(ctx.revisions);
-                let latestRevisionId = created.entryId;
-
-                for (let rev = 1; rev < revisionCount; rev++) {
-                  const revEntry = await createSingleEntryVariables(
-                    this.generatorRegistry,
-                    { fields: ctx.model.fields },
-                    availableRefs,
-                  );
-                  const revData = revEntry.values as Record<string, unknown>;
-
-                  const revResult = await this.sendMutation(
-                    apiUrl,
-                    revisionMutation,
-                    { revision: latestRevisionId, data: { values: revData } },
-                    headers,
-                    revisionOp,
-                  );
-
-                  await this.logEntry(
-                    job.id,
-                    project.id,
-                    input.tenant,
-                    ctx.modelId,
-                    revData,
-                    revResult,
-                  );
-
-                  if (revResult.error) {
-                    entryErrors.push({
-                      modelId: ctx.modelId,
-                      message: `Revision ${rev + 1}: ${revResult.error}`,
-                    });
-                  } else if (revResult.entryId) {
-                    latestRevisionId = revResult.entryId;
-                    entryCreatedCount++;
-                  }
+                if (revResult.error) {
+                  entryErrors.push({
+                    modelId: ctx.modelId,
+                    message: `Revision ${rev + 1}: ${revResult.error}`,
+                  });
+                } else if (revResult.entryId) {
+                  latestRevisionId = revResult.entryId;
+                  entryCreatedCount++;
                 }
+              }
 
-                await this.applyPublishStrategy(
-                  apiUrl,
-                  publishMutation,
-                  unpublishMutation,
-                  headers,
-                  publishOp,
-                  unpublishOp,
-                  created.entryId,
-                  latestRevisionId,
-                  publishStrategy,
-                  publishPercent,
-                  includeUnpublish,
-                );
+              await this.applyPublishStrategy(
+                apiUrl,
+                publishMutation,
+                unpublishMutation,
+                headers,
+                publishOp,
+                unpublishOp,
+                created.entryId,
+                latestRevisionId,
+                publishStrategy,
+                publishPercent,
+                includeUnpublish,
+              );
 
-                return { created: entryCreatedCount, errors: entryErrors };
-              }),
-            );
+              return { created: entryCreatedCount, errors: entryErrors };
+            }),
+          );
 
-            for (const result of postProcessResults) {
-              totalCreated += result.created;
-              errors.push(...result.errors);
-            }
+          for (const result of postProcessResults) {
+            totalCreated += result.created;
+            errors.push(...result.errors);
           }
         }
 

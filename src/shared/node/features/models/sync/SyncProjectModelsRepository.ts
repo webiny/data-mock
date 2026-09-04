@@ -26,6 +26,16 @@ function sanitizeFieldValidators(fields: ApiCmsModelField[]): ApiCmsModelField[]
         fields: sanitizeFieldValidators(field.settings!.fields as ApiCmsModelField[]),
       };
     }
+    if (field.type === "dynamicZone" && Array.isArray(field.settings?.templates)) {
+      const templates = field.settings!.templates as Array<{ fields?: ApiCmsModelField[] }>;
+      sanitized.settings = {
+        ...sanitized.settings,
+        templates: templates.map((tpl) => ({
+          ...tpl,
+          fields: Array.isArray(tpl.fields) ? sanitizeFieldValidators(tpl.fields) : tpl.fields,
+        })),
+      };
+    }
     return sanitized;
   });
 }
