@@ -3,3 +3,7 @@ export { UploadFileRepository } from "./upload/abstractions/UploadFileRepository
 export { FileUploadService } from "./upload/abstractions/FileUploadService.js";
 export { ListProjectFilesRepository } from "./list/abstractions/ListProjectFilesRepository.js";
 export { DeleteProjectFileRepository } from "./delete/abstractions/DeleteProjectFileRepository.js";
+export { PullPicsumImagesService } from "./picsum/abstractions/PullPicsumImagesService.js";
+export { ListLocalImagesService } from "./picsum/abstractions/ListLocalImagesService.js";
+export { SyncProjectFilesRepository } from "./sync/abstractions/SyncProjectFilesRepository.js";
+export { SyncFilesService } from "./sync/abstractions/SyncFilesService.js";
