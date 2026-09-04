@@ -24,8 +24,8 @@ export class TextGenerator extends BaseGenerator<string> {
 
     const validation = getValidator(PatternValidator).getValue();
 
-    if (validation) {
-      const preset = (validation?.preset || "unknown").toLowerCase();
+    if (validation?.preset) {
+      const preset = validation.preset.toLowerCase();
       switch (preset) {
         case "email":
           return faker.internet.email();
@@ -37,9 +37,6 @@ export class TextGenerator extends BaseGenerator<string> {
         case "lowercase":
         case "lowercasespace":
           return faker.word.words(1).toLowerCase();
-        default:
-          this.logger.warn(`There is no pattern preset generator for "${preset}"`);
-          return null;
       }
     }
 

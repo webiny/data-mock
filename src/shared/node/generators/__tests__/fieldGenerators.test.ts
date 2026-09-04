@@ -429,7 +429,7 @@ describe("Field Generators", () => {
       expect(result).toBe(result.toLowerCase());
     });
 
-    it("should return null for unknown pattern preset", async () => {
+    it("should fall through to default text for unknown pattern preset", async () => {
       const { container } = setup();
       const registry = container.resolve(GeneratorRegistry);
       const field = createField("text", "custom", {
@@ -440,7 +440,8 @@ describe("Field Generators", () => {
 
       const gen = registry.getGenerator({ field });
       const result = await gen.generate(field);
-      expect(result).toBeNull();
+      expect(typeof result).toBe("string");
+      expect((result as string).length).toBeGreaterThan(0);
     });
 
     it("should generate an array for list: true (MultiTextGenerator)", async () => {
