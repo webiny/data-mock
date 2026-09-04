@@ -1,6 +1,10 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
-import type { IProjectDetailVM, IEditProjectInput } from "./abstractions/ProjectDetailPresenter.js";
+import type {
+  IProjectDetailVM,
+  IEditProjectInput,
+  IMergedFileVM,
+} from "./abstractions/ProjectDetailPresenter.js";
 import { LoadProjectDetailUseCase } from "./useCases/LoadProjectDetail/abstractions/LoadProjectDetailUseCase.js";
 import { DeleteTemplateUseCase } from "./useCases/DeleteTemplate/abstractions/DeleteTemplateUseCase.js";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
@@ -14,6 +18,10 @@ import { TemplatesGateway } from "~/ui/features/templates/abstractions/Templates
 import { TemplatesRepository } from "~/ui/features/templates/abstractions/TemplatesRepository.js";
 import { FilesGateway } from "~/ui/features/files/abstractions/FilesGateway.js";
 import { FilesRepository } from "~/ui/features/files/abstractions/FilesRepository.js";
+import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
+import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
+import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
+import type { ProjectFile } from "~/shared/types.js";
 import { EntriesGateway } from "~/ui/features/entries/abstractions/EntriesGateway.js";
 import { EntriesRepository } from "~/ui/features/entries/abstractions/EntriesRepository.js";
 import { SeedingGateway } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
@@ -60,6 +68,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _isImporting = false;
   private _isClearingEntries = false;
   private _isCleaningUp = false;
+  private _isUploadingGlobal = false;
   private _showEditDialog = false;
   private _showCleanupDialog = false;
   private _loadedDatasets = new Set<string>();
@@ -84,6 +93,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly templatesRepository: TemplatesRepository.Interface,
     private readonly filesGateway: FilesGateway.Interface,
     private readonly filesRepository: FilesRepository.Interface,
+    private readonly localFilesGateway: LocalFilesGateway.Interface,
+    private readonly localFilesRepository: LocalFilesRepository.Interface,
     private readonly entriesGateway: EntriesGateway.Interface,
     private readonly entriesRepository: EntriesRepository.Interface,
     private readonly seedingGateway: SeedingGateway.Interface,
@@ -143,6 +154,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       : [];
 
     const files = this._projectId ? this.filesRepository.getFilesByProjectId(this._projectId) : [];
+    const localFiles = this._projectId ? this.localFilesRepository.files : [];
+    const mergedFiles = this.buildMergedFiles(files, localFiles);
 
     const entries = this._projectId
       ? this.entriesRepository.getEntriesByProjectId(this._projectId)
@@ -199,6 +212,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         tenant: f.tenant,
         uploadedAt: f.uploadedAt,
       })),
+      mergedFiles,
       entries: entries.map((e) => ({
         id: e.id,
         modelId: e.modelId,
@@ -235,6 +249,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       isImporting: this._isImporting,
       isClearingEntries: this._isClearingEntries,
       isCleaningUp: this._isCleaningUp,
+      isUploadingGlobal: this._isUploadingGlobal,
       showCleanupDialog: this._showCleanupDialog,
       showEditDialog: this._showEditDialog,
     };
@@ -429,6 +444,66 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  public uploadFilesToProject = async (files: File[]): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const projectId = this._projectId;
+    const tenant = this.currentTenant();
+    const failures: string[] = [];
+
+    for (const file of files) {
+      try {
+        const fileContent = await readFileAsBase64(file);
+        const result = await this.filesGateway.upload(projectId, {
+          tenant,
+          fileName: file.name,
+          fileContent,
+          fileType: file.type,
+        });
+        if (result.isFail()) {
+          failures.push(`${file.name}: ${result.error.message}`);
+        }
+      } catch (error) {
+        failures.push(`${file.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    runInAction(() => {
+      if (failures.length > 0) {
+        this.notifications.error(`Some files failed to upload: ${failures.join("; ")}`);
+      } else {
+        this.notifications.success("Files uploaded.");
+      }
+    });
+
+    await this.reloadFiles();
+  };
+
+  public uploadAllGlobalImages = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const projectId = this._projectId;
+    const tenant = this.currentTenant();
+    this._isUploadingGlobal = true;
+    try {
+      const result = await this.localFilesGateway.uploadGlobalToProject(projectId, { tenant });
+      runInAction(() => {
+        if (result.isOk()) {
+          this.notifications.success(`Uploaded ${result.value.uploaded} global image(s).`);
+        } else {
+          this.notifications.error(`Failed to upload global images: ${result.error.message}`);
+        }
+      });
+      await this.reloadFiles();
+    } finally {
+      runInAction(() => {
+        this._isUploadingGlobal = false;
+      });
+    }
+  };
+
   public deleteSyncLog = async (logId: string): Promise<void> => {
     if (!this._projectId) {
       return;
@@ -604,10 +679,16 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "files": {
-        const result = await this.filesGateway.list(projectId);
+        const [filesResult, localFilesResult] = await Promise.all([
+          this.filesGateway.list(projectId),
+          this.localFilesGateway.list(),
+        ]);
         runInAction(() => {
-          if (result.isOk()) {
-            this.filesRepository.setFiles(result.value);
+          if (filesResult.isOk()) {
+            this.filesRepository.setFiles(filesResult.value);
+          }
+          if (localFilesResult.isOk()) {
+            this.localFilesRepository.setFiles(localFilesResult.value);
           }
           this._loadedDatasets.add(dataset);
         });
@@ -678,6 +759,83 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       }
     });
   };
+
+  private reloadFiles = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const projectId = this._projectId;
+    const [filesResult, localFilesResult] = await Promise.all([
+      this.filesGateway.list(projectId),
+      this.localFilesGateway.list(),
+    ]);
+    runInAction(() => {
+      if (filesResult.isOk()) {
+        this.filesRepository.setFiles(filesResult.value);
+      }
+      if (localFilesResult.isOk()) {
+        this.localFilesRepository.setFiles(localFilesResult.value);
+      }
+      this._loadedDatasets.add("files");
+    });
+  };
+
+  private currentTenant = (): string => {
+    const project = this._projectId
+      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
+      : null;
+    return project?.tenant ?? "root";
+  };
+
+  private buildMergedFiles = (
+    projectFiles: ProjectFile[],
+    localFiles: ILocalFileVM[],
+  ): IMergedFileVM[] => {
+    const projectFileNames = new Set(projectFiles.map((f) => f.fileName));
+
+    const projectMerged: IMergedFileVM[] = projectFiles.map((f) => ({
+      id: f.id,
+      fileName: f.fileName,
+      fileType: f.fileType,
+      fileSize: f.fileSize,
+      source: "project",
+      thumbnailUrl: f.fileUrl,
+      badges: [{ label: "project", color: "blue" }],
+    }));
+
+    const globalMerged: IMergedFileVM[] = localFiles
+      .filter((f) => !projectFileNames.has(f.fileName))
+      .map((f) => ({
+        id: f.fileName,
+        fileName: f.fileName,
+        fileType: f.fileType,
+        fileSize: f.fileSize,
+        source: "global",
+        thumbnailUrl: `/api/files/local/${encodeURIComponent(f.fileName)}/content`,
+        badges: [{ label: "global", color: "gray" }],
+      }));
+
+    return [...projectMerged, ...globalMerged];
+  };
+}
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error(`Failed to read file "${file.name}"`));
+        return;
+      }
+      const commaIndex = result.indexOf(",");
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+    };
+    reader.onerror = () => {
+      reject(reader.error ?? new Error(`Failed to read file "${file.name}"`));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export const ProjectDetailPresenter = Abstraction.createImplementation({
@@ -696,6 +854,8 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     TemplatesRepository,
     FilesGateway,
     FilesRepository,
+    LocalFilesGateway,
+    LocalFilesRepository,
     EntriesGateway,
     EntriesRepository,
     SeedingGateway,

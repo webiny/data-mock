@@ -72,7 +72,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
     models,
     seedJobs,
     templates,
-    files,
     entries,
     syncLog,
     isLoading,
@@ -81,6 +80,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
     isImporting,
     isClearingEntries,
     isCleaningUp,
+    isUploadingGlobal,
     showEditDialog,
     showCleanupDialog,
   } = vm;
@@ -229,7 +229,14 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             {activeView === "tenants" && <TenantsTab tenants={tenants} />}
             {activeView === "models" && <ModelsTab groups={groups} models={models} />}
             {activeView === "files" && (
-              <FilesTab files={files} onDelete={(id) => void presenter.deleteFile(id)} />
+              <FilesTab
+                mergedFiles={vm.mergedFiles}
+                onUploadFiles={(files) => void presenter.uploadFilesToProject(files)}
+                onUploadAllGlobal={() => void presenter.uploadAllGlobalImages()}
+                onDelete={(id) => void presenter.deleteFile(id)}
+                isUploadingGlobal={isUploadingGlobal}
+                selectedTenant={project.tenant}
+              />
             )}
             {activeView === "entries" && (
               <AuditLogTab

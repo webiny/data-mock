@@ -5,6 +5,7 @@ import { ModelsFeature } from "~/ui/features/models/feature.js";
 import { SeedingFeature } from "~/ui/features/seeding/feature.js";
 import { TemplatesFeature } from "~/ui/features/templates/feature.js";
 import { FilesFeature } from "~/ui/features/files/feature.js";
+import { LocalFilesFeature } from "~/ui/features/localFiles/feature.js";
 import { EntriesFeature } from "~/ui/features/entries/feature.js";
 import { SyncLogsFeature } from "~/ui/features/syncLogs/feature.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
@@ -29,6 +30,7 @@ export const ProjectDetailPresentationFeature = createFeature<void, ProjectDetai
     SeedingFeature,
     TemplatesFeature,
     FilesFeature,
+    LocalFilesFeature,
     EntriesFeature,
     SyncLogsFeature,
     NotificationsFeature,

@@ -56,6 +56,21 @@ export interface IFileVM {
   uploadedAt: number;
 }
 
+export interface IFileBadgeVM {
+  label: string;
+  color: string;
+}
+
+export interface IMergedFileVM {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number | null;
+  source: "project" | "global";
+  thumbnailUrl: string;
+  badges: IFileBadgeVM[];
+}
+
 export interface IEntryVM {
   id: string;
   modelId: string;
@@ -95,6 +110,7 @@ export interface IProjectDetailVM {
   seedJobs: ISeedJobVM[];
   templates: ITemplateVM[];
   files: IFileVM[];
+  mergedFiles: IMergedFileVM[];
   entries: IEntryVM[];
   entriesTotalCount: number;
   entriesPage: number;
@@ -112,6 +128,7 @@ export interface IProjectDetailVM {
   isImporting: boolean;
   isClearingEntries: boolean;
   isCleaningUp: boolean;
+  isUploadingGlobal: boolean;
   showEditDialog: boolean;
   showCleanupDialog: boolean;
 }
@@ -134,6 +151,8 @@ export interface IProjectDetailPresenter {
   clearEntriesFilter(): void;
   clearEntries(): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
+  uploadFilesToProject(files: File[]): Promise<void>;
+  uploadAllGlobalImages(): Promise<void>;
   deleteSyncLog(logId: string): Promise<void>;
   importEntries(tenant: string, modelIds: string[]): Promise<void>;
   openCleanupDialog(): void;
