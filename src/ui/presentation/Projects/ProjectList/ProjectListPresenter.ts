@@ -85,6 +85,9 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   };
 
   private checkHealth = async (projectId: string): Promise<void> => {
+    if (this._healthMap.get(projectId) === "checking") {
+      return;
+    }
     runInAction(() => {
       this._healthMap.set(projectId, "checking");
     });
