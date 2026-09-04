@@ -21,17 +21,7 @@ import {
 import { SeedingError } from "~/shared/errors.js";
 import type { IHttpResponse } from "~/shared/abstractions/HttpClient.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { ProjectModel, Revisions, PublishStrategy, ApiCmsModelField } from "~/shared/types.js";
-
-function hasBrokenPatternValidators(fields: ApiCmsModelField[]): boolean {
-  return fields.some((f) => {
-    const validators = (f.validation ?? []) as Array<{
-      name: string;
-      settings?: { flags?: string | null };
-    }>;
-    return validators.some((v) => v.name === "pattern" && v.settings?.flags === null);
-  });
-}
+import type { ProjectModel, Revisions, PublishStrategy } from "~/shared/types.js";
 
 interface ModelSeedContext {
   model: ProjectModel;
@@ -159,12 +149,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
         const fieldSelection = createModelFields(ctx.model.fields);
         const singularApiName = ctx.model.singularApiName;
-        const skipValidators = hasBrokenPatternValidators(ctx.model.fields) ? ["pattern"] : [];
-        const createMutation = buildCreateEntryQuery({
-          singularApiName,
-          fieldSelection,
-          skipValidators,
-        }).query;
+        const createMutation = buildCreateEntryQuery({ singularApiName, fieldSelection }).query;
         const revisionMutation = buildCreateRevisionQuery({
           singularApiName,
           fieldSelection,
@@ -203,7 +188,7 @@ class SeedServiceImpl implements Abstraction.Interface {
               this.sendMutation(
                 apiUrl,
                 createMutation,
-                { data: { values: entryData } },
+                { data: { values: entryData }, options: { skipValidation: true } },
                 headers,
                 createOp,
               ).then((result) => ({ entryData, result })),
@@ -259,7 +244,11 @@ class SeedServiceImpl implements Abstraction.Interface {
                   const revResult = await this.sendMutation(
                     apiUrl,
                     revisionMutation,
-                    { revision: latestRevisionId, data: { values: revData } },
+                    {
+                      revision: latestRevisionId,
+                      data: { values: revData },
+                      options: { skipValidation: true },
+                    },
                     headers,
                     revisionOp,
                   );

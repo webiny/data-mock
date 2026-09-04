@@ -66,8 +66,8 @@ export function buildCreateRevisionQuery(input: {
 
   return {
     query: `
-    mutation CreateRevision($revision: ID!, $data: ${input.singularApiName}Input!) {
-      ${operationName}(revision: $revision, data: $data) {
+    mutation CreateRevision($revision: ID!, $data: ${input.singularApiName}Input!, $options: CreateCmsEntryOptionsInput) {
+      ${operationName}(revision: $revision, data: $data, options: $options) {
         data {
           id
           entryId

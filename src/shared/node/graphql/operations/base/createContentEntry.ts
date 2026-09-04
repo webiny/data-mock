@@ -9,7 +9,6 @@ interface CreateEntryInput {
   singularApiName: string;
   fieldSelection: string;
   variables: GenericRecord;
-  skipValidators?: string[];
 }
 
 interface CreateEntryOutput {
@@ -36,19 +35,13 @@ export const createContentEntry: IGraphQLOperation<CreateEntryInput, CreateEntry
 export function buildCreateEntryQuery(input: {
   singularApiName: string;
   fieldSelection: string;
-  skipValidators?: string[];
 }): OperationQuery<z.infer<typeof entryDataSchema>> {
   const operationName = `create${input.singularApiName}`;
 
-  const skipValidatorsArg =
-    input.skipValidators && input.skipValidators.length > 0
-      ? `, options: { skipValidators: [${input.skipValidators.map((v) => `"${v}"`).join(", ")}] }`
-      : "";
-
   return {
     query: `
-    mutation CreateEntry($data: ${input.singularApiName}Input!) {
-      ${operationName}(data: $data${skipValidatorsArg}) {
+    mutation CreateEntry($data: ${input.singularApiName}Input!, $options: CreateCmsEntryOptionsInput) {
+      ${operationName}(data: $data, options: $options) {
         data {
           id
           entryId
