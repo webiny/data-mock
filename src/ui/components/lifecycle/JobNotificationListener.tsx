@@ -5,12 +5,16 @@ import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge
 import type { WSJobStatus } from "~/shared/websocket/types.js";
 import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
 
-const STATUS_CONFIG: Record<string, { color: string; prefix: string; autoClose: number | false }> =
+const STATUS_CONFIG: Record<string, { color: string; message: string; autoClose: number | false }> =
   {
-    completed: { color: "green", prefix: "Completed", autoClose: 5000 },
-    failed: { color: "red", prefix: "Failed", autoClose: false },
-    cancelled: { color: "yellow", prefix: "Cancelled", autoClose: 5000 },
-    interrupted: { color: "orange", prefix: "Interrupted", autoClose: false },
+    completed: { color: "green", message: "completed successfully.", autoClose: 5000 },
+    failed: { color: "red", message: "failed. Check the job log for details.", autoClose: false },
+    cancelled: { color: "yellow", message: "was cancelled.", autoClose: 5000 },
+    interrupted: {
+      color: "orange",
+      message: "was interrupted by a server restart.",
+      autoClose: false,
+    },
   };
 
 const JOB_TYPE_LABELS: Record<string, string> = {
@@ -28,14 +32,14 @@ function handleJobStatus(event: WSJobStatus): void {
 
   const config = STATUS_CONFIG[event.status] ?? {
     color: "gray",
-    prefix: event.status,
+    message: `finished with status "${event.status}".`,
     autoClose: 5000,
   };
   const label = JOB_TYPE_LABELS[event.type] ?? event.type;
 
   notifications.show({
-    title: `${config.prefix}: ${label}`,
-    message: `Job ${event.jobId.slice(0, 8)} finished with status "${event.status}".`,
+    title: label,
+    message: `${label} ${config.message}`,
     color: config.color,
     autoClose: config.autoClose,
   });
