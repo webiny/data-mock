@@ -13,6 +13,31 @@ const statusColor: Record<string, string> = {
   deleted: "orange",
 };
 
+function buildEntryDetail(entry: IEntryVM): string {
+  const sections: string[] = [];
+
+  if (entry.error) {
+    sections.push(`// ERROR\n${JSON.stringify(entry.error, null, 2)}`);
+  }
+
+  if (entry.requestData) {
+    sections.push(`// REQUEST\n${JSON.stringify(entry.requestData, null, 2)}`);
+  }
+
+  if (entry.responseData) {
+    try {
+      const parsed = JSON.parse(entry.responseData);
+      sections.push(`// RESPONSE\n${JSON.stringify(parsed, null, 2)}`);
+    } catch {
+      sections.push(`// RESPONSE\n${entry.responseData}`);
+    }
+  }
+
+  sections.push(`// ENTRY DATA\n${JSON.stringify(entry.entryData, null, 2)}`);
+
+  return sections.join("\n\n");
+}
+
 const STATUS_OPTIONS = [
   { value: "created", label: "Created" },
   { value: "failed", label: "Failed" },
@@ -186,8 +211,8 @@ export function AuditLogTab({
         <CodeViewerModal
           opened={true}
           onClose={() => setSelectedEntry(null)}
-          title={`Entry ${selectedEntry.entryId} — ${selectedEntry.modelId}`}
-          value={JSON.stringify(selectedEntry.entryData, null, 2)}
+          title={`Entry ${selectedEntry.entryId || "(no ID)"} — ${selectedEntry.modelId} [${selectedEntry.status}]`}
+          value={buildEntryDetail(selectedEntry)}
           language="json"
         />
       )}
