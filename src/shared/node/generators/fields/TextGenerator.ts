@@ -7,6 +7,28 @@ import {
 } from "../validators/index.js";
 import type { IGeneratorGenerateParams } from "../types.js";
 
+function generateFromRegex(regex: string | undefined): string | null {
+  if (!regex) {
+    return null;
+  }
+  if (regex.includes("@") && regex.includes("\\.")) {
+    return faker.internet.email();
+  }
+  if (regex.includes("https?://")) {
+    return faker.internet.url();
+  }
+  if (regex.includes("\\d{4}-\\d{2}-\\d{2}")) {
+    return faker.date.recent().toISOString().split("T")[0];
+  }
+  if (regex.includes("()\\.\\s") || regex.includes("[0-9()")) {
+    return `+1${faker.string.numeric(10)}`;
+  }
+  if (/^\^?\[a-z0-9\]/.test(regex)) {
+    return faker.helpers.slugify(faker.lorem.words(3)).toLowerCase();
+  }
+  return null;
+}
+
 export class TextGenerator extends BaseGenerator<string> {
   public type = "text";
 
@@ -37,6 +59,13 @@ export class TextGenerator extends BaseGenerator<string> {
         case "lowercase":
         case "lowercasespace":
           return faker.word.words(1).toLowerCase();
+        case "custom": {
+          const generated = generateFromRegex(validation.regex);
+          if (generated) {
+            return generated;
+          }
+          break;
+        }
       }
     }
 

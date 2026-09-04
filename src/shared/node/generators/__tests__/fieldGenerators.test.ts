@@ -429,6 +429,78 @@ describe("Field Generators", () => {
       expect(result).toBe(result.toLowerCase());
     });
 
+    it("should generate a URL for custom preset with URL regex", async () => {
+      const { container } = setup();
+      const registry = container.resolve(GeneratorRegistry);
+      const field = createField("text", "signUpLink", {
+        validation: [
+          {
+            name: "pattern",
+            message: "Must be a valid URL",
+            settings: { preset: "custom", regex: "^https?://.+", flags: null },
+          },
+        ] as never,
+      });
+
+      const gen = registry.getGenerator({ field });
+      const result = (await gen.generate(field)) as string;
+      expect(result).toMatch(/^https?:\/\/.+/);
+    });
+
+    it("should generate an email for custom preset with email regex", async () => {
+      const { container } = setup();
+      const registry = container.resolve(GeneratorRegistry);
+      const field = createField("text", "emailAddress", {
+        validation: [
+          {
+            name: "pattern",
+            message: "Must be email",
+            settings: { preset: "custom", regex: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", flags: null },
+          },
+        ] as never,
+      });
+
+      const gen = registry.getGenerator({ field });
+      const result = (await gen.generate(field)) as string;
+      expect(result).toContain("@");
+    });
+
+    it("should generate a slug for custom preset with slug regex", async () => {
+      const { container } = setup();
+      const registry = container.resolve(GeneratorRegistry);
+      const field = createField("text", "slug", {
+        validation: [
+          {
+            name: "pattern",
+            message: "Must be a slug",
+            settings: { preset: "custom", regex: "^[a-z0-9]+(?:-[a-z0-9]+)*$", flags: null },
+          },
+        ] as never,
+      });
+
+      const gen = registry.getGenerator({ field });
+      const result = (await gen.generate(field)) as string;
+      expect(result).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    });
+
+    it("should generate a date for custom preset with date regex", async () => {
+      const { container } = setup();
+      const registry = container.resolve(GeneratorRegistry);
+      const field = createField("text", "eventDate", {
+        validation: [
+          {
+            name: "pattern",
+            message: "Must be YYYY-MM-DD",
+            settings: { preset: "custom", regex: "^\\d{4}-\\d{2}-\\d{2}$", flags: null },
+          },
+        ] as never,
+      });
+
+      const gen = registry.getGenerator({ field });
+      const result = (await gen.generate(field)) as string;
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
     it("should fall through to default text for unknown pattern preset", async () => {
       const { container } = setup();
       const registry = container.resolve(GeneratorRegistry);
