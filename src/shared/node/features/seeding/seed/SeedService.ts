@@ -98,9 +98,9 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     const job = jobResult.value;
     let totalCreated = 0;
-    const errors: Array<{ modelId: string; message: string }> = [];
+    const errors: Abstraction.ModelError[] = [];
     const isDryRun = input.dryRun === true;
-    const generatedEntries: Array<{ modelId: string; entries: Record<string, unknown>[] }> = [];
+    const generatedEntries: Abstraction.GeneratedModelEntries[] = [];
     const publishStrategy = input.publishStrategy ?? "none";
     const publishPercent = input.publishPercent ?? 50;
     const includeUnpublish = input.includeUnpublish ?? false;
@@ -235,7 +235,7 @@ class SeedServiceImpl implements Abstraction.Interface {
               );
 
               let entryCreatedCount = 1;
-              const entryErrors: Array<{ modelId: string; message: string }> = [];
+              const entryErrors: Abstraction.ModelError[] = [];
               const revisionCount = resolveRevisionCount(ctx.revisions);
               let latestRevisionId = created.entryId;
 
@@ -345,7 +345,7 @@ class SeedServiceImpl implements Abstraction.Interface {
   private async resolveModels(
     input: Abstraction.Input,
     projectId: string,
-    errors: Array<{ modelId: string; message: string }>,
+    errors: Abstraction.ModelError[],
   ): Promise<ModelSeedContext[]> {
     const contexts: ModelSeedContext[] = [];
     for (const mc of input.models) {

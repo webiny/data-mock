@@ -7,6 +7,10 @@ import { ProjectPersistenceError } from "~/shared/errors.js";
 import type { ProjectModel, ApiCmsModelField } from "~/shared/types.js";
 import type { CmsFieldValidation } from "~/shared/node/graphql/operations/base/listContentModels.js";
 
+interface DynamicZoneTemplate {
+  fields?: ApiCmsModelField[];
+}
+
 function sanitizeFieldValidators(fields: ApiCmsModelField[]): ApiCmsModelField[] {
   return fields.map((field) => {
     const sanitized = { ...field };
@@ -27,7 +31,7 @@ function sanitizeFieldValidators(fields: ApiCmsModelField[]): ApiCmsModelField[]
       };
     }
     if (field.type === "dynamicZone" && Array.isArray(field.settings?.templates)) {
-      const templates = field.settings!.templates as Array<{ fields?: ApiCmsModelField[] }>;
+      const templates = field.settings!.templates as DynamicZoneTemplate[];
       sanitized.settings = {
         ...sanitized.settings,
         templates: templates.map((tpl) => ({

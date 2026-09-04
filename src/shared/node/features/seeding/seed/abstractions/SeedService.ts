@@ -25,12 +25,22 @@ export interface ISeedServiceInput {
   signal?: AbortSignal | undefined;
 }
 
+export interface ISeedModelError {
+  modelId: string;
+  message: string;
+}
+
+export interface ISeedGeneratedModelEntries {
+  modelId: string;
+  entries: Record<string, unknown>[];
+}
+
 export interface ISeedServiceOutput {
   jobId: string;
   created: number;
-  errors: Array<{ modelId: string; message: string }>;
+  errors: ISeedModelError[];
   dryRun: boolean;
-  generatedEntries?: Array<{ modelId: string; entries: Record<string, unknown>[] }> | undefined;
+  generatedEntries?: ISeedGeneratedModelEntries[] | undefined;
 }
 
 export interface ISeedService {
@@ -43,5 +53,7 @@ export namespace SeedService {
   export type Interface = ISeedService;
   export type Input = ISeedServiceInput;
   export type Output = ISeedServiceOutput;
+  export type ModelError = ISeedModelError;
+  export type GeneratedModelEntries = ISeedGeneratedModelEntries;
   export type Error = ProjectNotFoundError | ProjectPersistenceError | SeedingError;
 }
