@@ -27,6 +27,7 @@ import { FilesTab } from "./FilesTab.js";
 import { AuditLogTab } from "./AuditLogTab.js";
 import { SyncTenantsTab } from "./SyncTenantsTab.js";
 import { SyncModelsTab } from "./SyncModelsTab.js";
+import { SyncLogTable } from "./SyncLogTable.js";
 import { ImportEntriesTab } from "./ImportEntriesTab.js";
 import { JobsTab } from "./JobsTab.js";
 import { EditProjectForm } from "./EditProjectForm.js";
@@ -181,6 +182,11 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onClick={() => goTo("templates")}
               />
               <NavLink label="Jobs" active={activeView === "jobs"} onClick={() => goTo("jobs")} />
+              <NavLink
+                label="Activity Log"
+                active={activeView === "activity"}
+                onClick={() => goTo("activity")}
+              />
 
               <Divider my="xs" />
 
@@ -250,13 +256,11 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 statusFilter={vm.entriesStatusFilter}
                 models={vm.models}
                 tenants={vm.tenants}
-                syncLog={syncLog}
                 isClearing={isClearingEntries}
                 onPageChange={(p) => void presenter.loadEntriesPage(p)}
                 onFilterChange={(k, v) => void presenter.setEntriesFilter(k, v)}
                 onClearFilter={() => void presenter.clearEntriesFilter()}
                 onClear={() => void presenter.clearEntries()}
-                onDeleteSyncLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
             {activeView === "history" && (
@@ -267,6 +271,9 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             )}
             {activeView === "jobs" && (
               <JobsTab jobs={vm.jobs} onCancel={(jobId) => void presenter.cancelJob(jobId)} />
+            )}
+            {activeView === "activity" && (
+              <SyncLogTable logs={syncLog} onDelete={(id) => void presenter.deleteSyncLog(id)} />
             )}
             {activeView === "templates" && (
               <TemplatesTab

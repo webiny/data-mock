@@ -1,13 +1,7 @@
 import { useState } from "react";
 import { Badge, Button, Group, Modal, Pagination, Select, Stack, Table, Text } from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
-import { SyncLogTable } from "./SyncLogTable.js";
-import type {
-  IEntryVM,
-  IModelVM,
-  ITenantVM,
-  ISyncLogVM,
-} from "../abstractions/ProjectDetailPresenter.js";
+import type { IEntryVM, IModelVM, ITenantVM } from "../abstractions/ProjectDetailPresenter.js";
 
 const PAGE_SIZE = 25;
 
@@ -62,13 +56,11 @@ interface AuditLogTabProps {
   statusFilter: string | null;
   models: IModelVM[];
   tenants: ITenantVM[];
-  syncLog: ISyncLogVM[];
   isClearing: boolean;
   onPageChange: (page: number) => void;
   onFilterChange: (key: string, value: string | null) => void;
   onClearFilter: () => void;
   onClear: () => void;
-  onDeleteSyncLog: (logId: string) => void;
 }
 
 export function AuditLogTab({
@@ -81,13 +73,11 @@ export function AuditLogTab({
   statusFilter,
   models,
   tenants,
-  syncLog,
   isClearing,
   onPageChange,
   onFilterChange,
   onClearFilter,
   onClear,
-  onDeleteSyncLog,
 }: AuditLogTabProps) {
   const [selectedEntry, setSelectedEntry] = useState<IEntryVM | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -250,15 +240,6 @@ export function AuditLogTab({
           </Button>
         </Group>
       </Modal>
-
-      {syncLog.length > 0 && (
-        <>
-          <Text size="lg" fw={600} mt="xl">
-            Operation Log
-          </Text>
-          <SyncLogTable logs={syncLog} onDelete={onDeleteSyncLog} />
-        </>
-      )}
     </Stack>
   );
 }
