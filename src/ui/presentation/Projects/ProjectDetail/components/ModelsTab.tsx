@@ -57,8 +57,8 @@ export const ModelsTab = observer(function ModelsTab({ groups, models }: ModelsT
         <CodeViewerModal
           opened={true}
           onClose={() => setSelectedModel(null)}
-          title={`Fields — ${selectedModel.name}`}
-          value={JSON.stringify(selectedModel.fields, null, 2)}
+          title={selectedModel.name}
+          value={JSON.stringify(selectedModel, null, 2)}
           language="json"
         />
       )}
