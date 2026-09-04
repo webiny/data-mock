@@ -24,6 +24,9 @@ import { AppRoutes } from "~/ui/features/router/routePaths.js";
 import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
 import type { URLListState } from "~/ui/features/router/abstractions/URLListState.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
+import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
+import type { WSJobStatus } from "~/shared/websocket/types.js";
+import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
 import type { ModelDiffItem } from "~/shared/responses/models.js";
 
 const VIEW_DATASETS: Record<string, string[]> = {
@@ -37,6 +40,14 @@ const VIEW_DATASETS: Record<string, string[]> = {
   "sync-models": ["syncLogs"],
   seed: ["tenants", "models"],
   import: ["tenants", "models"],
+};
+
+const JOB_TYPE_DATASETS: Record<string, string[]> = {
+  seed: ["entries", "seedJobs"],
+  "sync-tenants": ["tenants", "syncLogs"],
+  "sync-models": ["models", "syncLogs"],
+  cleanup: ["entries"],
+  import: ["entries"],
 };
 
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
@@ -81,6 +92,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly syncLogsRepository: SyncLogsRepository.Interface,
     private readonly notifications: NotificationService.Interface,
     urlListStateFactory: URLListStateFactory.Interface,
+    eventBridge: EventBridge.Interface,
   ) {
     this.entriesListState = urlListStateFactory.create({
       filters: {
@@ -91,6 +103,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       },
       onChange: () => this.reloadEntries(),
     });
+    eventBridge.on("job:status", this.handleJobStatus);
     makeAutoObservable(this);
   }
 
@@ -562,6 +575,23 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     return params;
   }
 
+  private handleJobStatus = (event: WSJobStatus): void => {
+    if (!this._projectId || event.projectId !== this._projectId) {
+      return;
+    }
+    if (!TERMINAL_JOB_STATUSES.has(event.status)) {
+      return;
+    }
+    const datasetsToReload = JOB_TYPE_DATASETS[event.type];
+    if (!datasetsToReload) {
+      return;
+    }
+    for (const dataset of datasetsToReload) {
+      this._loadedDatasets.delete(dataset);
+    }
+    void Promise.all(datasetsToReload.map((d) => this.loadDataset(d)));
+  };
+
   private reloadEntries = async (): Promise<void> => {
     if (!this._projectId) {
       return;
@@ -698,5 +728,6 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     SyncLogsRepository,
     NotificationService,
     URLListStateFactory,
+    EventBridge,
   ],
 });

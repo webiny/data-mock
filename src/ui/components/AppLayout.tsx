@@ -5,6 +5,7 @@ import { RouterView } from "../features/router/RouterView.js";
 import { navigate } from "../features/router/Router.js";
 import { AddProjectPresentationFeature } from "../presentation/Projects/AddProject/feature.js";
 import { AddProjectForm } from "../presentation/Projects/AddProject/components/AddProjectForm.js";
+import { JobNotificationListener } from "./lifecycle/JobNotificationListener.js";
 
 export function AppLayout() {
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -39,6 +40,7 @@ export function AppLayout() {
       </AppShell.Header>
 
       <AppShell.Main>
+        <JobNotificationListener />
         <RouterView />
       </AppShell.Main>
 
