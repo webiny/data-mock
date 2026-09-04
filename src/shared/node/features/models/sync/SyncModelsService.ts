@@ -6,6 +6,7 @@ import { SyncProjectGroupsRepository } from "./abstractions/SyncProjectGroupsRep
 import { SyncProjectModelsRepository } from "./abstractions/SyncProjectModelsRepository.js";
 import { SyncModelsService as Abstraction } from "./abstractions/SyncModelsService.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
+import { isExcludedModel } from "~/shared/node/models/excludedModels.js";
 import type { ApiCmsModelField, OperationLog } from "~/shared/types.js";
 
 interface RemoteIcon {
@@ -101,7 +102,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(syncGroupsResult.error);
     }
 
-    const userModels = models.filter((m) => !m.plugin && !m.modelId.startsWith("wby"));
+    const userModels = models.filter((m) => !isExcludedModel(m.modelId, m.plugin));
 
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,

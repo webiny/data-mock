@@ -8,6 +8,7 @@ import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entrie
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
 import { buildListEntriesQuery } from "~/shared/node/graphql/operations/base/listContentEntries.js";
 import { GraphQLRequestError, SeedingError } from "~/shared/errors.js";
+import { isExcludedModel } from "~/shared/node/models/excludedModels.js";
 import type {
   ApiGraphQLResultJson,
   GenericRecord,
@@ -50,8 +51,8 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 
     try {
       for (const modelId of input.models) {
-        if (modelId.startsWith("wby")) {
-          this.logger.info(`Skipping system model "${modelId}" (wby* prefix).`);
+        if (isExcludedModel(modelId)) {
+          this.logger.info(`Skipping excluded model "${modelId}".`);
           continue;
         }
         const modelResult = await this.getProjectModelRepository.execute({
