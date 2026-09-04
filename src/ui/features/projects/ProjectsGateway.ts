@@ -75,9 +75,13 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
     });
   }
 
-  public async healthCheck(id: string): Promise<Result<HealthCheckResult, HTTPError>> {
+  public async healthCheck(
+    id: string,
+    force?: boolean,
+  ): Promise<Result<HealthCheckResult, HTTPError>> {
     const result = await this.httpClient.request(healthCheckProjectRoute, {
       params: { id },
+      query: force ? { force: "true" } : undefined,
     });
 
     if (result.isFail()) {

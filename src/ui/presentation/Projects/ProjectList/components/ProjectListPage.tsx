@@ -62,7 +62,10 @@ export const ProjectListPage = observer(function ProjectListPage({
                   <Badge variant="light" size="sm">
                     v{project.webinyVersion}
                   </Badge>
-                  <HealthDot status={project.health} />
+                  <HealthDot
+                    status={project.health}
+                    onClick={() => presenter.refreshHealth(project.id)}
+                  />
                 </Group>
                 <Text size="sm" c="dimmed">
                   {project.apiUrl}
@@ -159,9 +162,15 @@ const HEALTH_LABELS: Record<string, string> = {
   unreachable: "Unreachable",
 };
 
-function HealthDot({ status }: { status: string }) {
+function HealthDot({ status, onClick }: { status: string; onClick: () => void }) {
   return (
-    <Badge variant="dot" color={HEALTH_COLORS[status] ?? "gray"} size="sm">
+    <Badge
+      variant="dot"
+      color={HEALTH_COLORS[status] ?? "gray"}
+      size="sm"
+      style={{ cursor: "pointer" }}
+      onClick={onClick}
+    >
       {HEALTH_LABELS[status] ?? status}
     </Badge>
   );

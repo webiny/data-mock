@@ -39,6 +39,7 @@ export interface IProjectListPresenter {
   executeRemove(): Promise<void>;
   syncTenants(projectId: string): Promise<void>;
   syncModels(projectId: string): Promise<void>;
+  refreshHealth(projectId: string): void;
 }
 
 export const ProjectListPresenter =

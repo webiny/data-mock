@@ -29,7 +29,7 @@ export interface IProjectsGateway {
   create(input: IProjectCreateInput): Promise<Result<Project, HTTPError>>;
   update(id: string, input: IProjectUpdateInput): Promise<Result<Project, HTTPError>>;
   remove(id: string): Promise<Result<void, HTTPError>>;
-  healthCheck(id: string): Promise<Result<HealthCheckResult, HTTPError>>;
+  healthCheck(id: string, force?: boolean): Promise<Result<HealthCheckResult, HTTPError>>;
 }
 
 export const ProjectsGateway = createAbstraction<IProjectsGateway>("Ui/ProjectsGateway");
