@@ -15,6 +15,7 @@ type HealthStatus = "unknown" | "checking" | "reachable" | "unreachable";
 
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
+  private _loaded = false;
   private _syncingProjectIds = new Set<string>();
   private _syncingModelsProjectIds = new Set<string>();
   private _removeProjectId: string | null = null;
@@ -64,6 +65,9 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   }
 
   public load = async (): Promise<void> => {
+    if (this._isLoading || this._loaded) {
+      return;
+    }
     this._isLoading = true;
     try {
       await this.loadProjectsUseCase.execute();
@@ -72,6 +76,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     } finally {
       runInAction(() => {
         this._isLoading = false;
+        this._loaded = true;
       });
     }
     void this.checkAllHealth();
