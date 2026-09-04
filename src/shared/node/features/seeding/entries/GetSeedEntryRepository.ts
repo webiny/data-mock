@@ -30,9 +30,10 @@ class GetSeedEntryRepositoryImpl implements Abstraction.Interface {
         modelId: row.modelId,
         entryId: row.entryId,
         entryData: JSON.parse(row.entryData) as Record<string, unknown>,
-        responseData: row.responseData
-          ? (JSON.parse(row.responseData) as Record<string, unknown>)
+        requestData: row.requestData
+          ? (JSON.parse(row.requestData) as Record<string, unknown>)
           : null,
+        responseData: row.responseData,
         httpStatus: row.httpStatus,
         status: row.status as SeedEntry["status"],
         error: row.error,

@@ -151,6 +151,7 @@ export const seedEntries = sqliteTable("seed_entries", {
   modelId: text("model_id").notNull(),
   entryId: text("entry_id").notNull(),
   entryData: text("entry_data").notNull(),
+  requestData: text("request_data"),
   responseData: text("response_data"),
   httpStatus: integer("http_status"),
   status: text("status").notNull(),

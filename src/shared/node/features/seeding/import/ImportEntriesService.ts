@@ -106,6 +106,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
           modelId: model.modelId,
           entryId,
           entryData: entry,
+          requestData: null,
           responseData: null,
           httpStatus: null,
           status: "imported",

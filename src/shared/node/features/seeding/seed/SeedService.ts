@@ -29,9 +29,17 @@ interface ModelSeedContext {
   revisions: Revisions;
 }
 
+interface EntryMutationRequest {
+  url: string;
+  mutation: string;
+  variables: Record<string, unknown>;
+  headers: Record<string, string>;
+}
+
 interface EntryMutationResult {
   entryId: string;
-  responseData: Record<string, unknown> | null;
+  request: EntryMutationRequest;
+  responseBody: string | null;
   httpStatus: number;
   status: "created" | "failed";
   error: string | null;
@@ -250,6 +258,7 @@ class SeedServiceImpl implements Abstraction.Interface {
               modelId: ctx.modelId,
               entryId: "",
               entryData,
+              requestData: null,
               responseData: null,
               httpStatus: null,
               status: "failed",
@@ -351,27 +360,43 @@ class SeedServiceImpl implements Abstraction.Interface {
     headers: Record<string, string>,
     op: GqlOp,
   ): Promise<EntryMutationResult> {
+    const request: EntryMutationRequest = { url: apiUrl, mutation, variables, headers };
     const body = JSON.stringify({ query: mutation, variables });
     const response = await this.cmsManageClient.post(apiUrl, body, headers);
+    const rawBody = await response.text().catch(() => "");
 
     if (response.status !== 200) {
-      const text = await response.text().catch(() => "");
       return {
         entryId: "",
-        responseData: null,
+        request,
+        responseBody: rawBody,
         httpStatus: response.status,
         status: "failed",
-        error: `HTTP ${response.status}: ${text}`,
+        error: `HTTP ${response.status}: ${rawBody}`,
       };
     }
 
-    const json = (await response.json()) as ApiGraphQLResultJson;
+    let json: ApiGraphQLResultJson;
+    try {
+      json = JSON.parse(rawBody) as ApiGraphQLResultJson;
+    } catch {
+      return {
+        entryId: "",
+        request,
+        responseBody: rawBody,
+        httpStatus: 200,
+        status: "failed",
+        error: `Invalid JSON response: ${rawBody.slice(0, 200)}`,
+      };
+    }
+
     const result = op.getResult(json);
 
     if (result.error) {
       return {
         entryId: "",
-        responseData: json as unknown as Record<string, unknown>,
+        request,
+        responseBody: rawBody,
         httpStatus: 200,
         status: "failed",
         error: result.error.message,
@@ -384,7 +409,8 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     return {
       entryId,
-      responseData: data ?? null,
+      request,
+      responseBody: rawBody,
       httpStatus: 200,
       status: "created",
       error: null,
@@ -494,7 +520,8 @@ class SeedServiceImpl implements Abstraction.Interface {
       modelId,
       entryId: result.entryId,
       entryData,
-      responseData: result.responseData,
+      requestData: result.request as unknown as Record<string, unknown>,
+      responseData: result.responseBody,
       httpStatus: result.httpStatus,
       status: result.status,
       error: result.error,
@@ -524,6 +551,7 @@ class SeedServiceImpl implements Abstraction.Interface {
         modelId: ctx.modelId,
         entryId: "",
         entryData,
+        requestData: null,
         responseData: null,
         httpStatus: null,
         status: "dry-run",

@@ -156,7 +156,8 @@ export interface SeedEntry {
   modelId: string;
   entryId: string;
   entryData: Record<string, unknown>;
-  responseData: Record<string, unknown> | null;
+  requestData: Record<string, unknown> | null;
+  responseData: string | null;
   httpStatus: number | null;
   status: SeedEntryStatus;
   error: string | null;

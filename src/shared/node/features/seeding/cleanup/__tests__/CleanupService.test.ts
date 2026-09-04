@@ -75,6 +75,7 @@ async function seedCreatedEntry(
     modelId: input.modelId,
     entryId: input.entryId,
     entryData: { title: "x" },
+    requestData: null,
     responseData: null,
     httpStatus: 200,
     status: "created",

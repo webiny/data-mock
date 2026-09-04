@@ -64,7 +64,8 @@ export interface IEntryVM {
   status: SeedEntryStatus;
   entryId: string;
   entryData: Record<string, unknown>;
-  responseData: Record<string, unknown> | null;
+  requestData: Record<string, unknown> | null;
+  responseData: string | null;
   error: string | null;
   createdAt: number;
 }
