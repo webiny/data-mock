@@ -58,7 +58,7 @@ const JOB_TYPE_DATASETS: Record<string, string[]> = {
   "pull-models": ["models", "syncLogs", "jobs"],
   cleanup: ["entries", "jobs"],
   import: ["entries", "jobs"],
-  "upload-files": ["files", "jobs"],
+  "upload-files": ["files", "syncLogs", "jobs"],
 };
 
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
