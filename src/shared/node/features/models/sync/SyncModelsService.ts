@@ -101,9 +101,11 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(syncGroupsResult.error);
     }
 
+    const userModels = models.filter((m) => !m.plugin && !m.modelId.startsWith("wby"));
+
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,
-      models: models.map((m) => ({
+      models: userModels.map((m) => ({
         groupSlug: m.group,
         modelId: m.modelId,
         name: m.name,
@@ -120,11 +122,15 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(syncModelsResult.error);
     }
 
+    const skipped = models.length - userModels.length;
+    if (skipped > 0) {
+      this.logger.info(`Excluded ${skipped} system/plugin model(s) from sync.`);
+    }
     this.logger.info(
-      `Synced ${groups.length} group(s) and ${models.length} model(s) for project "${project.name}".`,
+      `Synced ${groups.length} group(s) and ${userModels.length} model(s) for project "${project.name}".`,
     );
 
-    return Result.ok({ groups: groups.length, models: models.length, operations });
+    return Result.ok({ groups: groups.length, models: userModels.length, operations });
   }
 
   private async fetchWithOperation<T>(
