@@ -209,12 +209,23 @@ export const SeedConfigPage = observer(function SeedConfigPage({
 
       <Divider />
 
-      <Switch
-        label="Dry run"
-        description="Generate entries without sending them to Webiny"
-        checked={vm.dryRun}
-        onChange={(e) => presenter.setDryRun(e.currentTarget.checked)}
-      />
+      <Group gap="xl">
+        <Switch
+          label="Dry run"
+          description="Generate entries without sending them to Webiny"
+          checked={vm.dryRun}
+          onChange={(e) => presenter.setDryRun(e.currentTarget.checked)}
+        />
+        <NumberInput
+          label="Batch size"
+          description="Concurrent mutations per batch"
+          value={vm.batchSize}
+          onChange={(v) => presenter.setBatchSize(typeof v === "number" ? v : 1)}
+          min={1}
+          max={50}
+          w={120}
+        />
+      </Group>
 
       {vm.error && (
         <Alert color="red" title="Error">

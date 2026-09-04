@@ -35,6 +35,7 @@ export interface ISeedConfigVM {
   publishPercent: number;
   includeUnpublish: boolean;
   dryRun: boolean;
+  batchSize: number;
   isLoading: boolean;
   isSeeding: boolean;
   showSeedConfirm: boolean;
@@ -59,6 +60,7 @@ export interface ISeedConfigPresenter {
   setPublishPercent(percent: number): void;
   setIncludeUnpublish(value: boolean): void;
   setDryRun(value: boolean): void;
+  setBatchSize(value: number): void;
   requestSeed(): void;
   confirmSeed(): Promise<void>;
   cancelSeed(): void;

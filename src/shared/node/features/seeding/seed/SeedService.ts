@@ -104,6 +104,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     const publishStrategy = input.publishStrategy ?? "none";
     const publishPercent = input.publishPercent ?? 50;
     const includeUnpublish = input.includeUnpublish ?? false;
+    const batchSize = Math.max(1, input.batchSize ?? 1);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -157,23 +158,33 @@ class SeedServiceImpl implements Abstraction.Interface {
         const unpublishOp = this.operationRegistry.resolve("unpublishEntry", project.webinyVersion);
         const apiUrl = project.apiUrl;
 
-        for (let i = 0; i < ctx.amount; i++) {
-          const entry = await createSingleEntryVariables(
-            this.generatorRegistry,
-            { fields: ctx.model.fields },
-            availableRefs,
-          );
-          const entryData = entry.values as Record<string, unknown>;
+        let modelFailed = false;
+        for (let batchStart = 0; batchStart < ctx.amount && !modelFailed; batchStart += batchSize) {
+          const batchEnd = Math.min(batchStart + batchSize, ctx.amount);
+          const batchEntries: Record<string, unknown>[] = [];
 
-          try {
-            const created = await this.sendMutation(
-              apiUrl,
-              createMutation,
-              { data: { values: entryData } },
-              headers,
-              createOp,
+          for (let i = batchStart; i < batchEnd; i++) {
+            const entry = await createSingleEntryVariables(
+              this.generatorRegistry,
+              { fields: ctx.model.fields },
+              availableRefs,
             );
+            batchEntries.push(entry.values as Record<string, unknown>);
+          }
 
+          const batchResults = await Promise.all(
+            batchEntries.map((entryData) =>
+              this.sendMutation(
+                apiUrl,
+                createMutation,
+                { data: { values: entryData } },
+                headers,
+                createOp,
+              ).then((result) => ({ entryData, result })),
+            ),
+          );
+
+          for (const { entryData, result: created } of batchResults) {
             if (created.error) {
               modelErrors.push(created.error);
               errors.push({ modelId: ctx.modelId, message: created.error });
@@ -185,6 +196,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                 entryData,
                 created,
               );
+              modelFailed = true;
               break;
             }
 
@@ -248,23 +260,6 @@ class SeedServiceImpl implements Abstraction.Interface {
               publishPercent,
               includeUnpublish,
             );
-          } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            modelErrors.push(errorMsg);
-            errors.push({ modelId: ctx.modelId, message: errorMsg });
-            await this.createSeedEntryRepository.execute({
-              jobId: job.id,
-              projectId: project.id,
-              tenant: input.tenant,
-              modelId: ctx.modelId,
-              entryId: "",
-              entryData,
-              requestData: null,
-              responseData: null,
-              httpStatus: null,
-              status: "failed",
-              error: errorMsg,
-            });
           }
         }
 

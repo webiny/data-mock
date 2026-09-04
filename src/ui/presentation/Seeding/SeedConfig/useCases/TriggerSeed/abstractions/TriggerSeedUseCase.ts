@@ -17,6 +17,7 @@ export interface ITriggerSeedInput {
   publishPercent?: number | undefined;
   includeUnpublish?: boolean | undefined;
   dryRun?: boolean | undefined;
+  batchSize?: number | undefined;
 }
 
 export interface ITriggerSeedUseCase {

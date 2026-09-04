@@ -139,6 +139,7 @@ export interface IProjectDetailPresenter {
   openCleanupDialog(): void;
   closeCleanupDialog(): void;
   confirmCleanup(): Promise<void>;
+  cancelJob(jobId: string): Promise<void>;
   dispose(): void;
 }
 

@@ -255,7 +255,9 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
               />
             )}
-            {activeView === "jobs" && <JobsTab jobs={vm.jobs} />}
+            {activeView === "jobs" && (
+              <JobsTab jobs={vm.jobs} onCancel={(jobId) => void presenter.cancelJob(jobId)} />
+            )}
             {activeView === "templates" && (
               <TemplatesTab
                 templates={templates}

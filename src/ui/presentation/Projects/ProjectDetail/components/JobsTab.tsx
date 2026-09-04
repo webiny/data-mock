@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { Badge, Code, Group, Modal, ScrollArea, Stack, Table, Text, Title } from "@mantine/core";
+import {
+  Badge,
+  Button,
+  Code,
+  Group,
+  Modal,
+  ScrollArea,
+  Stack,
+  Table,
+  Text,
+  Title,
+} from "@mantine/core";
 import type { Job } from "~/shared/types.js";
 
 const statusColor: Record<string, string> = {
@@ -21,9 +32,10 @@ const typeLabels: Record<string, string> = {
 
 interface JobsTabProps {
   jobs: Job[];
+  onCancel?: (jobId: string) => void;
 }
 
-export function JobsTab({ jobs }: JobsTabProps) {
+export function JobsTab({ jobs, onCancel }: JobsTabProps) {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   if (jobs.length === 0) {
@@ -90,13 +102,25 @@ export function JobsTab({ jobs }: JobsTabProps) {
         }
         size="lg"
       >
-        {selectedJob && <JobDetail job={selectedJob} />}
+        {selectedJob && (
+          <JobDetail
+            job={selectedJob}
+            onCancel={
+              onCancel && (selectedJob.status === "pending" || selectedJob.status === "running")
+                ? () => {
+                    onCancel(selectedJob.id);
+                    setSelectedJob(null);
+                  }
+                : undefined
+            }
+          />
+        )}
       </Modal>
     </Stack>
   );
 }
 
-function JobDetail({ job }: { job: Job }) {
+function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | undefined }) {
   return (
     <Stack gap="md">
       <Group gap="xl">
@@ -131,6 +155,12 @@ function JobDetail({ job }: { job: Job }) {
           </div>
         )}
       </Group>
+
+      {onCancel && (
+        <Button color="red" variant="light" size="xs" onClick={onCancel}>
+          Cancel Job
+        </Button>
+      )}
 
       {job.config != null && (
         <>

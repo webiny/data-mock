@@ -519,6 +519,20 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     return params;
   }
 
+  public cancelJob = async (jobId: string): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const result = await this.jobsGateway.cancel(this._projectId, jobId);
+    runInAction(() => {
+      if (result.isOk()) {
+        this.notifications.success("Job cancelled.");
+      } else {
+        this.notifications.error(`Failed to cancel job: ${result.error.message}`);
+      }
+    });
+  };
+
   public dispose = (): void => {
     this.disposeJobSubscription();
   };

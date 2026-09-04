@@ -48,6 +48,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   private _publishPercent = 50;
   private _includeUnpublish = false;
   private _dryRun = true;
+  private _batchSize = 1;
   private _isLoading = false;
   private _isSeeding = false;
   private _showSeedConfirm = false;
@@ -108,6 +109,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
       publishPercent: this._publishPercent,
       includeUnpublish: this._includeUnpublish,
       dryRun: this._dryRun,
+      batchSize: this._batchSize,
       isLoading: this._isLoading,
       isSeeding: this._isSeeding,
       showSeedConfirm: this._showSeedConfirm,
@@ -235,6 +237,10 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     this._dryRun = value;
   };
 
+  public setBatchSize = (value: number): void => {
+    this._batchSize = Math.max(1, Math.min(50, value));
+  };
+
   public requestSeed = (): void => {
     if (this._dryRun) {
       void this.executeSeed();
@@ -283,6 +289,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
         publishPercent: this._publishPercent,
         includeUnpublish: this._includeUnpublish,
         dryRun: this._dryRun,
+        batchSize: this._batchSize,
       });
 
       runInAction(() => {
