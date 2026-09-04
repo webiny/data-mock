@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { jobs } from "~/shared/node/db/schema.js";
 
@@ -44,7 +44,7 @@ export class JobRecoveryHelper {
         completedAt: Date.now(),
         logs: "Job interrupted by server restart",
       })
-      .where(inArray(jobs.status, ["running", "pending"]))
+      .where(eq(jobs.status, "running"))
       .run();
   }
 }

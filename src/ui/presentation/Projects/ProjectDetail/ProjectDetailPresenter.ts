@@ -580,8 +580,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!this._projectId) {
       return;
     }
-    this._loadedDatasets.delete("entries");
-    await this.loadDataset("entries");
+    const projectId = this._projectId;
+    const result = await this.entriesGateway.list(projectId, this.buildEntriesParams());
+    runInAction(() => {
+      if (result.isOk()) {
+        this.entriesRepository.setEntries(result.value.entries, result.value.total);
+      }
+      this._loadedDatasets.add("entries");
+    });
   };
 
   private loadDataset = async (dataset: string): Promise<void> => {

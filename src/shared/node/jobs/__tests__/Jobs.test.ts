@@ -122,7 +122,7 @@ describe("Jobs System", () => {
       const job1 = await worker.getJob(id1);
       const job2 = await worker.getJob(id2);
       expect(job1!.status).toBe("interrupted");
-      expect(job2!.status).toBe("interrupted");
+      expect(job2!.status).toBe("pending");
       expect(job1!.logs).toBe("Job interrupted by server restart");
     });
   });
@@ -165,7 +165,7 @@ describe("Jobs System", () => {
   });
 
   describe("JobRecoveryHelper", () => {
-    it("should reset running and pending jobs to interrupted", async () => {
+    it("should reset running jobs to interrupted, leave pending alone", async () => {
       const db = tc.databaseClient.db;
       const now = Date.now();
 
@@ -218,8 +218,8 @@ describe("Jobs System", () => {
       expect(runningJob!.completedAt).toBeGreaterThan(0);
       expect(runningJob!.logs).toBe("Job interrupted by server restart");
 
-      expect(pendingJob!.status).toBe("interrupted");
-      expect(pendingJob!.completedAt).toBeGreaterThan(0);
+      expect(pendingJob!.status).toBe("pending");
+      expect(pendingJob!.completedAt).toBeNull();
 
       expect(completedJob!.status).toBe("completed");
     });

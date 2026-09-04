@@ -6,7 +6,7 @@ import { routeFactory } from "~/api/routing/routeFactory.js";
 export const getJob = routeFactory(getJobRoute, async ({ params, container, send }) => {
   const jobWorker = container.resolve(JobWorker);
   const job = await jobWorker.getJob(params.jobId);
-  if (!job) {
+  if (!job || job.projectId !== params.projectId) {
     return send.error(new JobNotFoundError(params.jobId));
   }
   return send.one("job", job);

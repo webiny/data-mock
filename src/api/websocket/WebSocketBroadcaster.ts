@@ -1,3 +1,4 @@
+import { createAbstraction } from "@webiny/stdlib";
 import type { WSEventMap, WSEventType } from "~/shared/websocket/types.js";
 import type { WebSocketBroadcaster } from "~/shared/node/websocket/abstractions/WebSocketBroadcaster.js";
 
@@ -34,3 +35,7 @@ export class FastifyWebSocketBroadcaster implements WebSocketBroadcaster.Interfa
     this.clients.delete(connection);
   }
 }
+
+export const FastifyWebSocketBroadcasterToken = createAbstraction<FastifyWebSocketBroadcaster>(
+  "Api/FastifyWebSocketBroadcaster",
+);

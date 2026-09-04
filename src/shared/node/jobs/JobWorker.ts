@@ -15,6 +15,7 @@ class JobWorkerImpl implements Abstraction.Interface {
   private readonly inFlight = new Set<Promise<void>>();
   private readonly queryHelper: JobQueryHelper;
   private readonly recoveryHelper: JobRecoveryHelper;
+  private processing = false;
 
   public constructor(
     private readonly databaseClient: DatabaseClient.Interface,
@@ -57,6 +58,18 @@ class JobWorkerImpl implements Abstraction.Interface {
   }
 
   public async processNextJob(): Promise<void> {
+    if (this.processing) {
+      return;
+    }
+    this.processing = true;
+    try {
+      await this.processPendingJobs();
+    } finally {
+      this.processing = false;
+    }
+  }
+
+  private async processPendingJobs(): Promise<void> {
     const pendingJobs = this.databaseClient.db
       .select()
       .from(jobs)

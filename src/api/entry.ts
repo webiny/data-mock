@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { Container } from "@webiny/di";
+import { Logger } from "@webiny/stdlib";
 import { AppFeature } from "~/shared/node/feature.js";
 import { ApiFeature } from "./feature.js";
 import { WebSocketFeature } from "./websocket/feature.js";
@@ -22,13 +23,21 @@ const app = await createServer(container, [registerApiRoutes]);
 await app.register(websocketRoutes, { container });
 
 const jobWorker = container.resolve(JobWorker);
+const logger = container.resolve(Logger);
 await jobWorker.recoverStaleJobs();
 
 const pollTimer = setInterval(() => {
-  void jobWorker.processNextJob();
+  jobWorker.processNextJob().catch((err) => {
+    logger.error("Job poll failed", { error: String(err) });
+  });
 }, JOB_POLL_INTERVAL_MS);
 
+let shuttingDown = false;
 const shutdown = async (): Promise<void> => {
+  if (shuttingDown) {
+    return;
+  }
+  shuttingDown = true;
   clearInterval(pollTimer);
   await jobWorker.drain();
   await app.close();

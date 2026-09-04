@@ -1,8 +1,7 @@
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
 import type { Container } from "@webiny/di";
 import fastifyWebsocket from "@fastify/websocket";
-import { WebSocketBroadcaster } from "~/shared/node/websocket/abstractions/WebSocketBroadcaster.js";
-import type { FastifyWebSocketBroadcaster } from "./WebSocketBroadcaster.js";
+import { FastifyWebSocketBroadcasterToken } from "./WebSocketBroadcaster.js";
 
 interface PluginOptions extends FastifyPluginOptions {
   container: Container;
@@ -10,7 +9,7 @@ interface PluginOptions extends FastifyPluginOptions {
 
 export async function websocketRoutes(app: FastifyInstance, options: PluginOptions): Promise<void> {
   const { container } = options;
-  const broadcaster = container.resolve(WebSocketBroadcaster) as FastifyWebSocketBroadcaster;
+  const broadcaster = container.resolve(FastifyWebSocketBroadcasterToken);
 
   await app.register(fastifyWebsocket);
 
