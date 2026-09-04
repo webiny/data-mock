@@ -188,7 +188,7 @@ class SeedServiceImpl implements Abstraction.Interface {
               this.sendMutation(
                 apiUrl,
                 createMutation,
-                { data: { values: entryData }, options: { skipValidation: true } },
+                { data: { values: entryData } },
                 headers,
                 createOp,
               ).then((result) => ({ entryData, result })),
@@ -244,11 +244,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                   const revResult = await this.sendMutation(
                     apiUrl,
                     revisionMutation,
-                    {
-                      revision: latestRevisionId,
-                      data: { values: revData },
-                      options: { skipValidation: true },
-                    },
+                    { revision: latestRevisionId, data: { values: revData } },
                     headers,
                     revisionOp,
                   );

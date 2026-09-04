@@ -40,8 +40,8 @@ export function buildCreateEntryQuery(input: {
 
   return {
     query: `
-    mutation CreateEntry($data: ${input.singularApiName}Input!, $options: CreateCmsEntryOptionsInput) {
-      ${operationName}(data: $data, options: $options) {
+    mutation CreateEntry($data: ${input.singularApiName}Input!) {
+      ${operationName}(data: $data) {
         data {
           id
           entryId

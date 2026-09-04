@@ -4,7 +4,31 @@ import { projectModels } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { SyncProjectModelsRepository as Abstraction } from "./abstractions/SyncProjectModelsRepository.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
-import type { ProjectModel } from "~/shared/types.js";
+import type { ProjectModel, ApiCmsModelField } from "~/shared/types.js";
+import type { CmsFieldValidation } from "~/shared/node/graphql/operations/base/listContentModels.js";
+
+function sanitizeFieldValidators(fields: ApiCmsModelField[]): ApiCmsModelField[] {
+  return fields.map((field) => {
+    const sanitized = { ...field };
+    if (Array.isArray(sanitized.validation)) {
+      sanitized.validation = sanitized.validation.map((v: CmsFieldValidation) => {
+        if (v.name === "pattern" && v.settings) {
+          if (v.settings.flags === null || v.settings.flags === undefined) {
+            return { ...v, settings: { ...v.settings, flags: "" } };
+          }
+        }
+        return v;
+      });
+    }
+    if (field.type === "object" && Array.isArray(field.settings?.fields)) {
+      sanitized.settings = {
+        ...sanitized.settings,
+        fields: sanitizeFieldValidators(field.settings!.fields as ApiCmsModelField[]),
+      };
+    }
+    return sanitized;
+  });
+}
 
 class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
   public constructor(private readonly databaseClient: DatabaseClient.Interface) {}
@@ -28,7 +52,7 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
         pluralApiName: m.pluralApiName,
         description: m.description ?? null,
         plugin: m.plugin ?? false,
-        fields: m.fields,
+        fields: sanitizeFieldValidators(m.fields),
         remoteId: m.remoteId ?? null,
         syncedAt: now,
         createdAt: now,
