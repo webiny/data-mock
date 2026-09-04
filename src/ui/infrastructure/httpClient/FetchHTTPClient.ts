@@ -21,7 +21,24 @@ class FetchHTTPClientImpl implements HTTPClient.Interface {
       }
     }
     const path = interpolatePath(route.path, stringParams);
-    const url = `${this.baseUrl.value}${path}`;
+    let url = `${this.baseUrl.value}${path}`;
+
+    if ("query" in args && args.query) {
+      const search = new URLSearchParams();
+      for (const [k, v] of Object.entries(args.query as Record<string, string | string[]>)) {
+        if (Array.isArray(v)) {
+          for (const item of v) {
+            search.append(k, item);
+          }
+        } else {
+          search.set(k, v);
+        }
+      }
+      const qs = search.toString();
+      if (qs) {
+        url += `?${qs}`;
+      }
+    }
 
     const body = "body" in args && args.body !== undefined ? args.body : undefined;
 
