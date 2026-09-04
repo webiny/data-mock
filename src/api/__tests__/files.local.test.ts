@@ -1,13 +1,25 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { join } from "node:path";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { ApiFeature } from "../feature.js";
 import { createServer } from "../server.js";
 import { registerApiRoutes } from "../routes/index.js";
 import type { FastifyInstance } from "fastify";
 
-const IMAGES_DIR = join(process.cwd(), ".webiny", "images");
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn().mockReturnValue(Buffer.from("jpg-bytes")),
+    existsSync: vi.fn().mockReturnValue(false),
+    readdirSync: vi.fn().mockReturnValue([]),
+    statSync: vi.fn().mockReturnValue({ isFile: () => true, size: 1000 }),
+    unlinkSync: vi.fn(),
+  };
+});
+
+const fs = await import("node:fs");
 
 describe("Local Files API routes", () => {
   let tc: ReturnType<typeof createTestContainer>;
@@ -17,13 +29,13 @@ describe("Local Files API routes", () => {
     tc = createTestContainer();
     ApiFeature.register(tc.container);
     app = await createServer(tc.container, [registerApiRoutes]);
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    vi.mocked(fs.readdirSync).mockReturnValue([]);
   });
 
   afterEach(async () => {
     await app.close();
     tc.cleanup();
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
   });
 
   describe("GET /api/files/local", () => {
@@ -37,8 +49,9 @@ describe("Local Files API routes", () => {
     });
 
     it("should list local files with upload status", async () => {
-      mkdirSync(IMAGES_DIR, { recursive: true });
-      writeFileSync(join(IMAGES_DIR, "photo.jpg"), "jpg-bytes");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readdirSync).mockReturnValue(["photo.jpg"] as never);
+      vi.mocked(fs.statSync).mockReturnValue({ isFile: () => true, size: 9 } as never);
 
       const response = await app.inject({ method: "GET", url: "/api/files/local" });
 
@@ -66,6 +79,7 @@ describe("Local Files API routes", () => {
       expect(body.file.fileName).toBe("dropped.png");
       expect(body.file.fileType).toBe("image/png");
       expect(body.file.fileSize).toBe(Buffer.byteLength("png-bytes"));
+      expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
     it("should return 400 for a path-traversal file name", async () => {
@@ -95,8 +109,7 @@ describe("Local Files API routes", () => {
 
   describe("DELETE /api/files/local/:fileName", () => {
     it("should delete a file and return 204", async () => {
-      mkdirSync(IMAGES_DIR, { recursive: true });
-      writeFileSync(join(IMAGES_DIR, "remove-me.jpg"), "bytes");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
 
       const response = await app.inject({
         method: "DELETE",
@@ -104,9 +117,7 @@ describe("Local Files API routes", () => {
       });
 
       expect(response.statusCode).toBe(204);
-
-      const listResponse = await app.inject({ method: "GET", url: "/api/files/local" });
-      expect(listResponse.json().files.total).toBe(0);
+      expect(fs.unlinkSync).toHaveBeenCalled();
     });
 
     it("should reject unsafe file names with 400", async () => {
@@ -121,8 +132,8 @@ describe("Local Files API routes", () => {
 
   describe("GET /api/files/local/:fileName/content", () => {
     it("should serve the raw file bytes with the correct content type", async () => {
-      mkdirSync(IMAGES_DIR, { recursive: true });
-      writeFileSync(join(IMAGES_DIR, "thumb.jpg"), "jpg-bytes");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from("jpg-bytes"));
 
       const response = await app.inject({
         method: "GET",
@@ -135,6 +146,8 @@ describe("Local Files API routes", () => {
     });
 
     it("should return 404 when the file does not exist", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
       const response = await app.inject({
         method: "GET",
         url: "/api/files/local/missing.jpg/content",

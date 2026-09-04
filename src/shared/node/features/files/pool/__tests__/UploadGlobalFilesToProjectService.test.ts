@@ -1,12 +1,22 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { join } from "node:path";
-import { rmSync } from "node:fs";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { UploadFileRepository } from "~/shared/node/features/files/upload/abstractions/UploadFileRepository.js";
 import { UploadGlobalFilesToProjectService } from "../abstractions/UploadGlobalFilesToProjectService.js";
 
-const IMAGES_DIR = join(process.cwd(), ".webiny", "images");
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn().mockReturnValue(Buffer.from("fake-bytes")),
+    existsSync: vi.fn().mockReturnValue(false),
+    readdirSync: vi.fn().mockReturnValue([]),
+    statSync: vi.fn().mockReturnValue({ isFile: () => true, size: 1000 }),
+    unlinkSync: vi.fn(),
+  };
+});
 
 describe("UploadGlobalFilesToProjectService", () => {
   let tc: ReturnType<typeof createTestContainer>;
@@ -14,7 +24,6 @@ describe("UploadGlobalFilesToProjectService", () => {
 
   beforeEach(async () => {
     tc = createTestContainer();
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
 
     const createProject = tc.container.resolve(CreateProjectUseCase);
     const result = await createProject.execute({
@@ -31,7 +40,6 @@ describe("UploadGlobalFilesToProjectService", () => {
 
   afterEach(() => {
     tc.cleanup();
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
   });
 
   it("should report zero uploaded when there are no local images to link", async () => {

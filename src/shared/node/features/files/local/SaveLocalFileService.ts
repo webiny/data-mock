@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, statSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { Result } from "@webiny/stdlib";
 import { SaveLocalFileService as Abstraction } from "./abstractions/SaveLocalFileService.js";
 import { ProjectPersistenceError, ValidationError } from "~/shared/errors.js";
@@ -22,12 +22,11 @@ class SaveLocalFileServiceImpl implements Abstraction.Interface {
       const filePath = resolveLocalFilePath(input.fileName);
       const buffer = Buffer.from(input.fileContent, "base64");
       writeFileSync(filePath, buffer);
-      const stats = statSync(filePath);
 
       return Result.ok({
         fileName: input.fileName,
         fileType: guessLocalFileContentType(input.fileName),
-        fileSize: stats.size,
+        fileSize: buffer.length,
       });
     } catch (error) {
       return Result.fail(new ProjectPersistenceError(toError(error)));

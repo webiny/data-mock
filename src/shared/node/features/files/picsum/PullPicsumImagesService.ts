@@ -3,11 +3,11 @@ import { join } from "node:path";
 import { Result, Logger, generateId } from "@webiny/stdlib";
 import { PullPicsumImagesService as Abstraction } from "./abstractions/PullPicsumImagesService.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
+import { LOCAL_IMAGES_DIR } from "~/shared/node/features/files/local/localFilePaths.js";
 
 const DEFAULT_WIDTH = 800;
 const DEFAULT_HEIGHT = 600;
 const DOWNLOAD_DELAY_MS = 200;
-const IMAGES_DIR = join(process.cwd(), ".webiny", "images");
 
 class PullPicsumImagesServiceImpl implements Abstraction.Interface {
   public constructor(private readonly logger: Logger.Interface) {}
@@ -19,7 +19,7 @@ class PullPicsumImagesServiceImpl implements Abstraction.Interface {
     const height = input.height ?? DEFAULT_HEIGHT;
 
     try {
-      mkdirSync(IMAGES_DIR, { recursive: true });
+      mkdirSync(LOCAL_IMAGES_DIR, { recursive: true });
     } catch (error) {
       return Result.fail(new ProjectPersistenceError(toError(error)));
     }
@@ -36,7 +36,7 @@ class PullPicsumImagesServiceImpl implements Abstraction.Interface {
         } else {
           const arrayBuffer = await response.arrayBuffer();
           const fileName = `picsum-${generateId()}.jpg`;
-          const filePath = join(IMAGES_DIR, fileName);
+          const filePath = join(LOCAL_IMAGES_DIR, fileName);
           writeFileSync(filePath, Buffer.from(arrayBuffer));
 
           files.push(fileName);
@@ -53,7 +53,7 @@ class PullPicsumImagesServiceImpl implements Abstraction.Interface {
       }
     }
 
-    return Result.ok({ downloaded: files.length, directory: IMAGES_DIR, files });
+    return Result.ok({ downloaded: files.length, directory: LOCAL_IMAGES_DIR, files });
   }
 }
 

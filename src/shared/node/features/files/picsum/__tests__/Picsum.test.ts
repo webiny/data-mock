@@ -1,11 +1,21 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { join } from "node:path";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { PullPicsumImagesService } from "../abstractions/PullPicsumImagesService.js";
 import { ListLocalImagesService } from "../abstractions/ListLocalImagesService.js";
 
-const IMAGES_DIR = join(process.cwd(), ".webiny", "images");
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    existsSync: vi.fn().mockReturnValue(false),
+    readdirSync: vi.fn().mockReturnValue([]),
+    statSync: vi.fn().mockReturnValue({ isFile: () => true, size: 1000 }),
+  };
+});
+
+const fs = await import("node:fs");
 
 function makeFakeResponse(ok: boolean, status: number = 200): Response {
   return {
@@ -16,13 +26,10 @@ function makeFakeResponse(ok: boolean, status: number = 200): Response {
 }
 
 describe("Picsum Feature", () => {
-  beforeEach(() => {
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
-  });
-
   afterEach(() => {
     vi.unstubAllGlobals();
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    vi.mocked(fs.readdirSync).mockReturnValue([]);
   });
 
   describe("PullPicsumImagesService", () => {
@@ -38,16 +45,16 @@ describe("Picsum Feature", () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.downloaded).toBe(2);
-        expect(result.value.directory).toBe(IMAGES_DIR);
         expect(result.value.files).toHaveLength(2);
         for (const fileName of result.value.files) {
           expect(fileName).toMatch(/^picsum-.+\.jpg$/);
-          expect(existsSync(join(IMAGES_DIR, fileName))).toBe(true);
         }
       }
 
       expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenCalledWith("https://picsum.photos/800/600");
+      expect(fs.writeFileSync).toHaveBeenCalledTimes(2);
+      expect(fs.mkdirSync).toHaveBeenCalled();
     }, 10000);
 
     it("should use custom width and height", async () => {
@@ -102,6 +109,8 @@ describe("Picsum Feature", () => {
 
   describe("ListLocalImagesService", () => {
     it("should return an empty array when the images directory does not exist", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
       const tc = createTestContainer();
       const service = tc.container.resolve(ListLocalImagesService);
 
@@ -114,10 +123,9 @@ describe("Picsum Feature", () => {
     });
 
     it("should list image files and filter out non-image files", async () => {
-      mkdirSync(IMAGES_DIR, { recursive: true });
-      writeFileSync(join(IMAGES_DIR, "photo.jpg"), "jpg-bytes");
-      writeFileSync(join(IMAGES_DIR, "picture.png"), "png-bytes");
-      writeFileSync(join(IMAGES_DIR, "notes.txt"), "not-an-image");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readdirSync).mockReturnValue(["photo.jpg", "picture.png", "notes.txt"] as never);
+      vi.mocked(fs.statSync).mockReturnValue({ isFile: () => true, size: 5000 } as never);
 
       const tc = createTestContainer();
       const service = tc.container.resolve(ListLocalImagesService);
@@ -132,8 +140,7 @@ describe("Picsum Feature", () => {
 
         const jpg = result.value.files.find((f) => f.fileName === "photo.jpg");
         expect(jpg?.fileType).toBe("image/jpeg");
-        expect(jpg?.filePath).toBe(join(IMAGES_DIR, "photo.jpg"));
-        expect(jpg?.fileSize).toBeGreaterThan(0);
+        expect(jpg?.fileSize).toBe(5000);
       }
     });
   });

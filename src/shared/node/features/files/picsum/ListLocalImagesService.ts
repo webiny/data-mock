@@ -4,8 +4,7 @@ import { Result } from "@webiny/stdlib";
 import { ListLocalImagesService as Abstraction } from "./abstractions/ListLocalImagesService.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
 import type { ILocalImageFile } from "./abstractions/ListLocalImagesService.js";
-
-const IMAGES_DIR = join(process.cwd(), ".webiny", "images");
+import { LOCAL_IMAGES_DIR } from "~/shared/node/features/files/local/localFilePaths.js";
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -21,11 +20,11 @@ class ListLocalImagesServiceImpl implements Abstraction.Interface {
     _input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     try {
-      if (!existsSync(IMAGES_DIR)) {
+      if (!existsSync(LOCAL_IMAGES_DIR)) {
         return Result.ok({ files: [] });
       }
 
-      const entries = readdirSync(IMAGES_DIR);
+      const entries = readdirSync(LOCAL_IMAGES_DIR);
       const files: ILocalImageFile[] = [];
 
       for (const fileName of entries) {
@@ -34,7 +33,7 @@ class ListLocalImagesServiceImpl implements Abstraction.Interface {
           continue;
         }
 
-        const filePath = join(IMAGES_DIR, fileName);
+        const filePath = join(LOCAL_IMAGES_DIR, fileName);
         const stats = statSync(filePath);
         if (!stats.isFile()) {
           continue;

@@ -11,10 +11,6 @@ export default defineConfig({
     globals: true,
     include: ["src/**/*.test.ts"],
     exclude: ["dist/**", "node_modules/**"],
-    // Several test files exercise the real ".webiny/images" directory on disk
-    // (picsum + local file management). Running test files in parallel races
-    // on that shared, non-isolated resource, so files run serially instead.
-    fileParallelism: false,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

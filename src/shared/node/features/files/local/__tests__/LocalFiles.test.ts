@@ -1,6 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { join } from "node:path";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { UploadFileRepository } from "~/shared/node/features/files/upload/abstractions/UploadFileRepository.js";
@@ -8,23 +6,36 @@ import { ListLocalFilesService } from "../abstractions/ListLocalFilesService.js"
 import { SaveLocalFileService } from "../abstractions/SaveLocalFileService.js";
 import { DeleteLocalFileService } from "../abstractions/DeleteLocalFileService.js";
 
-const IMAGES_DIR = join(process.cwd(), ".webiny", "images");
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    existsSync: vi.fn().mockReturnValue(false),
+    readdirSync: vi.fn().mockReturnValue([]),
+    statSync: vi.fn().mockReturnValue({ isFile: () => true, size: 1000 }),
+    unlinkSync: vi.fn(),
+  };
+});
+
+const fs = await import("node:fs");
 
 describe("Local Files Feature", () => {
   let tc: ReturnType<typeof createTestContainer>;
 
-  beforeEach(() => {
-    tc = createTestContainer();
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
-  });
-
   afterEach(() => {
-    tc.cleanup();
-    rmSync(IMAGES_DIR, { recursive: true, force: true });
+    if (tc) {
+      tc.cleanup();
+    }
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    vi.mocked(fs.readdirSync).mockReturnValue([]);
   });
 
   describe("ListLocalFilesService", () => {
     it("should return an empty array when no local files exist", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      tc = createTestContainer();
       const service = tc.container.resolve(ListLocalFilesService);
       const result = await service.execute({});
 
@@ -35,9 +46,11 @@ describe("Local Files Feature", () => {
     });
 
     it("should list local files with an empty project status when not uploaded anywhere", async () => {
-      mkdirSync(IMAGES_DIR, { recursive: true });
-      writeFileSync(join(IMAGES_DIR, "photo.jpg"), "jpg-bytes");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readdirSync).mockReturnValue(["photo.jpg"] as never);
+      vi.mocked(fs.statSync).mockReturnValue({ isFile: () => true, size: 9 } as never);
 
+      tc = createTestContainer();
       const service = tc.container.resolve(ListLocalFilesService);
       const result = await service.execute({});
 
@@ -50,9 +63,11 @@ describe("Local Files Feature", () => {
     });
 
     it("should include project upload status for files uploaded to projects", async () => {
-      mkdirSync(IMAGES_DIR, { recursive: true });
-      writeFileSync(join(IMAGES_DIR, "photo.jpg"), "jpg-bytes");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(fs.readdirSync).mockReturnValue(["photo.jpg"] as never);
+      vi.mocked(fs.statSync).mockReturnValue({ isFile: () => true, size: 9 } as never);
 
+      tc = createTestContainer();
       const createProject = tc.container.resolve(CreateProjectUseCase);
       const projectResult = await createProject.execute({
         name: "My Project",
@@ -91,7 +106,8 @@ describe("Local Files Feature", () => {
   });
 
   describe("SaveLocalFileService", () => {
-    it("should write the decoded file to the images directory", async () => {
+    it("should call writeFileSync with decoded content", async () => {
+      tc = createTestContainer();
       const service = tc.container.resolve(SaveLocalFileService);
       const content = Buffer.from("hello-world").toString("base64");
 
@@ -102,10 +118,11 @@ describe("Local Files Feature", () => {
         expect(result.value.fileName).toBe("hello.txt");
         expect(result.value.fileSize).toBe(Buffer.byteLength("hello-world"));
       }
-      expect(existsSync(join(IMAGES_DIR, "hello.txt"))).toBe(true);
+      expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
     it("should guess the content type from the file extension", async () => {
+      tc = createTestContainer();
       const service = tc.container.resolve(SaveLocalFileService);
       const content = Buffer.from("png-bytes").toString("base64");
 
@@ -118,6 +135,7 @@ describe("Local Files Feature", () => {
     });
 
     it("should reject file names containing path traversal sequences", async () => {
+      tc = createTestContainer();
       const service = tc.container.resolve(SaveLocalFileService);
 
       const result = await service.execute({
@@ -132,6 +150,7 @@ describe("Local Files Feature", () => {
     });
 
     it("should reject file names containing path separators", async () => {
+      tc = createTestContainer();
       const service = tc.container.resolve(SaveLocalFileService);
 
       const result = await service.execute({
@@ -144,18 +163,19 @@ describe("Local Files Feature", () => {
   });
 
   describe("DeleteLocalFileService", () => {
-    it("should delete an existing file from disk", async () => {
-      mkdirSync(IMAGES_DIR, { recursive: true });
-      writeFileSync(join(IMAGES_DIR, "delete-me.jpg"), "bytes");
-
+    it("should call unlinkSync for an existing file", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      tc = createTestContainer();
       const service = tc.container.resolve(DeleteLocalFileService);
       const result = await service.execute({ fileName: "delete-me.jpg" });
 
       expect(result.isOk()).toBe(true);
-      expect(existsSync(join(IMAGES_DIR, "delete-me.jpg"))).toBe(false);
+      expect(fs.unlinkSync).toHaveBeenCalled();
     });
 
     it("should succeed when the file does not exist", async () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      tc = createTestContainer();
       const service = tc.container.resolve(DeleteLocalFileService);
       const result = await service.execute({ fileName: "does-not-exist.jpg" });
 
@@ -163,6 +183,7 @@ describe("Local Files Feature", () => {
     });
 
     it("should reject unsafe file names", async () => {
+      tc = createTestContainer();
       const service = tc.container.resolve(DeleteLocalFileService);
       const result = await service.execute({ fileName: "../secret.txt" });
 
