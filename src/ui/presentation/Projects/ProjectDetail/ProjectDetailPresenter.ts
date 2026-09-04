@@ -591,13 +591,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!datasetsToReload) {
       return;
     }
-    const toReload = datasetsToReload.filter((d) => this._loadedDatasets.has(d));
     runInAction(() => {
-      for (const dataset of toReload) {
+      for (const dataset of datasetsToReload) {
         this._loadedDatasets.delete(dataset);
+        this._loadingDatasets.delete(dataset);
       }
     });
-    void Promise.all(toReload.map((d) => this.loadDataset(d)));
+    void Promise.all(datasetsToReload.map((d) => this.loadDataset(d)));
   };
 
   private reloadEntries = async (): Promise<void> => {
