@@ -102,7 +102,7 @@ src/
 
 ---
 
-## Database Schema (9 tables)
+## Database Schema (10 tables)
 
 | Table | Key columns | Purpose |
 |---|---|---|
@@ -110,9 +110,10 @@ src/
 | `project_tenants` | project_id FK, tenant_id, name | Discovered tenants per project |
 | `project_groups` | project_id FK, slug, name, remote_id | CMS content model groups |
 | `project_models` | project_id FK, model_id, singular_api_name, plural_api_name, group_slug, plugin, fields (JSON) | CMS models + field definitions + API names + plugin flag from Webiny |
-| `seed_jobs` | project_id FK, status, config (JSON), result (JSON) | Seeding job tracking |
+| `jobs` | project_id FK, type, status, config (JSON), logs, progress, progress_label, parent_job_id | Background job execution (seed, sync-tenants, sync-models, cleanup, import) |
+| `seed_jobs` | project_id FK, status, config (JSON), result (JSON) | Legacy seeding job tracking |
 | `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations |
-| `seed_entries` | job_id FK (nullable), project_id FK, tenant, model_id, entry_data (JSON), status | Per-entry audit log (status: created/failed/dry-run/imported/deleted) |
+| `seed_entries` | job_id FK (nullable), project_id FK, tenant, model_id, entry_data (JSON), request_data (JSON), response_data (raw), status | Per-entry audit log with full request/response |
 | `project_files` | project_id FK, tenant, file_key, file_url, file_type | Uploaded file references |
 | `sync_logs` | project_id FK, type, status, message, request (JSON), response (JSON) | Sync operation logs with GraphQL request + response stored separately |
 
@@ -134,7 +135,9 @@ src/
 
 ---
 
-## API Routes (29)
+## API Routes (34)
+
+All long-running operations (seed, sync-tenants, sync-models, import, cleanup) return a `Job` object with HTTP 202 — work runs in the background. Progress is pushed via WebSocket.
 
 ### Projects
 | Method | Path | Purpose |
@@ -188,6 +191,19 @@ src/
 | GET | `/api/projects/:projectId/files` | List uploaded files |
 | POST | `/api/projects/:projectId/files/upload` | Upload a file |
 | DELETE | `/api/projects/:projectId/files/:fileId` | Delete file reference |
+
+### Jobs
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/projects/:projectId/jobs` | Enqueue a new job (type + config) |
+| GET | `/api/projects/:projectId/jobs` | List jobs for a project |
+| GET | `/api/projects/:projectId/jobs/:jobId` | Get a single job |
+| POST | `/api/projects/:projectId/jobs/:jobId/cancel` | Cancel a running or pending job |
+
+### WebSocket
+| Protocol | Path | Purpose |
+|---|---|---|
+| WS | `/ws` | Real-time job status, progress, and log events |
 
 ### Sync Logs
 | Method | Path | Purpose |

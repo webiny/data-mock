@@ -1,144 +1,168 @@
 # Webiny Data Mock
 
-Add .env file into the project root and fill it with:
-````
-API_GRAPHQL_URL=https://xxxxxxx.cloudfront.net
-API_TOKEN=xxxxxxx
-````
+A multi-project tool for generating and seeding mock data into Webiny CMS instances. Manages project connections (encrypted), syncs models/groups/tenants from live Webiny, generates realistic fake data respecting CMS field validation, and sends entries via GraphQL. Includes a CLI, REST API, and web UI.
 
+## Quick Start
 
-Run with
-`````
-yarn create-data
-`````
+### 1. Install dependencies
 
-## Blog mock data (id: blog)
-
-The blog mock data creates:
-
-- categories
-- authors
-- articles
-
-### Categories
-
-Category list is hardcoded, there is 10 of them.
-
-### Authors
-
-Authors list is hardcoded, there is 7 of them.
-
-### Articles
-
-Article structure is hardcoded, but the content is modified with the author name and category titles - as there can be
-multiple categories attached to an article.
-
-There are modifier arguments for the create-data command:
-
-````
-yarn create-data --articles:amount=100 --articles:atOnce=10 --articles:startId=555
-````
-
-The `articles:amount` defines how much articles will be generated - default is **100**.
-
-The `articles:atOnce` defines how much articles will be created at once (how many mutations will be sent at once) -
-default is **10**.
-
-The `articles:startId` defines the starting ID number of the articles - default is **1**.
-
-#### Skip creating blog articles
-
-If you want to skip creating blog articles, add `--skip=cms:blog` argument to the create-data command:
-
-````
-yarn create-data --skip=cms:blog
-````
-
-Note that this will NOT skip group and models creation.
-
-## Car mock data (id: simpleCars)
-
-### Car Makes
-
-Car makes list is hardcoded, there is 39 of them.
-
-### Car Models
-
-Car models list is hardcoded, there is 892 of them.
-
-There are modifier arguments for the create-data command:
-
-````
-yarn create-data --simpleCarModels:atOnce=10
-````
-
-The `simpleCarModels:atOnce` defines how much car models will be created at once (how many mutations will be sent at once) -
-default is **10**.
-
-#### Skip creating simple cars
-
-If you want to skip creating cars, add `--skip=cms:simpleCars` argument to the create-data command:
-
-````
-yarn create-data --skip=cms:simpleCars
-````
-
-
-## Fetch All Entries From A Certain Model
-
-You can also fetch a list of entries from a certain model. For example, to fetch a list of articles, run:
-```
-yarn fetch-data --model=article --per-request=2000 --filename=articles.json
-```
-Where:
-* `model` - is the modelId you want to fetch entries from
-* `per-request` - is the number of entries you want to fetch per request - default is **1000**
-* `max-requests` - is the maximum number of requests you want to allow to execute - default is **100**
-* `filename` - is the name of the file where the fetched entries will be saved - if no filename is given, you will only get info about the amount of entries fetched
-
-Note that, if you pass the `filename`, the fetched entries will contain only the allowed types of fields, defined [here](https://github.com/webiny/webiny-js-data-mock/blob/main/src/apps/utils/createModelFields.ts#L3).
-
-## Create Tenants
-
-You can create tenants by running:
-
-```
-yarn create-tenants --tenants=aChildTenant,anotherChildTenant,....
+```bash
+yarn install
 ```
 
-But for that to work, you need a code from `./code/tenants/` diretory in your project.
+### 2. Initialize environment
 
-Just copy the files and import the plugins via the `createTenantsMockDataPlugins()` from the `index.ts` file.
-
-## Create Completely Random Mock Data For Any Model
-
-### Add a custom authorizer which allows the `create-data-per-tenant` script to run
-
-To be able to run the `create-data-per-tenant` script, you need to add a custom authorizer to your project. You can do
-that by using the code in `./code/authorization` directory.
-
-Just copy the files and import the plugins via the `createAuthenticator()` from the `index.ts` file.
-
-### Creating the data
-
-You can create completely random mock data for any model by running:
-
-```
-yarn create-data-per-tenant --tenants=root --amount=1 --models="*"
+```bash
+yarn cli init
 ```
 
-In the `tenants` argument, you can pass multiple tenants separated by a comma or a `*` to target all existing tenants.
+This generates a `.env` file with a random encryption key and default port config:
 
-In the `amount` argument, you must send the amount of the records you want to create. Default is `5`.
+```
+ENCRYPTION_KEY=<64-char hex>
+API_PORT=4000
+UI_PORT=4001
+```
 
-In the `models` argument, you must send the `modelId` of the model you want to create the records for. Same as for the
-tenants, you can send multiple `modelId` separated by a comma or a `*` to target all existing models.
+### 3. Add a project
 
-#### Dry Run
+**Option A: Via CLI**
 
-If you do not wish to insert data immediately, but you want to see what will get inserted, you can add the `--dry-run` flag.
-It will generate JSON file in `./dryRuns/ ` directory.
+```bash
+yarn cli add-project
+```
 
-#### IMPORTANT!
+Prompts for project name, Webiny API URL, API token, tenant, and version.
 
-When sending a `*`, make sure it is sent with quotes, like this: `"*"`. Otherwise, the script will fail.
+**Option B: Via seed file (recommended for teams)**
+
+Create `.projects.json` in the project root:
+
+```json
+[
+  {
+    "name": "My Webiny Project",
+    "apiUrl": "https://your-api.webiny.com",
+    "apiToken": "your-api-token",
+    "tenant": "root",
+    "webinyVersion": "6.0.0"
+  }
+]
+```
+
+Projects are upserted by name on every server start. The API token is encrypted before storage. See `.projects.json.example` for the format.
+
+> **Important:** `.projects.json` contains real API tokens — it is gitignored. Never commit it. Only `.projects.json.example` with placeholder values is tracked.
+
+### 4. Start the dev server
+
+```bash
+yarn dev
+```
+
+This starts both the API server (port 4000) and the UI (port 4001) with hot reload.
+
+Open **http://localhost:4001** in your browser.
+
+### 5. Sync models and seed data
+
+1. Open a project in the UI
+2. Click **Sync Tenants** to discover tenants
+3. Click **Sync Models** to pull CMS model definitions
+4. Go to **Seed Data** — select models, amounts, and click **Start Seed**
+
+All operations run as background jobs with real-time progress via WebSocket.
+
+## CLI Usage
+
+| Command | Description |
+|---|---|
+| `yarn cli init` | Generate `.env` with encryption key + port config |
+| `yarn cli add-project` | Add a Webiny project interactively |
+| `yarn cli list-projects` | Show all configured projects |
+| `yarn cli remove-project` | Select + confirm + remove a project |
+| `yarn cli sync-models` | Pull models/groups from a Webiny project |
+| `yarn cli push-models` | Push local models/groups to a Webiny project |
+| `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
+| `yarn cli rotate-key` | Rotate the API token encryption key |
+| `yarn cli upload-files` | Upload files to a Webiny project's file manager |
+
+## Architecture
+
+```
+CLI (src/cli/)        → shared services (src/shared/node/)
+API (src/api/)        → shared services
+UI  (src/ui/)         → API via HTTP + WebSocket
+```
+
+- **Shared layer** (`src/shared/node/`): SQLite persistence, GraphQL client, generators, job execution
+- **API layer** (`src/api/`): Fastify REST + WebSocket server
+- **UI layer** (`src/ui/`): React + Mantine + MobX
+- **DI**: `@webiny/di` container with abstractions/implementations pattern
+
+### Background Jobs
+
+All long-running operations (seed, sync, import, cleanup) run as background jobs:
+
+1. API route enqueues a job → returns 202 with job ID
+2. JobWorker polls every 3s, picks up pending jobs, runs executor
+3. Progress + logs pushed to UI via WebSocket in real-time
+4. UI shows toast notification on completion/failure
+5. Affected data auto-refreshes in the UI
+
+Job types: `seed`, `sync-tenants`, `sync-models`, `cleanup`, `import`.
+
+### Audit Log
+
+Every seeded entry is logged with:
+- **Request**: full GraphQL mutation, variables, URL (auth token redacted)
+- **Response**: complete raw HTTP response from Webiny
+- **Error**: error message if the mutation failed
+
+Click any entry in the Audit Log tab to see the full request/response detail.
+
+## Development
+
+| Script | Command | Purpose |
+|---|---|---|
+| `yarn dev` | `concurrently` | API + UI together |
+| `yarn cli` | `tsx src/cli/entry.ts` | CLI tool |
+| `yarn api:dev` | `tsx --watch src/api/entry.ts` | API server only |
+| `yarn ui:dev` | `vite dev` | UI dev server only |
+| `yarn typecheck` | `tsc --noEmit` | Type checking |
+| `yarn test` | `vitest run` | Run tests |
+| `yarn test:watch` | `vitest` | Watch mode |
+| `yarn lint` | `oxlint` | Lint check |
+| `yarn format:check` | `oxfmt --check` | Format check |
+| `yarn db:generate` | `drizzle-kit generate` | Generate DB migration |
+
+**Before every commit:** `yarn lint && yarn format:check && yarn typecheck && yarn test`
+
+## Environment Variables
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `ENCRYPTION_KEY` | Yes | — | 64-char hex for AES-256-GCM token encryption |
+| `API_PORT` | No | 4000 | Fastify server port |
+| `UI_PORT` | No | 4001 | Vite dev server port |
+| `DB_PATH` | No | `.webiny/data-mock.db` | SQLite database path |
+
+## Runtime Data
+
+All runtime data is stored in `.webiny/` (gitignored):
+
+```
+.webiny/
+├── data-mock.db    # SQLite database
+├── cache/          # File cache
+└── logs/           # Log files
+```
+
+## Project Seed File
+
+`.projects.json` is read on every server start. Projects are matched by name — existing projects are updated, new ones are inserted. This is the recommended way to share project connections across a team (each developer creates their own `.projects.json` from the example).
+
+```bash
+cp .projects.json.example .projects.json
+# Edit .projects.json with your real values
+```
