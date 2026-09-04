@@ -279,7 +279,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
-            {activeView === "jobs" && <JobsTab jobs={vm.jobs} />}
             {activeView === "seed" && <EmbeddedSeedConfig projectId={projectId} />}
             {activeView === "import" && (
               <ImportEntriesTab
