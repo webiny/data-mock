@@ -21,7 +21,17 @@ import {
 import { SeedingError } from "~/shared/errors.js";
 import type { IHttpResponse } from "~/shared/abstractions/HttpClient.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { ProjectModel, Revisions, PublishStrategy } from "~/shared/types.js";
+import type { ProjectModel, Revisions, PublishStrategy, ApiCmsModelField } from "~/shared/types.js";
+
+function hasBrokenPatternValidators(fields: ApiCmsModelField[]): boolean {
+  return fields.some((f) => {
+    const validators = (f.validation ?? []) as Array<{
+      name: string;
+      settings?: { flags?: string | null };
+    }>;
+    return validators.some((v) => v.name === "pattern" && v.settings?.flags === null);
+  });
+}
 
 interface ModelSeedContext {
   model: ProjectModel;
@@ -149,7 +159,12 @@ class SeedServiceImpl implements Abstraction.Interface {
 
         const fieldSelection = createModelFields(ctx.model.fields);
         const singularApiName = ctx.model.singularApiName;
-        const createMutation = buildCreateEntryQuery({ singularApiName, fieldSelection }).query;
+        const skipValidators = hasBrokenPatternValidators(ctx.model.fields) ? ["pattern"] : [];
+        const createMutation = buildCreateEntryQuery({
+          singularApiName,
+          fieldSelection,
+          skipValidators,
+        }).query;
         const revisionMutation = buildCreateRevisionQuery({
           singularApiName,
           fieldSelection,
