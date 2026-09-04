@@ -17,7 +17,7 @@ class SyncLogsGatewayImpl implements Abstraction.Interface {
       return Result.fail(result.error);
     }
 
-    return Result.ok(result.value.syncLogs.items);
+    return Result.ok(result.value.syncLogs.items as SyncLog[]);
   }
 
   public async remove(projectId: string, logId: string): Promise<Result<void, HTTPError>> {

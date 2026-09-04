@@ -3,8 +3,8 @@ import { z } from "zod";
 export const syncLogSchema = z.object({
   id: z.string(),
   projectId: z.string(),
-  type: z.enum(["tenants", "models", "upload-file", "pull-files"]),
-  status: z.enum(["success", "error"]),
+  type: z.string(),
+  status: z.string(),
   message: z.string(),
   request: z.unknown().nullable(),
   response: z.unknown().nullable(),
