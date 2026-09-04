@@ -102,7 +102,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(syncGroupsResult.error);
     }
 
-    const userModels = models.filter((m) => !isExcludedModel(m.modelId, m.plugin));
+    const userModels = models.filter((m) => !isExcludedModel(m.modelId));
 
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,

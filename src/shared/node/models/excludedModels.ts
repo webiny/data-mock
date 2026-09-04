@@ -6,10 +6,7 @@ const EXCLUDED_MODEL_IDS = new Set([
   "backgroundTaskLog",
 ]);
 
-export function isExcludedModel(modelId: string, plugin = false): boolean {
-  if (plugin) {
-    return true;
-  }
+export function isExcludedModel(modelId: string): boolean {
   if (EXCLUDED_MODEL_IDS.has(modelId)) {
     return true;
   }
