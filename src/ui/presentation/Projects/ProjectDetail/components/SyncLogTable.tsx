@@ -61,10 +61,17 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
     });
   };
 
-  const showRawResponse = (log: ISyncLogVM) => {
+  const showFullDetail = (log: ISyncLogVM) => {
+    const sections: string[] = [];
+    if (log.request != null) {
+      sections.push(`// REQUEST\n${formatJson(log.request)}`);
+    }
+    if (log.response != null) {
+      sections.push(`// RESPONSE\n${formatJson(log.response)}`);
+    }
     setViewer({
-      title: "Response",
-      value: log.response != null ? formatJson(log.response) : "null",
+      title: `${log.type} — ${log.message}`,
+      value: sections.length > 0 ? sections.join("\n\n") : "No data",
       language: "json",
     });
   };
@@ -120,6 +127,10 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
                         </Button>
                       ))}
                     </Stack>
+                  ) : log.request != null ? (
+                    <Button variant="light" size="compact-xs" onClick={() => showFullDetail(log)}>
+                      View
+                    </Button>
                   ) : (
                     <Text size="sm" c="dimmed">
                       —
@@ -141,7 +152,7 @@ export function SyncLogTable({ logs, onDelete }: SyncLogTableProps) {
                       ))}
                     </Stack>
                   ) : log.response != null ? (
-                    <Button variant="light" size="compact-xs" onClick={() => showRawResponse(log)}>
+                    <Button variant="light" size="compact-xs" onClick={() => showFullDetail(log)}>
                       View
                     </Button>
                   ) : (
