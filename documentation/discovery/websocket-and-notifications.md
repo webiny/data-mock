@@ -2,7 +2,7 @@
 
 Sources:
 - `/Users/brunozoric/private/dependency-upgrader` (WebSocket + EventBridge)
-- prijevodi-online (Notification abstractions)
+- reference project (Notification abstractions)
 
 ## dependency-upgrader: WebSocket + EventBridge
 
@@ -60,7 +60,7 @@ Server action (e.g., job progress update)
 
 EventBridge is the key abstraction — WebSocket is just one producer. UI actions, timers, or any other source can also emit events.
 
-## prijevodi-online: Notification System
+## reference project: Notification System
 
 No WebSocket — uses notification abstractions only.
 

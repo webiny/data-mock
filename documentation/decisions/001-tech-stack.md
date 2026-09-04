@@ -15,7 +15,7 @@ The project is being refactored from a single-project CLI tool into a multi-proj
 | Standard library | `@webiny/stdlib` ^0.0.17 | Provides Result, BaseError, createAbstraction, createFeature, Logger, Cache, filesystem tools |
 | Database | SQLite via `better-sqlite3` + `drizzle-orm` | Same pattern as dependency-upgrader reference project. Synchronous, no server needed, WAL mode. |
 | Migrations | `drizzle-kit` | Declarative schema diffing → SQL migration files |
-| UI framework | React 19 + Mantine 7 | Mantine has good form/table/modal components. Same pattern as prijevodi-online reference. |
+| UI framework | React 19 + Mantine 7 | Mantine has good form/table/modal components. Same pattern as reference project reference. |
 | API server | Fastify 5 | Same as reference project. Fast, schema-based validation, good plugin ecosystem. |
 | Testing | vitest | Fast, Vite-based, ESM-native, great TypeScript support |
 | Validation | Zod | Used by both API (request validation) and shared layer (response schemas, route contracts) |

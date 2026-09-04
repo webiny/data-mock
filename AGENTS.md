@@ -223,6 +223,7 @@ All long-running operations (seed, pull-tenants, pull-models, import, cleanup) r
 | URL | Page | Layout |
 |---|---|---|
 | `/` | Project list | Contained |
+| `/files` | Global file manager (drag-drop, picsum, thumbnails) | Contained |
 | `/projects/:projectId/*` | Project detail shell (sidebar + content) | Full width |
 
 The project detail route uses a `/*` wildcard — `subPath` determines the active view:
@@ -231,15 +232,16 @@ The project detail route uses a `/*` wildcard — `subPath` determines the activ
 |---|---|
 | (empty) / `tenants` | Tenants tab |
 | `models` | Models & Groups tab |
-| `files` | Files tab |
-| `entries` | Audit Log tab |
+| `files` | Files tab (merged global + project files, drag-drop, multi-select upload) |
+| `entries` | Audit Log tab (seed entries) |
 | `history` | Seed History tab |
 | `templates` | Templates tab |
+| `jobs` | Background Jobs |
+| `activity` | Activity Log (operation history — pulls, uploads) |
 | `pull-tenants` | Pull Tenants (log table + run button) |
 | `pull-models` | Pull Models (log table + run button) |
 | `seed` | Seed Config (embedded, group accordion) |
 | `import` | Import Entries |
-| `jobs` | Background Jobs |
 
 URL is the source of truth for tab selection — no presenter state for active tab.
 
@@ -262,6 +264,7 @@ Sidebar sections: **Data** (7 tabs), **Pull** (2 tabs), **Actions** (Seed Data, 
 | UI framework | `react` + `@mantine/core` | ^19.2.8 + ^9.5.2 |
 | UI state | `mobx` + `mobx-react-lite` | ^7.0.3 + ^5.0.3 |
 | Notifications | `@mantine/notifications` | ^9.5.2 |
+| File upload UI | `@mantine/dropzone` | ^9.5.2 |
 | API server | `fastify` | ^5.12.1 |
 | Validation | `zod` | ^4.5.4 |
 | Code viewer | `@monaco-editor/react` | ^4.7.0 |
@@ -416,7 +419,7 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **275 tests** across 24 files (vitest)
+- **326 tests** across 31 files (vitest)
 - **Coverage**: v8 provider, ~53% statements, ~37% branches, ~56% functions. Thresholds enforced via `vitest.config.ts`.
 - **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.

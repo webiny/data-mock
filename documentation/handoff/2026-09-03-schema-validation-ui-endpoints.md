@@ -88,7 +88,7 @@
 - Job chaining (auto-sync-tenants after project creation, etc.)
 
 ### Priority 3 — UI polish
-- URL-driven list state (like prijevodi-online's `URLListState`) — filter/pagination state in URL params
+- URL-driven list state (like reference project's `URLListState`) — filter/pagination state in URL params
 - Endpoint client tests
 - Test coverage improvement (currently ~52%)
 - Browser testing — no visual verification done this session

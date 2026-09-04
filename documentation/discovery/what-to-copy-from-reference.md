@@ -1,4 +1,4 @@
-# What to Copy from prijevodi-online-2010
+# What to Copy from reference project
 
 Based on `documentation/research/06-reference-project-layers.md`.
 

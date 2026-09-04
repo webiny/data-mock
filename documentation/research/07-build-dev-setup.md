@@ -1,4 +1,4 @@
-# Build & Dev Setup — Reference from prijevodi-online-2010
+# Build & Dev Setup — Reference from reference project
 
 ## Dev Mode (`yarn dev`)
 

@@ -1,4 +1,4 @@
-# SQLite Patterns — Reference from `@fundus/depco` (dependency-upgrader)
+# SQLite Patterns — Reference from reference project
 
 ## 1. Libraries Used
 

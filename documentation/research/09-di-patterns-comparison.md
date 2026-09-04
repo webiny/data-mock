@@ -2,7 +2,7 @@
 
 ## 1. Abstraction Definition
 
-Both projects use the same pattern — identical across prijevodi-online and dependency-upgrader:
+Both projects use the same pattern — identical across reference project and dependency-upgrader:
 
 ```ts
 // abstractions/XxxService.ts

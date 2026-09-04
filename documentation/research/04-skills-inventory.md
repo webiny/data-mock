@@ -1,6 +1,6 @@
 # Skills Inventory
 
-Skills copied from `/Users/brunozoric/private/prijevodi-online-2010/.claude/skills/` and adapted for the `webiny-mock-data` project.
+Skills copied from `reference-project/.claude/skills/` and adapted for the `webiny-mock-data` project.
 
 ## Skills Summary
 

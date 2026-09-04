@@ -5,7 +5,7 @@
 
 ## Decision
 
-Use the same dev and serving pattern as the dependency-upgrader (prijevodi-online-2010) project:
+Use the same dev and serving pattern as the dependency-upgrader (reference project) project:
 
 ### Development
 - `yarn dev` → `concurrently` runs API + UI in parallel

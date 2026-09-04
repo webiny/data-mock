@@ -256,7 +256,7 @@ await service.execute();
 
 ## How the Reference Project Uses DI
 
-The reference project (`prijevodi-online-2010`) follows a clean architecture pattern:
+The reference project (`reference project`) follows a clean architecture pattern:
 
 ### Directory Structure Pattern
 ```

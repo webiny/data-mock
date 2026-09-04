@@ -1,4 +1,4 @@
-# Reference Project Layers — prijevodi-online-2010
+# Reference Project Layers — reference project
 
 Full architecture deep-dive across all four layers: `shared/`, `api/`, `cli/`, `ui/`.
 

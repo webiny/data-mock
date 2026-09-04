@@ -28,7 +28,7 @@
 - Duplicate API calls prevented via load guards (StrictMode double-invoke)
 
 ### UI Features
-- URL-driven list state (URLListState from fundus) for entries filters + pagination
+- URL-driven list state (URLListState) for entries filters + pagination
 - Health badge on project list (API-cached 10min, clickable for force refresh)
 - Audit log detail shows full error + request + response
 - Model detail shows full model object (not just fields)
