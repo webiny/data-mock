@@ -7,6 +7,14 @@ export function parseOperationResponse<TData, TOutput = TData>(
   dataSchema: ZodType<TData>,
   transform?: (data: TData) => TOutput,
 ): ApiGraphQLResult<TOutput> {
+  if (!json.data) {
+    const msg =
+      json.errors && json.errors.length > 0
+        ? ((json.errors[0] as { message?: string }).message ?? "GraphQL error")
+        : "Unexpected response: data is null";
+    return { data: null, error: { message: msg, code: "GRAPHQL_ERROR" } };
+  }
+
   const key = responseKey ?? Object.keys(json.data)[0];
   if (!key) {
     return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };

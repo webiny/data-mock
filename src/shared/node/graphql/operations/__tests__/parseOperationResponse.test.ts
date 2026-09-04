@@ -3,8 +3,15 @@ import { z } from "zod";
 import { parseOperationResponse } from "../parseOperationResponse.js";
 import type { ApiGraphQLResultJson } from "../../abstractions/GraphQLClient.js";
 
-function makeJson(data: Record<string, unknown>): ApiGraphQLResultJson {
+function makeJson(data: Record<string, unknown> | null): ApiGraphQLResultJson {
   return { data } as ApiGraphQLResultJson;
+}
+
+function makeJsonWithErrors(
+  data: Record<string, unknown> | null,
+  errors: Array<{ message: string }>,
+): ApiGraphQLResultJson {
+  return { data, errors } as ApiGraphQLResultJson;
 }
 
 const testSchema = z.array(z.object({ id: z.string(), name: z.string() }).passthrough());
@@ -96,5 +103,28 @@ describe("parseOperationResponse", () => {
     );
     const items = result.data as Array<{ id: string; name: string; extra?: string }>;
     expect(items[0]!.extra).toBe("field");
+  });
+
+  it("should return error when json.data is null (top-level GraphQL error)", () => {
+    const result = parseOperationResponse(makeJson(null), "listItems", testSchema);
+    expect(result.error).toBeTruthy();
+    expect(result.error!.code).toBe("GRAPHQL_ERROR");
+  });
+
+  it("should extract error message from json.errors when data is null", () => {
+    const result = parseOperationResponse(
+      makeJsonWithErrors(null, [{ message: "Cannot query field on type" }]),
+      "listItems",
+      testSchema,
+    );
+    expect(result.error).toBeTruthy();
+    expect(result.error!.code).toBe("GRAPHQL_ERROR");
+    expect(result.error!.message).toBe("Cannot query field on type");
+  });
+
+  it("should return generic message when data is null with empty errors array", () => {
+    const result = parseOperationResponse(makeJsonWithErrors(null, []), "listItems", testSchema);
+    expect(result.error).toBeTruthy();
+    expect(result.error!.message).toBe("Unexpected response: data is null");
   });
 });

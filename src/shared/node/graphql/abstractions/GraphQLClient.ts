@@ -28,7 +28,7 @@ export interface ApiGraphQLErrorResult {
 export type ApiGraphQLResult<T> = ApiGraphQLSuccessResult<T> | ApiGraphQLErrorResult;
 
 export interface ApiGraphQLResultJson {
-  data: GenericRecord;
+  data: GenericRecord | null;
   meta?: ApiCmsMeta;
   errors?: GenericRecord[];
   extensions?: GenericRecord[];

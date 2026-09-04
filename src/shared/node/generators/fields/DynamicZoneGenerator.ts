@@ -10,7 +10,7 @@ export class DynamicZoneGenerator extends BaseGenerator<GenericRecord> {
     params: IGeneratorGenerateParams<ApiCmsModelDynamicZoneField>,
   ): Promise<GenericRecord | null> {
     const templates = params.field.settings?.templates;
-    if (!templates.length) {
+    if (!templates?.length) {
       return null;
     }
     const random = faker.number.int({

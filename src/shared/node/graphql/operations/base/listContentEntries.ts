@@ -30,6 +30,13 @@ export const listContentEntries: IGraphQLOperation<ListEntriesInput, ListEntries
   path: "/cms/manage",
   query: "",
   getResult(json) {
+    if (!json.data) {
+      const msg =
+        json.errors && json.errors.length > 0
+          ? ((json.errors[0] as { message?: string }).message ?? "GraphQL error")
+          : "Unexpected response: data is null";
+      return { data: null, error: { message: msg, code: "GRAPHQL_ERROR" } };
+    }
     const key = Object.keys(json.data)[0];
     if (!key) {
       return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };

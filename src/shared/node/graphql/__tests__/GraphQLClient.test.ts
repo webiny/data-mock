@@ -19,7 +19,7 @@ function createMockResponse(status: number, body: unknown): HttpClient.Response 
 }
 
 const defaultGetResult = (json: ApiGraphQLResultJson) => ({
-  data: json.data["result"] as string,
+  data: json.data!["result"] as string,
 });
 
 describe("GraphQLClient", () => {

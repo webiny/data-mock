@@ -8,7 +8,7 @@ function createOp(name: string, query: string = "query { test }"): IGraphQLOpera
     name,
     query,
     path: "/cms/manage",
-    getResult: (json) => ({ data: json.data["test"] as string }),
+    getResult: (json) => ({ data: json.data!["test"] as string }),
   };
 }
 
