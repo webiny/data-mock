@@ -10,6 +10,7 @@ import { UpdateSeedJobRepository } from "~/shared/node/features/seeding/update/a
 import { ModelDependencyResolver } from "~/shared/node/features/seeding/resolve/abstractions/ModelDependencyResolver.js";
 import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entries/abstractions/CreateSeedEntryRepository.js";
 import { ListSeedEntriesRepository } from "~/shared/node/features/seeding/entries/abstractions/ListSeedEntriesRepository.js";
+import { LoadFilePoolService } from "~/shared/node/features/files/pool/abstractions/LoadFilePoolService.js";
 import { createSingleEntryVariables } from "~/shared/node/generators/createEntryVariables.js";
 import { createModelFields } from "~/shared/node/fields/createModelFields.js";
 import { buildCreateEntryQuery } from "~/shared/node/graphql/operations/base/createContentEntry.js";
@@ -21,7 +22,7 @@ import {
 import { SeedingError } from "~/shared/errors.js";
 import type { IHttpResponse } from "~/shared/abstractions/HttpClient.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { ProjectModel, Revisions, PublishStrategy } from "~/shared/types.js";
+import type { ProjectModel, ProjectFile, Revisions, PublishStrategy } from "~/shared/types.js";
 
 interface ModelSeedContext {
   model: ProjectModel;
@@ -69,6 +70,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     private readonly modelDependencyResolver: ModelDependencyResolver.Interface,
     private readonly createSeedEntryRepository: CreateSeedEntryRepository.Interface,
     private readonly listSeedEntriesRepository: ListSeedEntriesRepository.Interface,
+    private readonly loadFilePoolService: LoadFilePoolService.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -120,6 +122,15 @@ class SeedServiceImpl implements Abstraction.Interface {
 
       await this.preloadExistingRefs(project.id, availableRefs);
 
+      const filePoolResult = await this.loadFilePoolService.execute({
+        projectId: project.id,
+        tenant: input.tenant,
+      });
+      const filePool = filePoolResult.isOk() ? filePoolResult.value.filePool : [];
+      if (filePool.length > 0) {
+        this.logger.info(`Loaded ${filePool.length} file(s) for file pool.`);
+      }
+
       const signal = input.signal;
 
       for (const ctx of orderedContexts) {
@@ -141,6 +152,7 @@ class SeedServiceImpl implements Abstraction.Interface {
             job.id,
             project.id,
             input.tenant,
+            filePool,
           );
           generatedEntries.push({ modelId: ctx.modelId, entries: dryRunEntries });
           totalCreated += dryRunEntries.length;
@@ -179,6 +191,7 @@ class SeedServiceImpl implements Abstraction.Interface {
               this.generatorRegistry,
               { fields: ctx.model.fields },
               availableRefs,
+              filePool,
             );
             batchEntries.push(entry.values as Record<string, unknown>);
           }
@@ -244,6 +257,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                   this.generatorRegistry,
                   { fields: ctx.model.fields },
                   availableRefs,
+                  filePool,
                 );
                 const revData = revEntry.values as Record<string, unknown>;
 
@@ -607,6 +621,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     jobId: string,
     projectId: string,
     tenant: string,
+    filePool: ProjectFile[],
   ): Promise<Record<string, unknown>[]> {
     const entries: Record<string, unknown>[] = [];
     for (let i = 0; i < ctx.amount; i++) {
@@ -614,6 +629,7 @@ class SeedServiceImpl implements Abstraction.Interface {
         this.generatorRegistry,
         { fields: ctx.model.fields },
         availableRefs,
+        filePool,
       );
       const entryData = entry.values as Record<string, unknown>;
       entries.push(entryData);
@@ -651,6 +667,7 @@ export const SeedService = Abstraction.createImplementation({
     ModelDependencyResolver,
     CreateSeedEntryRepository,
     ListSeedEntriesRepository,
+    LoadFilePoolService,
     Logger,
   ],
 });

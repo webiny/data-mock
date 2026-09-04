@@ -7,3 +7,4 @@ export { PullPicsumImagesService } from "./picsum/abstractions/PullPicsumImagesS
 export { ListLocalImagesService } from "./picsum/abstractions/ListLocalImagesService.js";
 export { SyncProjectFilesRepository } from "./sync/abstractions/SyncProjectFilesRepository.js";
 export { SyncFilesService } from "./sync/abstractions/SyncFilesService.js";
+export { LoadFilePoolService } from "./pool/abstractions/LoadFilePoolService.js";

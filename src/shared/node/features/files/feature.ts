@@ -7,6 +7,7 @@ import { PullPicsumImagesService } from "./picsum/PullPicsumImagesService.js";
 import { ListLocalImagesService } from "./picsum/ListLocalImagesService.js";
 import { SyncProjectFilesRepository } from "./sync/SyncProjectFilesRepository.js";
 import { SyncFilesService } from "./sync/SyncFilesService.js";
+import { LoadFilePoolService } from "./pool/LoadFilePoolService.js";
 
 export const FilesFeature = createFeature({
   name: "Shared/FilesFeature",
@@ -19,5 +20,6 @@ export const FilesFeature = createFeature({
     container.register(ListLocalImagesService).inSingletonScope();
     container.register(SyncProjectFilesRepository).inSingletonScope();
     container.register(SyncFilesService);
+    container.register(LoadFilePoolService);
   },
 });

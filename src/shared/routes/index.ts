@@ -20,7 +20,13 @@ export {
 
 export { listSeedEntriesRoute, getSeedEntryRoute, deleteProjectEntriesRoute } from "./entries.js";
 
-export { listProjectFilesRoute, uploadProjectFileRoute, deleteProjectFileRoute } from "./files.js";
+export {
+  listProjectFilesRoute,
+  uploadProjectFileRoute,
+  deleteProjectFileRoute,
+  syncProjectFilesRoute,
+  pullPicsumImagesRoute,
+} from "./files.js";
 
 export { listSyncLogsRoute, deleteSyncLogRoute } from "./syncLogs.js";
 
