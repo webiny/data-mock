@@ -118,7 +118,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
       const availableRefs = new Map<string, string[]>();
 
-      await this.preloadImportedRefs(project.id, availableRefs);
+      await this.preloadExistingRefs(project.id, availableRefs);
 
       for (const ctx of orderedContexts) {
         const modelErrors: string[] = [];
@@ -501,28 +501,43 @@ class SeedServiceImpl implements Abstraction.Interface {
     }
   }
 
-  private async preloadImportedRefs(
+  private async preloadExistingRefs(
     projectId: string,
     availableRefs: Map<string, string[]>,
   ): Promise<void> {
-    const result = await this.listSeedEntriesRepository.execute({
-      projectId,
-      status: "imported",
-    });
-    if (result.isFail()) {
-      return;
-    }
-    for (const entry of result.value.entries) {
-      if (!entry.entryId) {
-        continue;
+    let totalLoaded = 0;
+    let offset = 0;
+    const pageSize = 1000;
+
+    while (true) {
+      const result = await this.listSeedEntriesRepository.execute({
+        projectId,
+        limit: pageSize,
+        offset,
+      });
+      if (result.isFail()) {
+        return;
       }
-      const refs = availableRefs.get(entry.modelId) ?? [];
-      refs.push(entry.entryId);
-      availableRefs.set(entry.modelId, refs);
+
+      for (const entry of result.value.entries) {
+        if (!entry.entryId) {
+          continue;
+        }
+        const refs = availableRefs.get(entry.modelId) ?? [];
+        refs.push(entry.entryId);
+        availableRefs.set(entry.modelId, refs);
+        totalLoaded++;
+      }
+
+      if (result.value.entries.length < pageSize) {
+        break;
+      }
+      offset += pageSize;
     }
-    if (result.value.entries.length > 0) {
+
+    if (totalLoaded > 0) {
       this.logger.info(
-        `Pre-loaded ${result.value.entries.length} imported entry ref(s) across ${availableRefs.size} model(s).`,
+        `Pre-loaded ${totalLoaded} existing entry ref(s) across ${availableRefs.size} model(s).`,
       );
     }
   }

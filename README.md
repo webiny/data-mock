@@ -64,14 +64,51 @@ This starts both the API server (port 4000) and the UI (port 4001) with hot relo
 
 Open **http://localhost:4001** in your browser.
 
-### 5. Sync models and seed data
+### 5. Set up a project
 
-1. Open a project in the UI
-2. Click **Sync Tenants** to discover tenants
-3. Click **Sync Models** to pull CMS model definitions
-4. Go to **Seed Data** — select models, amounts, and click **Start Seed**
+If not already seeded via `.projects.json`, add a project:
 
-All operations run as background jobs with real-time progress via WebSocket.
+1. Click **Add Project** on the project list page
+2. Enter project name, Webiny API URL, API token, tenant, and version
+
+### 6. Sync tenants and models
+
+Before seeding or importing, the project needs tenants and models synced from Webiny:
+
+1. Open the project
+2. Go to **Sync Tenants** — click **Sync** to discover tenants from the Webiny instance
+3. Go to **Sync Models** — click **Sync** to pull CMS model definitions and groups
+
+These must be done in order — tenants first, then models. After syncing, the tenants and models tabs show what was discovered.
+
+### 7. Seed data or import existing entries
+
+**Option A: Seed new mock data**
+
+1. Go to **Seed Data**
+2. Select a **target tenant**
+3. Set **entries per model** and **revisions** (e.g. `1` or `1-5` for a random range)
+4. Select which models to seed (grouped by content model group)
+5. Optionally override entries/revisions per model
+6. Choose a **publish strategy** (none, all, random %, first revision, last revision)
+7. Optionally enable **unpublish cycles** (simulates real content lifecycle)
+8. Click **Seed Data** — a confirmation dialog shows all settings and lets you adjust **batch size** (concurrent mutations)
+9. Confirm to start the job
+
+**Option B: Import existing entries from Webiny**
+
+1. Go to **Import** to pull existing entries from the Webiny instance into the local audit log
+2. Imported entries become available as refs for future seed runs
+
+All operations run as background jobs with real-time progress via WebSocket. Check the **Jobs** tab for status, logs, and to cancel running jobs.
+
+### Key concepts
+
+- **Dependency ordering**: models with ref fields are seeded after the models they reference — e.g. `productCategory` seeds before `product`
+- **Available refs**: all previously seeded and imported entries are available for ref fields, so you can seed categories in one run and products in another
+- **Batch size**: controls how many GraphQL mutations run concurrently (1–50). Higher = faster but more load on Webiny
+- **Fail fast**: if a mutation fails for a model, seeding stops for that model and moves to the next
+- **Rate limiting**: automatic retry on HTTP 429 with exponential backoff (up to 3 retries)
 
 ## CLI Usage
 

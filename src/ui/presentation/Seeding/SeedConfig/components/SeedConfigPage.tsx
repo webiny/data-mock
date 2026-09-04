@@ -209,23 +209,12 @@ export const SeedConfigPage = observer(function SeedConfigPage({
 
       <Divider />
 
-      <Group gap="xl">
-        <Switch
-          label="Dry run"
-          description="Generate entries without sending them to Webiny"
-          checked={vm.dryRun}
-          onChange={(e) => presenter.setDryRun(e.currentTarget.checked)}
-        />
-        <NumberInput
-          label="Batch size"
-          description="Concurrent mutations per batch"
-          value={vm.batchSize}
-          onChange={(v) => presenter.setBatchSize(typeof v === "number" ? v : 1)}
-          min={1}
-          max={50}
-          w={120}
-        />
-      </Group>
+      <Switch
+        label="Dry run"
+        description="Generate entries without sending them to Webiny"
+        checked={vm.dryRun}
+        onChange={(e) => presenter.setDryRun(e.currentTarget.checked)}
+      />
 
       {vm.error && (
         <Alert color="red" title="Error">
@@ -255,9 +244,84 @@ export const SeedConfigPage = observer(function SeedConfigPage({
         onClose={() => presenter.cancelSeed()}
         title="Confirm Seeding"
         centered
-        size="sm"
+        size="md"
       >
-        <Text>This will create real entries in your Webiny CMS instance. Are you sure?</Text>
+        <Stack gap="sm">
+          <Text>This will create real entries in your Webiny CMS instance.</Text>
+          <Card withBorder p="sm">
+            <Stack gap={4}>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Tenant
+                </Text>
+                <Text size="sm" fw={500}>
+                  {vm.selectedTenant}
+                </Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Models
+                </Text>
+                <Text size="sm" fw={500}>
+                  {selectedCount}
+                </Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Entries per model
+                </Text>
+                <Text size="sm" fw={500}>
+                  {vm.globalAmount}
+                </Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Revisions
+                </Text>
+                <Text size="sm" fw={500}>
+                  {vm.globalRevisions}
+                </Text>
+              </Group>
+              <NumberInput
+                label="Batch size"
+                description="Concurrent mutations per batch"
+                value={vm.batchSize}
+                onChange={(v) => presenter.setBatchSize(typeof v === "number" ? v : 1)}
+                min={1}
+                max={50}
+                size="sm"
+              />
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Publish strategy
+                </Text>
+                <Text size="sm" fw={500}>
+                  {vm.publishStrategy}
+                </Text>
+              </Group>
+              {vm.publishStrategy === "random" && (
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Publish percent
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {vm.publishPercent}%
+                  </Text>
+                </Group>
+              )}
+              {vm.publishStrategy !== "none" && (
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Include unpublish cycles
+                  </Text>
+                  <Text size="sm" fw={500}>
+                    {vm.includeUnpublish ? "Yes" : "No"}
+                  </Text>
+                </Group>
+              )}
+            </Stack>
+          </Card>
+        </Stack>
         <Group justify="flex-end" mt="md">
           <Button variant="default" onClick={() => presenter.cancelSeed()}>
             Cancel

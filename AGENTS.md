@@ -86,6 +86,7 @@ src/
     │   ├── tenants/                    # Gateway + Repository
     │   ├── models/                     # Gateway + Repository
     │   ├── seeding/                    # Gateway + Repository
+    │   ├── jobs/                       # Gateway + Repository (MobX-observable)
     │   └── templates/                  # Gateway + Repository
     ├── infrastructure/httpClient/      # FetchHTTPClient for browser
     ├── presentation/
@@ -231,10 +232,11 @@ The project detail route uses a `/*` wildcard — `subPath` determines the activ
 | `sync-models` | Sync Models (log table + run button) |
 | `seed` | Seed Config (embedded, group accordion) |
 | `import` | Import Entries |
+| `jobs` | Background Jobs |
 
 URL is the source of truth for tab selection — no presenter state for active tab.
 
-Sidebar sections: **Data** (6 tabs), **Sync** (2 tabs), **Actions** (Seed Data, Import, Cleanup, Edit Project).
+Sidebar sections: **Data** (7 tabs), **Sync** (2 tabs), **Actions** (Seed Data, Import, Cleanup, Edit Project).
 
 ---
 
@@ -321,6 +323,18 @@ export const ProjectsFeature = createFeature({
 
 ---
 
+## Seeding Behavior
+
+- **Ref field shape**: `{ modelId, id }` only — never send `entryId` in mutation input variables
+- **Dependency ordering**: models are topologically sorted by ref dependencies before seeding — referenced models seed first
+- **Available refs**: before seeding, all existing entries (both `created` and `imported`) are preloaded into the `availableRefs` map so ref generators can pick from them
+- **Batch size**: configurable (1–50 concurrent mutations per batch), set on the confirmation dialog
+- **Fail fast**: seeding stops for a model on first error
+- **Retry**: HTTP 429 (rate limit) retries up to 3 times with exponential backoff
+- **Confirmation dialog**: shows tenant, model count, entries per model, revisions, batch size (editable), publish strategy, publish percent, and include-unpublish-cycles before confirming
+
+---
+
 ## Key Rules
 
 1. **Single responsibility** — one `execute()` per use case and repository. No multi-method classes.
@@ -395,7 +409,7 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **182 tests** across 19 files (vitest)
+- **275 tests** across 24 files (vitest)
 - **Coverage**: v8 provider, ~53% statements, ~37% branches, ~56% functions. Thresholds enforced via `vitest.config.ts`.
 - **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.
