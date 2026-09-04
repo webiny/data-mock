@@ -7,6 +7,11 @@ import {
   syncFilesResponseSchema,
   pullPicsumBodySchema,
   pullPicsumResponseSchema,
+  localFileSchema,
+  uploadLocalFileBodySchema,
+  localFileUploadResultSchema,
+  uploadGlobalBodySchema,
+  uploadGlobalResultSchema,
 } from "../responses/files.js";
 
 export const listProjectFilesRoute = defineListRoute("files", {
@@ -48,4 +53,36 @@ export const pullPicsumImagesRoute = defineOneRoute("result", {
   params: z.object({}),
   body: pullPicsumBodySchema,
   item: pullPicsumResponseSchema,
+});
+
+export const listLocalFilesRoute = defineListRoute("files", {
+  path: "/api/files/local",
+  description: "List local files in the global image pool with per-project upload status",
+  params: z.object({}),
+  item: localFileSchema,
+});
+
+export const uploadLocalFileRoute = defineOneRoute("file", {
+  method: "POST",
+  path: "/api/files/local/upload",
+  description: "Save a dropped file to the local global image pool",
+  params: z.object({}),
+  body: uploadLocalFileBodySchema,
+  item: localFileUploadResultSchema,
+});
+
+export const deleteLocalFileRoute = defineVoidRoute({
+  method: "DELETE",
+  path: "/api/files/local/:fileName",
+  description: "Delete a file from the local global image pool",
+  params: z.object({ fileName: z.string() }),
+});
+
+export const uploadGlobalFilesRoute = defineOneRoute("result", {
+  method: "POST",
+  path: "/api/projects/:projectId/files/upload-global",
+  description: "Upload all unlinked global pool images to a project's Webiny file manager",
+  params: z.object({ projectId: z.string() }),
+  body: uploadGlobalBodySchema,
+  item: uploadGlobalResultSchema,
 });

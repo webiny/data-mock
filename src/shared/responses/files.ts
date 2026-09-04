@@ -50,3 +50,47 @@ export const pullPicsumResponseSchema = z.object({
 });
 
 export type PullPicsumResponse = z.infer<typeof pullPicsumResponseSchema>;
+
+export const localFileProjectSchema = z.object({
+  projectId: z.string(),
+  projectName: z.string(),
+});
+
+export type LocalFileProjectResponse = z.infer<typeof localFileProjectSchema>;
+
+export const localFileSchema = z.object({
+  fileName: z.string(),
+  fileType: z.string(),
+  fileSize: z.number(),
+  uploadedToProjects: z.array(localFileProjectSchema),
+});
+
+export type LocalFileResponse = z.infer<typeof localFileSchema>;
+
+export const uploadLocalFileBodySchema = z.object({
+  fileName: z.string().min(1),
+  fileContent: z.string().min(1),
+});
+
+export type UploadLocalFileBody = z.infer<typeof uploadLocalFileBodySchema>;
+
+export const localFileUploadResultSchema = z.object({
+  fileName: z.string(),
+  fileType: z.string(),
+  fileSize: z.number(),
+});
+
+export type LocalFileUploadResult = z.infer<typeof localFileUploadResultSchema>;
+
+export const uploadGlobalBodySchema = z.object({
+  tenant: z.string().min(1),
+});
+
+export type UploadGlobalBody = z.infer<typeof uploadGlobalBodySchema>;
+
+export const uploadGlobalResultSchema = z.object({
+  uploaded: z.number(),
+  files: z.array(projectFileSchema),
+});
+
+export type UploadGlobalResult = z.infer<typeof uploadGlobalResultSchema>;

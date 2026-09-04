@@ -1,0 +1,95 @@
+import { ActionIcon, Badge, Box, Card, Group, Image, Stack, Text, ThemeIcon } from "@mantine/core";
+
+interface FileCardBadge {
+  label: string;
+  color: string;
+}
+
+interface FileCardProps {
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  thumbnailUrl: string | null;
+  badges: FileCardBadge[];
+  onClick: () => void;
+  onDelete?: () => void;
+}
+
+export function FileCard({
+  fileName,
+  fileType,
+  fileSize,
+  thumbnailUrl,
+  badges,
+  onClick,
+  onDelete,
+}: FileCardProps) {
+  return (
+    <Card
+      withBorder
+      padding="xs"
+      style={{ cursor: "pointer", position: "relative" }}
+      onClick={onClick}
+    >
+      {onDelete && (
+        <ActionIcon
+          variant="filled"
+          color="red"
+          size="sm"
+          radius="xl"
+          style={{ position: "absolute", top: 6, right: 6, zIndex: 1 }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+        >
+          ✕
+        </ActionIcon>
+      )}
+
+      {thumbnailUrl ? (
+        <Card.Section>
+          <Image src={thumbnailUrl} height={140} fit="cover" alt={fileName} />
+        </Card.Section>
+      ) : (
+        <Card.Section>
+          <Box h={140} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <ThemeIcon variant="light" color="gray" size={48} radius="md">
+              <Text size="xs" fw={600}>
+                {fileType || "FILE"}
+              </Text>
+            </ThemeIcon>
+          </Box>
+        </Card.Section>
+      )}
+
+      <Stack gap={4} mt="xs">
+        <Text size="sm" truncate="end">
+          {fileName}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {formatFileSize(fileSize)}
+        </Text>
+        {badges.length > 0 && (
+          <Group gap={4}>
+            {badges.map((badge) => (
+              <Badge key={badge.label} size="xs" variant="light" color={badge.color}>
+                {badge.label}
+              </Badge>
+            ))}
+          </Group>
+        )}
+      </Stack>
+    </Card>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes <= 0) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB"];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, exponent);
+  return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}

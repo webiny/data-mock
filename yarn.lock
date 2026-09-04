@@ -2485,6 +2485,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mantine/dropzone@npm:^9.6.0":
+  version: 9.6.0
+  resolution: "@mantine/dropzone@npm:9.6.0"
+  dependencies:
+    react-dropzone: "npm:20.1.1"
+  peerDependencies:
+    "@mantine/core": 9.6.0
+    "@mantine/hooks": 9.6.0
+    react: ^19.2.0
+    react-dom: ^19.2.0
+  checksum: 10/d3e91288b0b451eb803d6e36767ce8e3da26ef0f5bd676563cf3888be070c4ef30c31021c99be65702bb0b4c4b1288b24122c94b49f2fc9eeca83ac730c427b1
+  languageName: node
+  linkType: hard
+
 "@mantine/hooks@npm:^9.5.2":
   version: 9.5.2
   resolution: "@mantine/hooks@npm:9.5.2"
@@ -6292,6 +6306,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"attr-accept@npm:^4.0.0":
+  version: 4.0.0
+  resolution: "attr-accept@npm:4.0.0"
+  checksum: 10/6604780ad997ed4d20e7a8ea46fc8ba4d2fff28006d003af94018bf9293645e6ed04307dc5dd099bc7a1345ca40fb41e7a3978e35fc23c4c10cd834199346998
+  languageName: node
+  linkType: hard
+
 "available-typed-arrays@npm:^1.0.7":
   version: 1.0.7
   resolution: "available-typed-arrays@npm:1.0.7"
@@ -7119,6 +7140,7 @@ __metadata:
     "@faker-js/faker": "npm:^10.6.0"
     "@fastify/websocket": "npm:^11.3.0"
     "@mantine/core": "npm:^9.5.2"
+    "@mantine/dropzone": "npm:^9.6.0"
     "@mantine/hooks": "npm:^9.5.2"
     "@mantine/notifications": "npm:^9.5.2"
     "@monaco-editor/react": "npm:^4.7.0"
@@ -8338,6 +8360,13 @@ __metadata:
     picomatch:
       optional: true
   checksum: 10/14ca1c9f0a0e8f4f2e9bf4e8551065a164a09545dae548c12a18d238b72e51e5a7b39bd8e5494b56463a0877672d0a6c1ef62c6fa0677db1b0c847773be939b1
+  languageName: node
+  linkType: hard
+
+"file-selector@npm:^5.0.0":
+  version: 5.0.1
+  resolution: "file-selector@npm:5.0.1"
+  checksum: 10/536a4d414d3b163915de9bbee342aebac00483bd15e1b973694074012cd18281b6f6092e01e4458c3b79af8e1dfff5db9b2636f7c3366b80ed2827202f7f4e6c
   languageName: node
   linkType: hard
 
@@ -11561,6 +11590,22 @@ __metadata:
   peerDependencies:
     react: ^19.2.8
   checksum: 10/fb45d500a8615a36d71a821213a3d4bfe32a70aa1d04ce17d8791dd10c4ef0281e7fdd46694e1112f0f2dcf58df89d12043a13228be9788458aa82f4885a9cdc
+  languageName: node
+  linkType: hard
+
+"react-dropzone@npm:20.1.1":
+  version: 20.1.1
+  resolution: "react-dropzone@npm:20.1.1"
+  dependencies:
+    attr-accept: "npm:^4.0.0"
+    file-selector: "npm:^5.0.0"
+  peerDependencies:
+    "@types/react": "*"
+    react: ">= 18"
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10/13dd4dd0872e7a55aedbcb087aedeb40a74b3ff568506b95757f4ab0486eb9382ea8f1b4b42730838d180aaad0c342b1c49be434aa7f21d81fca2c0bff76035f
   languageName: node
   linkType: hard
 

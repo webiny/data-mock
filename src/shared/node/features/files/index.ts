@@ -8,3 +8,7 @@ export { ListLocalImagesService } from "./picsum/abstractions/ListLocalImagesSer
 export { SyncProjectFilesRepository } from "./sync/abstractions/SyncProjectFilesRepository.js";
 export { SyncFilesService } from "./sync/abstractions/SyncFilesService.js";
 export { LoadFilePoolService } from "./pool/abstractions/LoadFilePoolService.js";
+export { UploadGlobalFilesToProjectService } from "./pool/abstractions/UploadGlobalFilesToProjectService.js";
+export { ListLocalFilesService } from "./local/abstractions/ListLocalFilesService.js";
+export { SaveLocalFileService } from "./local/abstractions/SaveLocalFileService.js";
+export { DeleteLocalFileService } from "./local/abstractions/DeleteLocalFileService.js";

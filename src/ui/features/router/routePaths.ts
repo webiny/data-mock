@@ -4,4 +4,5 @@ export const AppRoutes = {
   projectTab: (projectId: string, tab: string) => `/projects/${projectId}/${tab}`,
   seedConfig: (projectId: string) => `/projects/${projectId}/seed`,
   seedHistory: (projectId: string) => `/projects/${projectId}/history`,
+  fileManager: () => "/files",
 } as const;

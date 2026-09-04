@@ -189,6 +189,13 @@ All long-running operations (seed, sync-tenants, sync-models, import, cleanup) r
 | GET | `/api/projects/:projectId/files` | List uploaded files |
 | POST | `/api/projects/:projectId/files/upload` | Upload a file |
 | DELETE | `/api/projects/:projectId/files/:fileId` | Delete file reference |
+| POST | `/api/projects/:projectId/files/sync` | Sync files from a project's file manager |
+| POST | `/api/projects/:projectId/files/upload-global` | Upload all unlinked global pool images to a project's file manager |
+| POST | `/api/files/picsum/pull` | Pull placeholder images from picsum.photos into the local image pool |
+| GET | `/api/files/local` | List local files in `.webiny/images/` with per-project upload status |
+| POST | `/api/files/local/upload` | Save a dropped file to `.webiny/images/` |
+| DELETE | `/api/files/local/:fileName` | Delete a file from `.webiny/images/` |
+| GET | `/api/files/local/:fileName/content` | Serve raw file bytes for thumbnail display (raw Fastify route, not typed) |
 
 ### Jobs
 | Method | Path | Purpose |

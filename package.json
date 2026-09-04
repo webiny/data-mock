@@ -9,6 +9,7 @@
     "@faker-js/faker": "^10.6.0",
     "@fastify/websocket": "^11.3.0",
     "@mantine/core": "^9.5.2",
+    "@mantine/dropzone": "^9.6.0",
     "@mantine/hooks": "^9.5.2",
     "@mantine/notifications": "^9.5.2",
     "@monaco-editor/react": "^4.7.0",
