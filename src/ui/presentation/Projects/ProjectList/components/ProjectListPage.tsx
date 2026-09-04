@@ -62,6 +62,7 @@ export const ProjectListPage = observer(function ProjectListPage({
                   <Badge variant="light" size="sm">
                     v{project.webinyVersion}
                   </Badge>
+                  <HealthDot status={project.health} />
                 </Group>
                 <Text size="sm" c="dimmed">
                   {project.apiUrl}
@@ -143,3 +144,25 @@ export const ProjectListPage = observer(function ProjectListPage({
     </Stack>
   );
 });
+
+const HEALTH_COLORS: Record<string, string> = {
+  unknown: "gray",
+  checking: "blue",
+  reachable: "green",
+  unreachable: "red",
+};
+
+const HEALTH_LABELS: Record<string, string> = {
+  unknown: "Not checked",
+  checking: "Checking...",
+  reachable: "Online",
+  unreachable: "Unreachable",
+};
+
+function HealthDot({ status }: { status: string }) {
+  return (
+    <Badge variant="dot" color={HEALTH_COLORS[status] ?? "gray"} size="sm">
+      {HEALTH_LABELS[status] ?? status}
+    </Badge>
+  );
+}

@@ -12,6 +12,7 @@ export interface ProjectItemVM {
   tenant: string;
   webinyVersion: string;
   tenants: ProjectTenantVM[];
+  health: "unknown" | "checking" | "reachable" | "unreachable";
   isSyncing: boolean;
   isSyncingModels: boolean;
 }

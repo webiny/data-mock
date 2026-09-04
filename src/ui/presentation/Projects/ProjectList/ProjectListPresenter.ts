@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
 import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
@@ -10,12 +11,15 @@ import { SyncModelsUseCase } from "./useCases/SyncModels/abstractions/SyncModels
 import { ProjectListPresenter as Abstraction } from "./abstractions/ProjectListPresenter.js";
 import type { ProjectListVM } from "./abstractions/ProjectListPresenter.js";
 
+type HealthStatus = "unknown" | "checking" | "reachable" | "unreachable";
+
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _syncingProjectIds = new Set<string>();
   private _syncingModelsProjectIds = new Set<string>();
   private _removeProjectId: string | null = null;
   private _removeProjectName: string | null = null;
+  private _healthMap = new Map<string, HealthStatus>();
 
   public constructor(
     private readonly loadProjectsUseCase: LoadProjectsUseCase.Interface,
@@ -23,6 +27,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     private readonly loadTenantsUseCase: LoadTenantsUseCase.Interface,
     private readonly syncTenantsUseCase: SyncTenantsUseCase.Interface,
     private readonly syncModelsUseCase: SyncModelsUseCase.Interface,
+    private readonly projectsGateway: ProjectsGateway.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
     private readonly tenantsRepository: TenantsRepository.Interface,
     private readonly notificationService: NotificationService.Interface,
@@ -40,6 +45,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         tenant: p.tenant,
         webinyVersion: p.webinyVersion,
         tenants: tenants.map((t) => ({ tenantId: t.tenantId, name: t.name })),
+        health: this._healthMap.get(p.id) ?? "unknown",
         isSyncing: this._syncingProjectIds.has(p.id),
         isSyncingModels: this._syncingModelsProjectIds.has(p.id),
       };
@@ -68,6 +74,28 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         this._isLoading = false;
       });
     }
+    void this.checkAllHealth();
+  };
+
+  private checkAllHealth = async (): Promise<void> => {
+    const projects = this.projectsRepository.projects;
+    for (const p of projects) {
+      void this.checkHealth(p.id);
+    }
+  };
+
+  private checkHealth = async (projectId: string): Promise<void> => {
+    runInAction(() => {
+      this._healthMap.set(projectId, "checking");
+    });
+    const result = await this.projectsGateway.healthCheck(projectId);
+    runInAction(() => {
+      if (result.isFail()) {
+        this._healthMap.set(projectId, "unreachable");
+        return;
+      }
+      this._healthMap.set(projectId, result.value.reachable ? "reachable" : "unreachable");
+    });
   };
 
   public remove = async (id: string): Promise<void> => {
@@ -134,6 +162,7 @@ export const ProjectListPresenter = Abstraction.createImplementation({
     LoadTenantsUseCase,
     SyncTenantsUseCase,
     SyncModelsUseCase,
+    ProjectsGateway,
     ProjectsRepository,
     TenantsRepository,
     NotificationService,
