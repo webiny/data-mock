@@ -360,7 +360,16 @@ class SeedServiceImpl implements Abstraction.Interface {
     headers: Record<string, string>,
     op: GqlOp,
   ): Promise<EntryMutationResult> {
-    const request: EntryMutationRequest = { url: apiUrl, mutation, variables, headers };
+    const safeHeaders = { ...headers };
+    if (safeHeaders["authorization"]) {
+      safeHeaders["authorization"] = "[REDACTED]";
+    }
+    const request: EntryMutationRequest = {
+      url: apiUrl,
+      mutation,
+      variables,
+      headers: safeHeaders,
+    };
     const body = JSON.stringify({ query: mutation, variables });
     const response = await this.cmsManageClient.post(apiUrl, body, headers);
     const rawBody = await response.text().catch(() => "");

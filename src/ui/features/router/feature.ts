@@ -1,4 +1,4 @@
-import { createFeature } from "@webiny/stdlib";
+import { createFeature } from "~/ui/di/createFeature.js";
 import { RouteRegistry } from "./RouteRegistry.js";
 
 export const RouterFeature = createFeature({

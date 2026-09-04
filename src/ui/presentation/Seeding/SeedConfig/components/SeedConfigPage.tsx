@@ -222,12 +222,10 @@ export const SeedConfigPage = observer(function SeedConfigPage({
         </Alert>
       )}
 
-      {vm.seedResult && (
-        <Alert color={vm.seedResult.errors > 0 ? "yellow" : "green"} title="Seeding Complete">
-          <Group gap="md">
-            <Badge color="green">{vm.seedResult.created} created</Badge>
-            {vm.seedResult.errors > 0 && <Badge color="red">{vm.seedResult.errors} errors</Badge>}
-          </Group>
+      {vm.seedJobStarted && (
+        <Alert color="blue" title="Seed Job Started">
+          Seed job has been enqueued and is running in the background. You will be notified when it
+          completes.
         </Alert>
       )}
 

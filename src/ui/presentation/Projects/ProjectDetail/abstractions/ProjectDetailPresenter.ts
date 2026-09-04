@@ -146,6 +146,7 @@ export interface IProjectDetailPresenter {
   openCleanupDialog(): void;
   closeCleanupDialog(): void;
   confirmCleanup(): Promise<void>;
+  dispose(): void;
 }
 
 export const ProjectDetailPresenter = createAbstraction<IProjectDetailPresenter>(

@@ -70,6 +70,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
   private readonly entriesListState: URLListState.Interface;
+  private readonly disposeJobSubscription: () => void;
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
@@ -103,8 +104,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       },
       onChange: () => this.reloadEntries(),
     });
-    eventBridge.on("job:status", this.handleJobStatus);
     makeAutoObservable(this);
+    this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
   }
 
   public get vm(): IProjectDetailVM {
@@ -575,6 +576,10 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     return params;
   }
 
+  public dispose = (): void => {
+    this.disposeJobSubscription();
+  };
+
   private handleJobStatus = (event: WSJobStatus): void => {
     if (!this._projectId || event.projectId !== this._projectId) {
       return;
@@ -586,10 +591,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!datasetsToReload) {
       return;
     }
-    for (const dataset of datasetsToReload) {
-      this._loadedDatasets.delete(dataset);
-    }
-    void Promise.all(datasetsToReload.map((d) => this.loadDataset(d)));
+    const toReload = datasetsToReload.filter((d) => this._loadedDatasets.has(d));
+    runInAction(() => {
+      for (const dataset of toReload) {
+        this._loadedDatasets.delete(dataset);
+      }
+    });
+    void Promise.all(toReload.map((d) => this.loadDataset(d)));
   };
 
   private reloadEntries = async (): Promise<void> => {

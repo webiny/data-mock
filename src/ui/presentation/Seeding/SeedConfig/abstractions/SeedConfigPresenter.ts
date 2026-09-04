@@ -39,7 +39,7 @@ export interface ISeedConfigVM {
   isSeeding: boolean;
   showSeedConfirm: boolean;
   error: string | null;
-  seedResult: { created: number; errors: number } | null;
+  seedJobStarted: boolean;
 }
 
 export interface ISeedConfigPresenter {

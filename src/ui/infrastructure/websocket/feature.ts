@@ -1,4 +1,4 @@
-import { createFeature } from "@webiny/stdlib";
+import { createFeature } from "~/ui/di/createFeature.js";
 import { WebSocketListener } from "./WebSocketListener.js";
 import { WebSocketListener as WebSocketListenerAbstraction } from "./abstractions/WebSocketListener.js";
 

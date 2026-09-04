@@ -1,4 +1,4 @@
-import { createFeature } from "@webiny/stdlib";
+import { createFeature } from "~/ui/di/createFeature.js";
 import { URLListStateFactory } from "./URLListStateFactory.js";
 
 export const URLListStateFeature = createFeature({

@@ -35,9 +35,11 @@ const pollTimer = setInterval(() => {
 let shuttingDown = false;
 const shutdown = async (): Promise<void> => {
   if (shuttingDown) {
-    return;
+    logger.info("Force shutdown.");
+    process.exit(1);
   }
   shuttingDown = true;
+  logger.info("Shutting down...");
   clearInterval(pollTimer);
   await jobWorker.drain();
   await app.close();

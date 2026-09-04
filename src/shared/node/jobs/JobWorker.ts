@@ -128,14 +128,15 @@ class JobWorkerImpl implements Abstraction.Interface {
         signal: controller.signal,
       });
 
+      context.dispose();
       await this.finishJob(job, controller.signal.aborted ? "cancelled" : "completed", context);
     } catch (error) {
+      context.dispose();
       const status: JobStatus = controller.signal.aborted ? "cancelled" : "failed";
       const errorLog = `${context.getLogs()}\nERROR: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`;
       this.logger.error(`Job ${job.id} (${job.type}) failed`, { error: String(error) });
       await this.finishJobWithLogs(job, status, errorLog, context.wasProgressUsed());
     } finally {
-      context.dispose();
       this.controllers.delete(job.id);
     }
   }

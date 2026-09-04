@@ -1,4 +1,4 @@
-import { createFeature } from "@webiny/stdlib";
+import { createFeature } from "~/ui/di/createFeature.js";
 import { EventBridge } from "./EventBridge.js";
 
 export const EventsFeature = createFeature({

@@ -1,4 +1,4 @@
-import { createFeature } from "@webiny/stdlib";
+import { createFeature } from "~/ui/di/createFeature.js";
 import { NotificationService } from "./NotificationService.js";
 
 export const NotificationsFeature = createFeature({

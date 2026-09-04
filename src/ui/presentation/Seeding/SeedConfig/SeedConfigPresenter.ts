@@ -52,7 +52,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   private _isSeeding = false;
   private _showSeedConfirm = false;
   private _error: string | null = null;
-  private _seedResult: { created: number; errors: number } | null = null;
+  private _seedJobStarted = false;
 
   public constructor(
     private readonly loadSeedConfigUseCase: LoadSeedConfigUseCase.Interface,
@@ -112,14 +112,14 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
       isSeeding: this._isSeeding,
       showSeedConfirm: this._showSeedConfirm,
       error: this._error,
-      seedResult: this._seedResult,
+      seedJobStarted: this._seedJobStarted,
     };
   }
 
   public load = async (projectId: string): Promise<void> => {
     this._isLoading = true;
     this._error = null;
-    this._seedResult = null;
+    this._seedJobStarted = false;
     this._projectId = projectId;
 
     try {
@@ -272,7 +272,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
 
     this._isSeeding = true;
     this._error = null;
-    this._seedResult = null;
+    this._seedJobStarted = false;
 
     try {
       const result = await this.triggerSeedUseCase.execute({
@@ -291,7 +291,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
           return;
         }
 
-        this._seedResult = { created: 0, errors: 0 };
+        this._seedJobStarted = true;
       });
     } finally {
       runInAction(() => {

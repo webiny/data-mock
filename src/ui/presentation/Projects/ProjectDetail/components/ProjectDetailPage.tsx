@@ -64,6 +64,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
 
   useEffect(() => {
     void presenter.load(projectId);
+    return () => presenter.dispose();
   }, [presenter, projectId]);
 
   useEffect(() => {
