@@ -6,6 +6,7 @@ import {
   pullPicsumImagesRoute,
   uploadGlobalFilesRoute,
 } from "~/shared/routes/files.js";
+import type { Job } from "~/shared/types.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { LocalFilesGateway as Abstraction } from "./abstractions/LocalFilesGateway.js";
@@ -68,7 +69,7 @@ class LocalFilesGatewayImpl implements Abstraction.Interface {
   public async uploadGlobalToProject(
     projectId: string,
     input: ILocalFilesUploadGlobalToProjectInput,
-  ): Promise<Result<{ uploaded: number }, HTTPError>> {
+  ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(uploadGlobalFilesRoute, {
       params: { projectId },
       body: input,
@@ -78,7 +79,7 @@ class LocalFilesGatewayImpl implements Abstraction.Interface {
       return Result.fail(result.error);
     }
 
-    return Result.ok({ uploaded: result.value.result.uploaded });
+    return Result.ok(result.value.job);
   }
 }
 

@@ -1,6 +1,12 @@
 export const TERMINAL_JOB_STATUSES = new Set(["completed", "failed", "cancelled", "interrupted"]);
 
-export type JobType = "seed" | "pull-tenants" | "pull-models" | "cleanup" | "import";
+export type JobType =
+  | "seed"
+  | "pull-tenants"
+  | "pull-models"
+  | "cleanup"
+  | "import"
+  | "upload-files";
 
 export type JobStatus =
   | "pending"

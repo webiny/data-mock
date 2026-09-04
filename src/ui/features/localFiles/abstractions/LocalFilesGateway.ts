@@ -1,5 +1,6 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
+import type { Job } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface ILocalFileUploadedProjectVM {
@@ -38,7 +39,7 @@ export interface ILocalFilesGateway {
   uploadGlobalToProject(
     projectId: string,
     input: ILocalFilesUploadGlobalToProjectInput,
-  ): Promise<Result<{ uploaded: number }, HTTPError>>;
+  ): Promise<Result<Job, HTTPError>>;
 }
 
 export const LocalFilesGateway = createAbstraction<ILocalFilesGateway>("Ui/LocalFilesGateway");

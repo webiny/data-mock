@@ -7,6 +7,7 @@ import { SyncTenantsJobExecutor } from "./executors/SyncTenantsJobExecutor.js";
 import { SyncModelsJobExecutor } from "./executors/SyncModelsJobExecutor.js";
 import { CleanupJobExecutor } from "./executors/CleanupJobExecutor.js";
 import { ImportJobExecutor } from "./executors/ImportJobExecutor.js";
+import { UploadFilesJobExecutor } from "./executors/UploadFilesJobExecutor.js";
 
 export const JobsFeature = createFeature({
   name: "Jobs/JobsFeature",
@@ -16,6 +17,7 @@ export const JobsFeature = createFeature({
     container.register(SyncModelsJobExecutor).inSingletonScope();
     container.register(CleanupJobExecutor).inSingletonScope();
     container.register(ImportJobExecutor).inSingletonScope();
+    container.register(UploadFilesJobExecutor).inSingletonScope();
     container.register(JobExecutorRegistry).inSingletonScope();
     container.register(JobExecutionContextFactory).inSingletonScope();
     container.register(JobWorker).inSingletonScope();

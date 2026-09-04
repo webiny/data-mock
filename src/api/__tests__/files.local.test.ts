@@ -167,7 +167,7 @@ describe("Local Files API routes", () => {
   });
 
   describe("POST /api/projects/:projectId/files/upload-global", () => {
-    it("should upload unlinked local images to the project's file pool", async () => {
+    it("should enqueue an upload-files job", async () => {
       const createResponse = await app.inject({
         method: "POST",
         url: "/api/projects",
@@ -186,10 +186,12 @@ describe("Local Files API routes", () => {
         payload: { tenant: "root" },
       });
 
-      expect(response.statusCode).toBe(201);
+      expect(response.statusCode).toBe(202);
       const body = response.json();
-      expect(body.result.uploaded).toBe(0);
-      expect(body.result.files).toEqual([]);
+      expect(body.job).toBeDefined();
+      expect(body.job.projectId).toBe(projectId);
+      expect(body.job.type).toBe("upload-files");
+      expect(body.job.status).toBe("pending");
     });
 
     it("should return 400 for invalid body", async () => {

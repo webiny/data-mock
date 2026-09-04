@@ -11,8 +11,8 @@ import {
   uploadLocalFileBodySchema,
   localFileUploadResultSchema,
   uploadGlobalBodySchema,
-  uploadGlobalResultSchema,
 } from "../responses/files.js";
+import { jobSchema } from "./jobs.js";
 
 export const listProjectFilesRoute = defineListRoute("files", {
   path: "/api/projects/:projectId/files",
@@ -78,11 +78,11 @@ export const deleteLocalFileRoute = defineVoidRoute({
   params: z.object({ fileName: z.string() }),
 });
 
-export const uploadGlobalFilesRoute = defineOneRoute("result", {
+export const uploadGlobalFilesRoute = defineOneRoute("job", {
   method: "POST",
   path: "/api/projects/:projectId/files/upload-global",
   description: "Upload all unlinked global pool images to a project's Webiny file manager",
   params: z.object({ projectId: z.string() }),
   body: uploadGlobalBodySchema,
-  item: uploadGlobalResultSchema,
+  item: jobSchema,
 });

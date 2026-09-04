@@ -1,21 +1,24 @@
 import { uploadGlobalFilesRoute } from "~/shared/routes/files.js";
-import { UploadGlobalFilesToProjectService } from "~/shared/node/features/files/pool/abstractions/UploadGlobalFilesToProjectService.js";
+import { JobWorker } from "~/shared/node/jobs/abstractions/JobWorker.js";
+import { JobNotFoundError } from "~/shared/errors.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
 export const uploadGlobalFiles = routeFactory(
   uploadGlobalFilesRoute,
   async ({ params, body, container, send }) => {
-    const service = container.resolve(UploadGlobalFilesToProjectService);
-    const result = await service.execute({
+    const jobWorker = container.resolve(JobWorker);
+    const jobId = await jobWorker.enqueue({
       projectId: params.projectId,
-      tenant: body.tenant,
-      fileNames: body.fileNames,
+      type: "upload-files",
+      config: {
+        tenant: body.tenant,
+        fileNames: body.fileNames,
+      },
     });
-
-    if (result.isFail()) {
-      return send.error(result.error);
+    const job = await jobWorker.getJob(jobId);
+    if (!job) {
+      return send.error(new JobNotFoundError(jobId));
     }
-
-    return send.one("result", result.value, 201);
+    return send.one("job", job, 202);
   },
 );

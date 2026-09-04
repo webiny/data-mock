@@ -42,7 +42,7 @@ const VIEW_DATASETS: Record<string, string[]> = {
   tenants: ["tenants"],
   models: ["models"],
   files: ["files"],
-  entries: ["entries"],
+  entries: ["entries", "syncLogs"],
   history: ["seedJobs"],
   templates: ["templates"],
   "pull-tenants": ["syncLogs"],
@@ -58,6 +58,7 @@ const JOB_TYPE_DATASETS: Record<string, string[]> = {
   "pull-models": ["models", "syncLogs", "jobs"],
   cleanup: ["entries", "jobs"],
   import: ["entries", "jobs"],
+  "upload-files": ["files", "jobs"],
 };
 
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
@@ -491,12 +492,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       const result = await this.localFilesGateway.uploadGlobalToProject(projectId, { tenant });
       runInAction(() => {
         if (result.isOk()) {
-          this.notifications.success(`Uploaded ${result.value.uploaded} global image(s).`);
+          this.notifications.success("Upload job started.");
         } else {
           this.notifications.error(`Failed to upload global images: ${result.error.message}`);
         }
       });
-      await this.reloadFiles();
     } finally {
       runInAction(() => {
         this._isUploadingGlobal = false;
@@ -518,12 +518,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       });
       runInAction(() => {
         if (result.isOk()) {
-          this.notifications.success(`Uploaded ${result.value.uploaded} selected image(s).`);
+          this.notifications.success("Upload job started.");
         } else {
           this.notifications.error(`Failed to upload selected images: ${result.error.message}`);
         }
       });
-      await this.reloadFiles();
     } finally {
       runInAction(() => {
         this._isUploadingGlobal = false;

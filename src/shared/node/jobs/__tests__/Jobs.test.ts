@@ -158,6 +158,12 @@ describe("Jobs System", () => {
       expect(executor.type).toBe("import");
     });
 
+    it("should resolve upload-files executor", () => {
+      const registry = tc.container.resolve(JobExecutorRegistry);
+      const executor = registry.getExecutor("upload-files");
+      expect(executor.type).toBe("upload-files");
+    });
+
     it("should throw for unknown executor type", () => {
       const registry = tc.container.resolve(JobExecutorRegistry);
       expect(() => registry.getExecutor("unknown")).toThrow("No executor for job type: unknown");

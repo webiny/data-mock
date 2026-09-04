@@ -250,11 +250,13 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 statusFilter={vm.entriesStatusFilter}
                 models={vm.models}
                 tenants={vm.tenants}
+                syncLog={syncLog}
                 isClearing={isClearingEntries}
                 onPageChange={(p) => void presenter.loadEntriesPage(p)}
                 onFilterChange={(k, v) => void presenter.setEntriesFilter(k, v)}
                 onClearFilter={() => void presenter.clearEntriesFilter()}
                 onClear={() => void presenter.clearEntries()}
+                onDeleteSyncLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
             {activeView === "history" && (

@@ -28,6 +28,7 @@ const typeLabels: Record<string, string> = {
   "pull-models": "Pull models",
   cleanup: "Cleanup",
   import: "Import",
+  "upload-files": "Upload files",
 };
 
 interface JobsTabProps {
