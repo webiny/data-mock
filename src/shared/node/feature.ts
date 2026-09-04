@@ -18,6 +18,7 @@ import { SeedingFeature } from "./features/seeding/feature.js";
 import { TemplatesFeature } from "./features/templates/feature.js";
 import { FilesFeature } from "./features/files/feature.js";
 import { SyncLogsFeature } from "./features/syncLogs/feature.js";
+import { JobsFeature } from "./jobs/feature.js";
 
 const DEFAULT_DB_PATH = "./.webiny/data-mock.db";
 
@@ -47,6 +48,7 @@ export const AppFeature = createFeature({
     TemplatesFeature.register(container);
     FilesFeature.register(container);
     SyncLogsFeature.register(container);
+    JobsFeature.register(container);
 
     const encryptionService = container.resolve(EncryptionService);
     seedProjectsFromFile(databaseClient, encryptionService);

@@ -8,6 +8,13 @@
       "when": 1788454240377,
       "tag": "0000_legal_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788503987989,
+      "tag": "0001_married_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

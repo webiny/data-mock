@@ -57,3 +57,12 @@ export class ValidationError extends BaseError {
     super({ message });
   }
 }
+
+export class JobNotFoundError extends BaseError {
+  override readonly code = "Job/NotFound" as const;
+  public readonly statusCode = 404;
+
+  public constructor(id: string) {
+    super({ message: `Job "${id}" not found` });
+  }
+}

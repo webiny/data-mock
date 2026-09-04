@@ -7,8 +7,11 @@ import "@mantine/notifications/styles.css";
 import { DiContainerProvider } from "./di/DiContainerProvider.js";
 import { HTTPClientFeature } from "./infrastructure/httpClient/feature.js";
 import { RouterFeature } from "./features/router/feature.js";
+import { URLListStateFeature } from "./features/router/URLListStateFeature.js";
 import { Route } from "./features/router/abstractions/Route.js";
 import { NotificationsFeature } from "./features/notifications/feature.js";
+import { EventsFeature } from "./infrastructure/events/feature.js";
+import { WebSocketFeature } from "./infrastructure/websocket/feature.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
@@ -29,7 +32,10 @@ function createAppContainer(): Container {
 
   HTTPClientFeature.register(container, { baseUrl: "" });
   RouterFeature.register(container);
+  URLListStateFeature.register(container);
   NotificationsFeature.register(container);
+  EventsFeature.register(container);
+  WebSocketFeature.register(container);
 
   ProjectsFeature.register(container);
   TenantsFeature.register(container);

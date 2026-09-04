@@ -15,6 +15,8 @@ import { SeedingFeature } from "~/shared/node/features/seeding/feature.js";
 import { TemplatesFeature } from "~/shared/node/features/templates/feature.js";
 import { FilesFeature } from "~/shared/node/features/files/feature.js";
 import { SyncLogsFeature } from "~/shared/node/features/syncLogs/feature.js";
+import { WebSocketBroadcaster } from "~/shared/node/websocket/abstractions/WebSocketBroadcaster.js";
+import { JobsFeature } from "~/shared/node/jobs/feature.js";
 import { GraphQLConfig } from "~/shared/node/graphql/abstractions/GraphQLConfig.js";
 import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
@@ -55,6 +57,9 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   FilesFeature.register(container);
   SyncLogsFeature.register(container);
 
+  container.registerInstance(WebSocketBroadcaster, createNoOpBroadcaster());
+  JobsFeature.register(container);
+
   if (options.httpClient) {
     container.registerInstance(HttpClient, options.httpClient);
   } else {
@@ -87,5 +92,11 @@ function createNoOpHttpClient(): HttpClient.Interface {
         "HttpClient not mocked. Pass a mock httpClient to createTestContainer() or register one on the container.",
       );
     },
+  };
+}
+
+function createNoOpBroadcaster(): WebSocketBroadcaster.Interface {
+  return {
+    broadcast() {},
   };
 }
