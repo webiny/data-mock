@@ -4,7 +4,6 @@ import { ListProjectModelsRepository } from "./list/ListProjectModelsRepository.
 import { SyncProjectGroupsRepository } from "./sync/SyncProjectGroupsRepository.js";
 import { SyncProjectModelsRepository } from "./sync/SyncProjectModelsRepository.js";
 import { SyncModelsService } from "./sync/SyncModelsService.js";
-import { CompareModelsService } from "./sync/CompareModelsService.js";
 import { GetProjectModelRepository } from "./get/GetProjectModelRepository.js";
 
 export const ModelsFeature = createFeature({
@@ -17,6 +16,5 @@ export const ModelsFeature = createFeature({
     container.register(GetProjectModelRepository).inSingletonScope();
 
     container.register(SyncModelsService);
-    container.register(CompareModelsService);
   },
 });

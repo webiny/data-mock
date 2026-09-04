@@ -7,7 +7,6 @@ import { SyncProjectGroupsRepository } from "../sync/abstractions/SyncProjectGro
 import { SyncProjectModelsRepository } from "../sync/abstractions/SyncProjectModelsRepository.js";
 import { GetProjectModelRepository } from "../get/abstractions/GetProjectModelRepository.js";
 import { SyncModelsService } from "../sync/abstractions/SyncModelsService.js";
-import { CompareModelsService } from "../sync/abstractions/CompareModelsService.js";
 import type { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import type { ApiCmsModelField } from "~/shared/types.js";
 
@@ -379,109 +378,6 @@ describe("Models Feature", () => {
         if (modelsResult.isOk()) {
           expect(modelsResult.value).toHaveLength(1);
           expect(modelsResult.value[0]!.modelId).toBe("article");
-        }
-      } finally {
-        tc.cleanup();
-      }
-    });
-  });
-
-  describe("CompareModelsService", () => {
-    it("should detect added, removed, changed, and unchanged models", async () => {
-      const mockHttpClient = createMockHttpClient();
-      const tc = createTestContainer({ httpClient: mockHttpClient });
-
-      try {
-        const project = await createProject(tc);
-
-        const syncModelsRepo = tc.container.resolve(SyncProjectModelsRepository);
-        await syncModelsRepo.execute({
-          projectId: project.id,
-          models: [
-            {
-              groupSlug: "blog",
-              modelId: "unchanged-model",
-              name: "Unchanged",
-              singularApiName: "Unchanged",
-              pluralApiName: "Unchangeds",
-              fields: [testField],
-              remoteId: "m1",
-            },
-            {
-              groupSlug: "blog",
-              modelId: "changed-model",
-              name: "Changed",
-              singularApiName: "Changed",
-              pluralApiName: "Changeds",
-              fields: [testField],
-              remoteId: "m2",
-            },
-            {
-              groupSlug: "blog",
-              modelId: "removed-model",
-              name: "Removed",
-              singularApiName: "Removed",
-              pluralApiName: "Removeds",
-              fields: [testField],
-              remoteId: "m3",
-            },
-          ],
-        });
-
-        const changedField: ApiCmsModelField = {
-          ...testField,
-          type: "number",
-        };
-
-        const remoteResponse = createMockResponse(200, {
-          data: {
-            listContentModels: {
-              data: [
-                {
-                  modelId: "unchanged-model",
-                  name: "Unchanged",
-                  singularApiName: "Unchanged",
-                  pluralApiName: "Unchangeds",
-                  fields: [testField],
-                },
-                {
-                  modelId: "changed-model",
-                  name: "Changed",
-                  singularApiName: "Changed",
-                  pluralApiName: "Changeds",
-                  fields: [changedField],
-                },
-                {
-                  modelId: "added-model",
-                  name: "Added",
-                  singularApiName: "Added",
-                  pluralApiName: "Addeds",
-                  fields: [testField],
-                },
-              ],
-            },
-          },
-        });
-
-        vi.mocked(mockHttpClient.post).mockResolvedValue(remoteResponse);
-
-        const compareService = tc.container.resolve(CompareModelsService);
-        const result = await compareService.execute({ projectId: project.id });
-
-        expect(result.isOk()).toBe(true);
-        if (result.isOk()) {
-          const items = result.value.items;
-          const byStatus = new Map(items.map((i) => [i.modelId, i.status]));
-
-          expect(byStatus.get("unchanged-model")).toBe("unchanged");
-          expect(byStatus.get("changed-model")).toBe("changed");
-          expect(byStatus.get("added-model")).toBe("added");
-          expect(byStatus.get("removed-model")).toBe("removed");
-
-          const changed = items.find((i) => i.modelId === "changed-model");
-          expect(changed?.changes).toBeDefined();
-          expect(changed!.changes!.length).toBeGreaterThan(0);
-          expect(changed!.changes![0]).toContain("type changed");
         }
       } finally {
         tc.cleanup();
