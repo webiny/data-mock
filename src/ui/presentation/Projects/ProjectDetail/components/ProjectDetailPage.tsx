@@ -300,13 +300,11 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
         title="Edit Project"
         centered
       >
-        {project && (
-          <EditProjectForm
-            project={project}
-            onSubmit={(input) => presenter.submitEdit(input)}
-            onCancel={() => presenter.closeEditDialog()}
-          />
-        )}
+        <EditProjectForm
+          project={project}
+          onSubmit={(input) => presenter.submitEdit(input)}
+          onCancel={() => presenter.closeEditDialog()}
+        />
       </Modal>
 
       <Modal
