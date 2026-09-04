@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineListRoute, defineOneRoute } from "../routing/defineTypedRoutes.js";
 import { projectTenantSchema } from "../responses/tenants.js";
+import { jobSchema } from "./jobs.js";
 
 export const listProjectTenantsRoute = defineListRoute("tenants", {
   path: "/api/projects/:projectId/tenants",
@@ -9,18 +10,10 @@ export const listProjectTenantsRoute = defineListRoute("tenants", {
   item: projectTenantSchema,
 });
 
-export const syncProjectTenantsRoute = defineOneRoute("sync", {
+export const syncProjectTenantsRoute = defineOneRoute("job", {
   method: "POST",
   path: "/api/projects/:projectId/tenants/sync",
   description: "Sync tenants from Webiny for a project",
   params: z.object({ projectId: z.string() }),
-  item: z.object({
-    synced: z.number(),
-    tenants: z.array(
-      z.object({
-        tenantId: z.string(),
-        name: z.string(),
-      }),
-    ),
-  }),
+  item: jobSchema,
 });

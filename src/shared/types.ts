@@ -126,6 +126,21 @@ export interface SeedJobResult {
 
 export type SeedEntryStatus = "created" | "failed" | "dry-run" | "imported" | "deleted";
 
+export interface Job {
+  id: string;
+  projectId: string;
+  type: string;
+  status: string;
+  config: unknown;
+  logs: string | null;
+  progress: number | null;
+  progressLabel: string | null;
+  parentJobId: string | null;
+  startedAt: number | null;
+  completedAt: number | null;
+  createdAt: number;
+}
+
 export interface OperationLog {
   name: string;
   url: string;

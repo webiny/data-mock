@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineListRoute, defineOneRoute } from "~/shared/routing/defineTypedRoutes.js";
 
-const jobSchema = z.object({
+export const jobSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   type: z.string(),

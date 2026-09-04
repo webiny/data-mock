@@ -3,9 +3,9 @@ import { defineListRoute, defineOneRoute } from "../routing/defineTypedRoutes.js
 import {
   projectModelSchema,
   modelDiffItemSchema,
-  modelSyncResultSchema,
   modelPushResultSchema,
 } from "../responses/models.js";
+import { jobSchema } from "./jobs.js";
 
 export const listProjectModelsRoute = defineListRoute("models", {
   path: "/api/projects/:projectId/models",
@@ -14,12 +14,12 @@ export const listProjectModelsRoute = defineListRoute("models", {
   item: projectModelSchema,
 });
 
-export const syncProjectModelsRoute = defineOneRoute("sync", {
+export const syncProjectModelsRoute = defineOneRoute("job", {
   method: "POST",
   path: "/api/projects/:projectId/models/sync",
   description: "Sync models from Webiny for a project",
   params: z.object({ projectId: z.string() }),
-  item: modelSyncResultSchema,
+  item: jobSchema,
 });
 
 export const pushProjectModelsRoute = defineOneRoute("push", {

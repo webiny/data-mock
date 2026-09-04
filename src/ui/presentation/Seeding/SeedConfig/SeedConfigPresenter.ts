@@ -291,11 +291,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
           return;
         }
 
-        const job = result.value;
-        this._seedResult = {
-          created: job.result?.created ?? 0,
-          errors: job.result?.errors.length ?? 0,
-        };
+        this._seedResult = { created: 0, errors: 0 };
       });
     } finally {
       runInAction(() => {

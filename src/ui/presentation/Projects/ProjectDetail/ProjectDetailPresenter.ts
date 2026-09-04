@@ -321,22 +321,16 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
     this._isSyncingTenants = true;
     try {
-      const syncResult = await this.tenantsGateway.syncForProject(this._projectId);
-      if (syncResult.isFail()) {
-        runInAction(() =>
-          this.notifications.error(`Failed to sync tenants: ${syncResult.error.message}`),
-        );
-        return;
-      }
-      const listResult = await this.tenantsGateway.listForProject(this._projectId);
+      const result = await this.tenantsGateway.syncForProject(this._projectId);
       runInAction(() => {
-        if (listResult.isOk()) {
-          this.tenantsRepository.setTenants(this._projectId!, listResult.value);
+        if (result.isOk()) {
+          this.notifications.success("Tenant sync job started.");
+        } else {
+          this.notifications.error(`Failed to start tenant sync: ${result.error.message}`);
         }
-        this.notifications.success(`Synced ${syncResult.value.synced} tenant(s).`);
+        this._isSyncingTenants = false;
       });
-    } finally {
-      await this.reloadSyncLogs();
+    } catch {
       runInAction(() => {
         this._isSyncingTenants = false;
       });
@@ -349,22 +343,16 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
     this._isSyncingModels = true;
     try {
-      const syncResult = await this.modelsGateway.syncModels(this._projectId);
-      if (syncResult.isFail()) {
-        runInAction(() =>
-          this.notifications.error(`Failed to sync models: ${syncResult.error.message}`),
-        );
-        return;
-      }
-      const listResult = await this.modelsGateway.listModels(this._projectId);
+      const result = await this.modelsGateway.syncModels(this._projectId);
       runInAction(() => {
-        if (listResult.isOk()) {
-          this.modelsRepository.setModels(listResult.value);
+        if (result.isOk()) {
+          this.notifications.success("Model sync job started.");
+        } else {
+          this.notifications.error(`Failed to start model sync: ${result.error.message}`);
         }
-        this.notifications.success("Models and groups synced.");
+        this._isSyncingModels = false;
       });
-    } finally {
-      await this.reloadSyncLogs();
+    } catch {
       runInAction(() => {
         this._isSyncingModels = false;
       });
@@ -515,17 +503,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       const result = await this.seedingGateway.cleanupEntries(this._projectId);
       runInAction(() => {
         if (result.isOk()) {
-          const { deleted, errors } = result.value;
-          if (errors > 0) {
-            this.notifications.warning(`Deleted ${deleted} entries with ${errors} errors.`);
-          } else {
-            this.notifications.success(`Deleted ${deleted} entries from Webiny.`);
-          }
+          this.notifications.success("Cleanup job started.");
         } else {
           this.notifications.error(`Cleanup failed: ${result.error.message}`);
         }
+        this._isCleaningUp = false;
       });
-    } finally {
+    } catch {
       runInAction(() => {
         this._isCleaningUp = false;
       });
@@ -544,12 +528,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       });
       runInAction(() => {
         if (result.isOk()) {
-          this.notifications.success(`Imported ${result.value.imported} entries.`);
+          this.notifications.success("Import job started.");
         } else {
           this.notifications.error(`Import failed: ${result.error.message}`);
         }
+        this._isImporting = false;
       });
-    } finally {
+    } catch {
       runInAction(() => {
         this._isImporting = false;
       });

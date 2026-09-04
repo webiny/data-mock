@@ -1,5 +1,5 @@
 import { Result } from "@webiny/stdlib";
-import type { ProjectTenant } from "~/shared/types.js";
+import type { ProjectTenant, Job } from "~/shared/types.js";
 import { listProjectTenantsRoute, syncProjectTenantsRoute } from "~/shared/routes/tenants.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
@@ -20,9 +20,7 @@ class TenantsGatewayImpl implements Abstraction.Interface {
     return Result.ok(result.value.tenants.items);
   }
 
-  public async syncForProject(
-    projectId: string,
-  ): Promise<Result<Abstraction.SyncResult, HTTPError>> {
+  public async syncForProject(projectId: string): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(syncProjectTenantsRoute, {
       params: { projectId },
     });
@@ -31,7 +29,7 @@ class TenantsGatewayImpl implements Abstraction.Interface {
       return Result.fail(result.error);
     }
 
-    return Result.ok(result.value.sync);
+    return Result.ok(result.value.job);
   }
 }
 

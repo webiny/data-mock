@@ -1,6 +1,6 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
-import type { SeedJob, Revisions, PublishStrategy } from "~/shared/types.js";
+import type { SeedJob, Job, Revisions, PublishStrategy } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface ITriggerSeedModelInput {
@@ -18,28 +18,14 @@ export interface ITriggerSeedInput {
   dryRun?: boolean | undefined;
 }
 
-export interface IImportResult {
-  imported: number;
-  models: Array<{ modelId: string; count: number }>;
-}
-
-export interface ICleanupResult {
-  deleted: number;
-  errors: number;
-  models: Array<{ modelId: string; deleted: number; errors: number }>;
-}
-
 export interface ISeedingGateway {
-  triggerSeed(projectId: string, input: ITriggerSeedInput): Promise<Result<SeedJob, HTTPError>>;
+  triggerSeed(projectId: string, input: ITriggerSeedInput): Promise<Result<Job, HTTPError>>;
   listSeedJobs(projectId: string): Promise<Result<SeedJob[], HTTPError>>;
   importEntries(
     projectId: string,
     input: { tenant: string; models: string[] },
-  ): Promise<Result<IImportResult, HTTPError>>;
-  cleanupEntries(
-    projectId: string,
-    input?: { jobId?: string },
-  ): Promise<Result<ICleanupResult, HTTPError>>;
+  ): Promise<Result<Job, HTTPError>>;
+  cleanupEntries(projectId: string, input?: { jobId?: string }): Promise<Result<Job, HTTPError>>;
 }
 
 export const SeedingGateway = createAbstraction<ISeedingGateway>("Ui/SeedingGateway");

@@ -1,5 +1,5 @@
 import { Result } from "@webiny/stdlib";
-import type { ProjectModel, ApiCmsModelField } from "~/shared/types.js";
+import type { ProjectModel, Job, ApiCmsModelField } from "~/shared/types.js";
 import type { ModelDiffItem, ModelPushResult } from "~/shared/responses/models.js";
 import {
   listProjectModelsRoute,
@@ -32,10 +32,16 @@ class ModelsGatewayImpl implements Abstraction.Interface {
     return Result.ok(models);
   }
 
-  public async syncModels(projectId: string): Promise<Result<unknown, HTTPError>> {
-    return this.httpClient.request(syncProjectModelsRoute, {
+  public async syncModels(projectId: string): Promise<Result<Job, HTTPError>> {
+    const result = await this.httpClient.request(syncProjectModelsRoute, {
       params: { projectId },
     });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.job);
   }
 
   public async pushModels(projectId: string): Promise<Result<ModelPushResult, HTTPError>> {

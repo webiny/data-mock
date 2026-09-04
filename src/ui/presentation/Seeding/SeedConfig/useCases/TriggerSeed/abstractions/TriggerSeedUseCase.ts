@@ -1,6 +1,6 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
-import type { SeedJob, Revisions, PublishStrategy } from "~/shared/types.js";
+import type { Job, Revisions, PublishStrategy } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface ITriggerSeedModelInput {
@@ -20,7 +20,7 @@ export interface ITriggerSeedInput {
 }
 
 export interface ITriggerSeedUseCase {
-  execute(input: ITriggerSeedInput): Promise<Result<SeedJob, HTTPError>>;
+  execute(input: ITriggerSeedInput): Promise<Result<Job, HTTPError>>;
 }
 
 export const TriggerSeedUseCase = createAbstraction<ITriggerSeedUseCase>("Ui/TriggerSeedUseCase");
