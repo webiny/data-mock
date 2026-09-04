@@ -1,0 +1,180 @@
+import type {
+  CmsContentModelField,
+  CmsContentModel,
+} from "~/shared/node/graphql/operations/base/listContentModels.js";
+
+export type ApiCmsModelField = CmsContentModelField;
+export type ApiCmsModel = CmsContentModel;
+export type ApiCmsModelDynamicZoneField = CmsContentModelField;
+
+export type GenericRecordKey = string | number | symbol;
+// eslint-disable-next-line
+export type GenericRecord<K extends GenericRecordKey = GenericRecordKey, V = any> = Record<K, V>;
+
+export interface CmsEntry<T> {
+  id: string;
+  entryId: string;
+  values: T;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  apiUrl: string;
+  apiToken: string;
+  tenant: string;
+  webinyVersion: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ProjectTenant {
+  id: string;
+  projectId: string;
+  tenantId: string;
+  name: string;
+  discoveredAt: number;
+}
+
+export interface ProjectGroup {
+  id: string;
+  projectId: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  remoteId: string | null;
+  syncedAt: number | null;
+  createdAt: number;
+}
+
+export interface ProjectModel {
+  id: string;
+  projectId: string;
+  groupSlug: string;
+  modelId: string;
+  name: string;
+  singularApiName: string;
+  pluralApiName: string;
+  description: string | null;
+  fields: ApiCmsModelField[];
+  plugin: boolean;
+  remoteId: string | null;
+  syncedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SeedTemplateConfig {
+  tenant: string;
+  models: Array<{ modelId: string; amount: number }>;
+}
+
+export interface SeedTemplate {
+  id: string;
+  projectId: string;
+  name: string;
+  config: SeedTemplateConfig;
+  createdAt: number;
+}
+
+export interface ProjectFile {
+  id: string;
+  projectId: string;
+  tenant: string;
+  fileKey: string;
+  fileUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number | null;
+  uploadedAt: number;
+}
+
+export type Revisions = number | { min: number; max: number };
+export type PublishStrategy = "none" | "all" | "random" | "first" | "last";
+
+export interface SeedModelConfig {
+  modelId: string;
+  amount: number;
+  revisions?: Revisions | undefined;
+}
+
+export interface SeedJobConfig {
+  models: SeedModelConfig[];
+  publishStrategy?: PublishStrategy | undefined;
+  publishPercent?: number | undefined;
+  includeUnpublish?: boolean | undefined;
+}
+
+export type SeedJobStatus = "pending" | "running" | "completed" | "failed" | "dry-run";
+
+export interface SeedJob {
+  id: string;
+  projectId: string;
+  status: SeedJobStatus;
+  config: SeedJobConfig;
+  result: SeedJobResult | null;
+  startedAt: number | null;
+  finishedAt: number | null;
+  createdAt: number;
+}
+
+export interface SeedJobResult {
+  created: number;
+  errors: Array<{ message: string; code: string }>;
+}
+
+export type SeedEntryStatus = "created" | "failed" | "dry-run" | "imported" | "deleted";
+
+export interface Job {
+  id: string;
+  projectId: string;
+  type: string;
+  status: string;
+  config: unknown;
+  logs: string | null;
+  progress: number | null;
+  progressLabel: string | null;
+  parentJobId: string | null;
+  startedAt: number | null;
+  completedAt: number | null;
+  createdAt: number;
+}
+
+export interface OperationLog {
+  name: string;
+  url: string;
+  query: string;
+  httpStatus: number;
+  response: unknown;
+}
+
+export type SyncLogType = "tenants" | "models";
+export type SyncLogStatus = "success" | "error";
+
+export interface SyncLog {
+  id: string;
+  projectId: string;
+  type: SyncLogType;
+  status: SyncLogStatus;
+  message: string;
+  request: unknown;
+  response: unknown;
+  createdAt: number;
+}
+
+export interface SeedEntry {
+  id: string;
+  jobId: string | null;
+  projectId: string;
+  tenant: string;
+  modelId: string;
+  entryId: string;
+  entryData: Record<string, unknown>;
+  requestData: Record<string, unknown> | null;
+  responseData: string | null;
+  httpStatus: number | null;
+  status: SeedEntryStatus;
+  error: string | null;
+  createdAt: number;
+}

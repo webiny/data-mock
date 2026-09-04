@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788454240377,
+      "tag": "0000_legal_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788503987989,
+      "tag": "0001_married_eddie_brock",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788506104904,
+      "tag": "0002_even_toad_men",
+      "breakpoints": true
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 .webpack
 .artifacts
 .env*
+!.env.example
 .npmrc
 htpasswd
 lerna-debug.log
@@ -24,3 +25,6 @@ dist/
 
 dryRuns
 dryRuns/*
+.projects.json
+.codegraph
+.webiny

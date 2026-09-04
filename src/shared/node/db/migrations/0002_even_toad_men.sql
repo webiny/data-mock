@@ -1,0 +1,1 @@
+ALTER TABLE `seed_entries` ADD `request_data` text;
