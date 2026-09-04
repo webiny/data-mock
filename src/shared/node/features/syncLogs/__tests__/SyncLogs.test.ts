@@ -70,6 +70,44 @@ describe("SyncLogs Feature", () => {
       }
     });
 
+    it("should create an upload-file log", async () => {
+      const repo = tc.container.resolve(CreateSyncLogRepository);
+      const result = await repo.execute({
+        projectId,
+        type: "upload-file",
+        status: "success",
+        message: 'Uploaded "photo.jpg" to File Manager',
+        request: { fileName: "photo.jpg", fileType: "image/jpeg", fileSize: 5000 },
+        response: { src: "https://cdn.example.com/photo.jpg", key: "abc/photo.jpg" },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.type).toBe("upload-file");
+        expect(result.value.request).toEqual({
+          fileName: "photo.jpg",
+          fileType: "image/jpeg",
+          fileSize: 5000,
+        });
+      }
+    });
+
+    it("should create a pull-files log", async () => {
+      const repo = tc.container.resolve(CreateSyncLogRepository);
+      const result = await repo.execute({
+        projectId,
+        type: "pull-files",
+        status: "success",
+        message: "Pulled 10 file(s) from File Manager",
+        response: { synced: 10 },
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.type).toBe("pull-files");
+      }
+    });
+
     it("should create an error log", async () => {
       const repo = tc.container.resolve(CreateSyncLogRepository);
       const result = await repo.execute({
@@ -98,7 +136,7 @@ describe("SyncLogs Feature", () => {
       }
     });
 
-    it("should list all logs for a project", async () => {
+    it("should list all logs for a project including all types", async () => {
       const createRepo = tc.container.resolve(CreateSyncLogRepository);
       const listRepo = tc.container.resolve(ListSyncLogsRepository);
 
@@ -106,19 +144,36 @@ describe("SyncLogs Feature", () => {
         projectId,
         type: "tenants",
         status: "success",
-        message: "Synced tenants",
+        message: "Pulled tenants",
       });
       await createRepo.execute({
         projectId,
         type: "models",
         status: "error",
-        message: "Model sync failed",
+        message: "Model pull failed",
+      });
+      await createRepo.execute({
+        projectId,
+        type: "upload-file",
+        status: "success",
+        message: "Uploaded photo.jpg",
+      });
+      await createRepo.execute({
+        projectId,
+        type: "pull-files",
+        status: "success",
+        message: "Pulled 5 files",
       });
 
       const result = await listRepo.execute({ projectId });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.logs).toHaveLength(2);
+        expect(result.value.logs).toHaveLength(4);
+        const types = result.value.logs.map((l) => l.type);
+        expect(types).toContain("tenants");
+        expect(types).toContain("models");
+        expect(types).toContain("upload-file");
+        expect(types).toContain("pull-files");
       }
     });
   });
