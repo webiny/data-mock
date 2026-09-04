@@ -131,9 +131,9 @@ describe("Seeding Feature", () => {
         const listResult = await listRepo.execute({ projectId: project.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
-          expect(listResult.value).toHaveLength(1);
-          expect(listResult.value[0]!.status).toBe("completed");
-          expect(listResult.value[0]!.result).toEqual({ created: 5, errors: [] });
+          expect(listResult.value.seedJobs).toHaveLength(1);
+          expect(listResult.value.seedJobs[0]!.status).toBe("completed");
+          expect(listResult.value.seedJobs[0]!.result).toEqual({ created: 5, errors: [] });
         }
       } finally {
         tc.cleanup();
@@ -162,8 +162,10 @@ describe("Seeding Feature", () => {
         const result = await listRepo.execute({ projectId: project.id });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value).toHaveLength(2);
-          expect(result.value[0]!.createdAt).toBeGreaterThanOrEqual(result.value[1]!.createdAt);
+          expect(result.value.seedJobs).toHaveLength(2);
+          expect(result.value.seedJobs[0]!.createdAt).toBeGreaterThanOrEqual(
+            result.value.seedJobs[1]!.createdAt,
+          );
         }
       } finally {
         tc.cleanup();
@@ -177,7 +179,7 @@ describe("Seeding Feature", () => {
         const result = await listRepo.execute({ projectId: "any-id" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value).toEqual([]);
+          expect(result.value.seedJobs).toEqual([]);
         }
       } finally {
         tc.cleanup();

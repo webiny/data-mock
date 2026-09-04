@@ -77,9 +77,10 @@ describe("Jobs System", () => {
       await worker.enqueue({ projectId, type: "pull-tenants" });
       await worker.enqueue({ projectId, type: "cleanup" });
 
-      const all = await worker.listJobs(projectId);
-      expect(all).toHaveLength(3);
-      expect(all.map((j) => j.type).sort()).toEqual(["cleanup", "pull-tenants", "seed"]);
+      const all = await worker.listJobs({ projectId });
+      expect(all.jobs).toHaveLength(3);
+      expect(all.total).toBe(3);
+      expect(all.jobs.map((j) => j.type).sort()).toEqual(["cleanup", "pull-tenants", "seed"]);
     });
 
     it("should list jobs filtered by status", async () => {
@@ -87,17 +88,64 @@ describe("Jobs System", () => {
       await worker.enqueue({ projectId, type: "seed" });
       await worker.enqueue({ projectId, type: "pull-tenants" });
 
-      const pending = await worker.listJobs(projectId, "pending");
-      expect(pending).toHaveLength(2);
+      const pending = await worker.listJobs({ projectId, status: "pending" });
+      expect(pending.jobs).toHaveLength(2);
+      expect(pending.total).toBe(2);
 
-      const running = await worker.listJobs(projectId, "running");
-      expect(running).toHaveLength(0);
+      const running = await worker.listJobs({ projectId, status: "running" });
+      expect(running.jobs).toHaveLength(0);
+      expect(running.total).toBe(0);
     });
 
     it("should return empty array for project with no jobs", async () => {
       const worker = tc.container.resolve(JobWorker);
-      const result = await worker.listJobs("non-existent-project");
-      expect(result).toEqual([]);
+      const result = await worker.listJobs({ projectId: "non-existent-project" });
+      expect(result.jobs).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
+    it("should filter jobs by type", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      await worker.enqueue({ projectId, type: "seed" });
+      await worker.enqueue({ projectId, type: "seed" });
+      await worker.enqueue({ projectId, type: "cleanup" });
+
+      const seeds = await worker.listJobs({ projectId, type: "seed" });
+      expect(seeds.jobs).toHaveLength(2);
+      expect(seeds.total).toBe(2);
+      expect(seeds.jobs.every((j) => j.type === "seed")).toBe(true);
+    });
+
+    it("should paginate jobs with limit and offset", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      await worker.enqueue({ projectId, type: "seed" });
+      await worker.enqueue({ projectId, type: "pull-tenants" });
+      await worker.enqueue({ projectId, type: "cleanup" });
+      await worker.enqueue({ projectId, type: "import" });
+
+      const page1 = await worker.listJobs({ projectId, limit: 2, offset: 0 });
+      expect(page1.jobs).toHaveLength(2);
+      expect(page1.total).toBe(4);
+
+      const page2 = await worker.listJobs({ projectId, limit: 2, offset: 2 });
+      expect(page2.jobs).toHaveLength(2);
+      expect(page2.total).toBe(4);
+
+      const page1Ids = new Set(page1.jobs.map((j) => j.id));
+      const page2Ids = new Set(page2.jobs.map((j) => j.id));
+      for (const id of page2Ids) {
+        expect(page1Ids.has(id)).toBe(false);
+      }
+    });
+
+    it("should sort jobs by createdAt ascending", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      await worker.enqueue({ projectId, type: "seed" });
+      await worker.enqueue({ projectId, type: "cleanup" });
+
+      const result = await worker.listJobs({ projectId, sortField: "createdAt", sortDir: "asc" });
+      expect(result.jobs).toHaveLength(2);
+      expect(result.jobs[0]!.createdAt).toBeLessThanOrEqual(result.jobs[1]!.createdAt);
     });
 
     it("should store config as JSON", async () => {
@@ -319,6 +367,77 @@ describe("Jobs API routes", () => {
       const body = response.json();
       expect(body.jobs.items).toEqual([]);
       expect(body.jobs.total).toBe(0);
+    });
+
+    it("should paginate jobs via query params", async () => {
+      for (const type of ["seed", "pull-tenants", "cleanup", "import"] as const) {
+        await app.inject({
+          method: "POST",
+          url: `/api/projects/${projectId}/jobs`,
+          payload: { type },
+        });
+      }
+
+      const page1 = await app.inject({
+        method: "GET",
+        url: `/api/projects/${projectId}/jobs?page=1&limit=2`,
+      });
+      expect(page1.statusCode).toBe(200);
+      const body1 = page1.json();
+      expect(body1.jobs.items).toHaveLength(2);
+      expect(body1.jobs.total).toBe(4);
+
+      const page2 = await app.inject({
+        method: "GET",
+        url: `/api/projects/${projectId}/jobs?page=2&limit=2`,
+      });
+      const body2 = page2.json();
+      expect(body2.jobs.items).toHaveLength(2);
+      expect(body2.jobs.total).toBe(4);
+    });
+
+    it("should filter jobs by type", async () => {
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${projectId}/jobs`,
+        payload: { type: "seed" },
+      });
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${projectId}/jobs`,
+        payload: { type: "cleanup" },
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: `/api/projects/${projectId}/jobs?type=seed`,
+      });
+      const body = response.json();
+      expect(body.jobs.items).toHaveLength(1);
+      expect(body.jobs.total).toBe(1);
+      expect(body.jobs.items[0].type).toBe("seed");
+    });
+
+    it("should filter jobs by status", async () => {
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${projectId}/jobs`,
+        payload: { type: "seed" },
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: `/api/projects/${projectId}/jobs?status=pending`,
+      });
+      const body = response.json();
+      expect(body.jobs.items).toHaveLength(1);
+      expect(body.jobs.total).toBe(1);
+
+      const noResults = await app.inject({
+        method: "GET",
+        url: `/api/projects/${projectId}/jobs?status=running`,
+      });
+      expect(noResults.json().jobs.items).toHaveLength(0);
     });
 
     it("should list enqueued jobs", async () => {

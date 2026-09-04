@@ -3,7 +3,8 @@ import type { Job } from "~/shared/types.js";
 
 export interface IJobsRepository {
   readonly jobs: Job[];
-  setJobs(jobs: Job[]): void;
+  readonly totalJobs: number;
+  setJobs(jobs: Job[], total: number): void;
 }
 
 export const JobsRepository = createAbstraction<IJobsRepository>("Ui/JobsRepository");

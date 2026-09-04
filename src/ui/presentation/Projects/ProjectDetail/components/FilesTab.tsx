@@ -11,8 +11,10 @@ interface FilesTabProps {
   onUploadFiles: (files: File[]) => void;
   onUploadAllGlobal: () => void;
   onUploadSelected: (fileNames: string[]) => void;
+  onPullFiles: () => void;
   onDelete: (fileId: string) => void;
   isUploadingGlobal: boolean;
+  isPullingFiles: boolean;
   selectedTenant: string;
 }
 
@@ -21,8 +23,10 @@ export function FilesTab({
   onUploadFiles,
   onUploadAllGlobal,
   onUploadSelected,
+  onPullFiles,
   onDelete,
   isUploadingGlobal,
+  isPullingFiles,
 }: FilesTabProps) {
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -61,6 +65,9 @@ export function FilesTab({
           global file{globalFileCount === 1 ? "" : "s"}
         </Text>
         <Group gap="xs">
+          <Button variant="default" loading={isPullingFiles} onClick={onPullFiles}>
+            Pull Files from FM
+          </Button>
           {selectedGlobalCount > 0 && (
             <Button variant="filled" loading={isUploadingGlobal} onClick={handleUploadSelected}>
               Upload Selected ({selectedGlobalCount})

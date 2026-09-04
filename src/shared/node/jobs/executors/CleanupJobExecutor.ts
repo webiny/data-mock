@@ -11,7 +11,10 @@ class CleanupJobExecutorImpl implements Abstraction.Interface {
     context.appendLog(`Cleaning up entries for project ${context.projectId}`);
 
     const config = context.configJson ? (JSON.parse(context.configJson) as { jobId?: string }) : {};
-    const input: CleanupService.Input = { projectId: context.projectId };
+    const input: CleanupService.Input = {
+      projectId: context.projectId,
+      onProgress: (percent, label) => context.setProgress({ percent, label }),
+    };
     if (config.jobId) {
       input.jobId = config.jobId;
     }

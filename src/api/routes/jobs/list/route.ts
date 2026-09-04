@@ -1,9 +1,31 @@
 import { listJobsRoute } from "~/shared/routes/jobs.js";
 import { JobWorker } from "~/shared/node/jobs/abstractions/JobWorker.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
+import { parseListQuery, getStringFilter } from "~/api/routing/parseListQuery.js";
 
 export const listJobs = routeFactory(listJobsRoute, async ({ params, query, container, send }) => {
+  const { limit, offset, sortField, sortDir } = parseListQuery(query);
+
+  const input: JobWorker.ListJobsInput = {
+    projectId: params.projectId,
+    limit,
+    offset,
+    sortDir,
+  };
+  if (sortField) {
+    input.sortField = sortField;
+  }
+  const status = getStringFilter(query, "status");
+  if (status) {
+    input.status = status;
+  }
+  const type = getStringFilter(query, "type");
+  if (type) {
+    input.type = type;
+  }
+
   const jobWorker = container.resolve(JobWorker);
-  const jobs = await jobWorker.listJobs(params.projectId, query.status);
-  return send.list("jobs", jobs, jobs.length);
+  const { jobs, total } = await jobWorker.listJobs(input);
+
+  return send.list("jobs", jobs, total);
 });

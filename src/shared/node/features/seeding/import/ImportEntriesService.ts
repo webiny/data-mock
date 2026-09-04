@@ -48,6 +48,9 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 
     const models: Array<{ modelId: string; count: number }> = [];
     let imported = 0;
+    const onProgress = input.onProgress;
+    const totalModels = input.models.filter((modelId) => !isExcludedModel(modelId)).length;
+    let modelIndex = 0;
 
     try {
       for (const modelId of input.models) {
@@ -63,9 +66,30 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
           return Result.fail(modelResult.error);
         }
 
-        const count = await this.importModel(project, modelResult.value, input.tenant);
+        const currentModelIndex = modelIndex;
+        const count = await this.importModel(
+          project,
+          modelResult.value,
+          input.tenant,
+          onProgress
+            ? (count, totalForModel) => {
+                const modelFraction = totalForModel > 0 ? count / totalForModel : 1;
+                const percent = Math.min(
+                  100,
+                  Math.round(
+                    ((currentModelIndex + modelFraction) / Math.max(1, totalModels)) * 100,
+                  ),
+                );
+                onProgress(
+                  percent,
+                  `Importing ${modelResult.value.name}: ${count}/${totalForModel} entries`,
+                );
+              }
+            : undefined,
+        );
         models.push({ modelId, count });
         imported += count;
+        modelIndex++;
       }
     } catch (err) {
       if (err instanceof GraphQLRequestError) {
@@ -81,6 +105,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     project: Project,
     model: ProjectModel,
     tenant: string,
+    onModelProgress?: (count: number, totalForModel: number) => void,
   ): Promise<number> {
     const fieldSelection = createModelFields(model.fields);
     const { pluralApiName } = model;
@@ -119,6 +144,8 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
         });
         count++;
       }
+
+      onModelProgress?.(count, page.meta.totalCount);
 
       hasMore = page.meta.hasMoreItems && Boolean(page.meta.cursor);
       cursor = page.meta.cursor;

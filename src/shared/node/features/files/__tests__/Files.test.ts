@@ -79,7 +79,7 @@ describe("Files Feature", () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toEqual([]);
+        expect(result.value.files).toEqual([]);
       }
     });
 
@@ -109,7 +109,7 @@ describe("Files Feature", () => {
       const result = await listRepo.execute({ projectId });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value).toHaveLength(2);
+        expect(result.value.files).toHaveLength(2);
       }
     });
   });
@@ -140,7 +140,7 @@ describe("Files Feature", () => {
       const listResult = await listRepo.execute({ projectId });
       expect(listResult.isOk()).toBe(true);
       if (listResult.isOk()) {
-        expect(listResult.value).toHaveLength(0);
+        expect(listResult.value.files).toHaveLength(0);
       }
     });
   });

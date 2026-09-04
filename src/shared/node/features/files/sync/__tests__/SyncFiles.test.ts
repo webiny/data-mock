@@ -123,7 +123,7 @@ describe("Sync Files", () => {
         const listResult = await listRepo.execute({ projectId: project.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
-          expect(listResult.value).toHaveLength(2);
+          expect(listResult.value.files).toHaveLength(2);
         }
       } finally {
         tc.cleanup();
@@ -289,7 +289,7 @@ describe("Sync Files", () => {
         let listResult = await listRepo.execute({ projectId: project.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
-          expect(listResult.value).toHaveLength(2);
+          expect(listResult.value.files).toHaveLength(2);
         }
 
         await syncRepo.execute({
@@ -309,8 +309,8 @@ describe("Sync Files", () => {
         listResult = await listRepo.execute({ projectId: project.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
-          expect(listResult.value).toHaveLength(1);
-          expect(listResult.value[0]!.fileKey).toBe("c.jpg");
+          expect(listResult.value.files).toHaveLength(1);
+          expect(listResult.value.files[0]!.fileKey).toBe("c.jpg");
         }
       } finally {
         tc.cleanup();
@@ -356,8 +356,8 @@ describe("Sync Files", () => {
         const listResult = await listRepo.execute({ projectId: project.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
-          expect(listResult.value).toHaveLength(2);
-          const tenants = listResult.value.map((f) => f.tenant).sort();
+          expect(listResult.value.files).toHaveLength(2);
+          const tenants = listResult.value.files.map((f) => f.tenant).sort();
           expect(tenants).toEqual(["root", "tenant-2"]);
         }
       } finally {

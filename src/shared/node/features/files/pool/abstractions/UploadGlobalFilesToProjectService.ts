@@ -11,6 +11,7 @@ export interface IUploadGlobalFilesToProjectServiceInput {
   projectId: string;
   tenant: string;
   fileNames?: string[] | undefined;
+  onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
 export interface IUploadGlobalFilesToProjectServiceOutput {

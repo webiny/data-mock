@@ -176,6 +176,86 @@ describe("SyncLogs Feature", () => {
         expect(types).toContain("pull-files");
       }
     });
+
+    it("should paginate logs", async () => {
+      const createRepo = tc.container.resolve(CreateSyncLogRepository);
+      const listRepo = tc.container.resolve(ListSyncLogsRepository);
+
+      for (let i = 0; i < 5; i++) {
+        await createRepo.execute({
+          projectId,
+          type: "tenants",
+          status: "success",
+          message: `Log ${i}`,
+        });
+      }
+
+      const page1 = await listRepo.execute({ projectId, limit: 2, offset: 0 });
+      expect(page1.isOk()).toBe(true);
+      if (page1.isOk()) {
+        expect(page1.value.logs).toHaveLength(2);
+        expect(page1.value.total).toBe(5);
+      }
+
+      const page2 = await listRepo.execute({ projectId, limit: 2, offset: 2 });
+      expect(page2.isOk()).toBe(true);
+      if (page2.isOk()) {
+        expect(page2.value.logs).toHaveLength(2);
+        expect(page2.value.total).toBe(5);
+      }
+    });
+
+    it("should filter logs by type", async () => {
+      const createRepo = tc.container.resolve(CreateSyncLogRepository);
+      const listRepo = tc.container.resolve(ListSyncLogsRepository);
+
+      await createRepo.execute({
+        projectId,
+        type: "tenants",
+        status: "success",
+        message: "Pulled tenants",
+      });
+      await createRepo.execute({
+        projectId,
+        type: "models",
+        status: "success",
+        message: "Pulled models",
+      });
+
+      const result = await listRepo.execute({ projectId, type: "tenants" });
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.logs).toHaveLength(1);
+        expect(result.value.total).toBe(1);
+        expect(result.value.logs[0]!.type).toBe("tenants");
+      }
+    });
+
+    it("should filter logs by status", async () => {
+      const createRepo = tc.container.resolve(CreateSyncLogRepository);
+      const listRepo = tc.container.resolve(ListSyncLogsRepository);
+
+      await createRepo.execute({
+        projectId,
+        type: "tenants",
+        status: "success",
+        message: "OK",
+      });
+      await createRepo.execute({
+        projectId,
+        type: "tenants",
+        status: "error",
+        message: "Failed",
+      });
+
+      const result = await listRepo.execute({ projectId, status: "error" });
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.logs).toHaveLength(1);
+        expect(result.value.total).toBe(1);
+        expect(result.value.logs[0]!.status).toBe("error");
+      }
+    });
   });
 
   describe("DeleteSyncLogRepository", () => {

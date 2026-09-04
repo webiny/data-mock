@@ -53,8 +53,8 @@ class JobWorkerImpl implements Abstraction.Interface {
     return this.queryHelper.getJob(jobId);
   }
 
-  public async listJobs(projectId: string, status?: string): Promise<Abstraction.Job[]> {
-    return this.queryHelper.listJobs(projectId, status);
+  public async listJobs(input: Abstraction.ListJobsInput): Promise<Abstraction.ListJobsOutput> {
+    return this.queryHelper.listJobs(input);
   }
 
   public async processNextJob(): Promise<void> {

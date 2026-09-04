@@ -107,6 +107,24 @@ class SeedServiceImpl implements Abstraction.Interface {
     const publishPercent = input.publishPercent ?? 50;
     const includeUnpublish = input.includeUnpublish ?? false;
     const batchSize = input.batchSize;
+    const onProgress = input.onProgress;
+    const totalRequested = input.models.reduce((sum, m) => sum + m.amount, 0);
+    let totalProcessed = 0;
+
+    const reportProgress = (
+      modelName: string,
+      processedForModel: number,
+      modelAmount: number,
+    ): void => {
+      if (!onProgress) {
+        return;
+      }
+      const percent =
+        totalRequested > 0
+          ? Math.min(100, Math.round((totalProcessed / totalRequested) * 100))
+          : 100;
+      onProgress(percent, `${modelName}: ${processedForModel}/${modelAmount} entries`);
+    };
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -156,6 +174,8 @@ class SeedServiceImpl implements Abstraction.Interface {
           );
           generatedEntries.push({ modelId: ctx.modelId, entries: dryRunEntries });
           totalCreated += dryRunEntries.length;
+          totalProcessed += dryRunEntries.length;
+          reportProgress(ctx.model.name, dryRunEntries.length, ctx.amount);
           continue;
         }
 
@@ -311,6 +331,10 @@ class SeedServiceImpl implements Abstraction.Interface {
             totalCreated += result.created;
             errors.push(...result.errors);
           }
+
+          const batchCount = batchEnd - batchStart;
+          totalProcessed += batchCount;
+          reportProgress(ctx.model.name, batchEnd, ctx.amount);
         }
 
         this.logger.info(

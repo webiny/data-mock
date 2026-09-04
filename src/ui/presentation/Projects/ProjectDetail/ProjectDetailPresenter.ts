@@ -71,6 +71,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _isClearingEntries = false;
   private _isCleaningUp = false;
   private _isUploadingGlobal = false;
+  private _isPullingFiles = false;
   private _showEditDialog = false;
   private _showCleanupDialog = false;
   private _loadedDatasets = new Set<string>();
@@ -79,6 +80,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
   private readonly entriesListState: URLListState.Interface;
+  private readonly jobsListState: URLListState.Interface;
+  private readonly syncLogsListState: URLListState.Interface;
   private readonly disposeJobSubscription: () => void;
 
   public constructor(
@@ -116,6 +119,20 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         status: { type: "dropdown" },
       },
       onChange: () => this.reloadEntries(),
+    });
+    this.jobsListState = urlListStateFactory.create({
+      filters: {
+        jobType: { type: "dropdown" },
+        jobStatus: { type: "dropdown" },
+      },
+      onChange: () => this.reloadJobs(),
+    });
+    this.syncLogsListState = urlListStateFactory.create({
+      filters: {
+        logType: { type: "dropdown" },
+        logStatus: { type: "dropdown" },
+      },
+      onChange: () => this.reloadSyncLogs(),
     });
     makeAutoObservable(this);
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
@@ -242,7 +259,15 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         response: l.response,
         createdAt: l.createdAt,
       })),
+      syncLogsTotalCount: this._projectId ? this.syncLogsRepository.totalLogs : 0,
+      syncLogsPage: this.syncLogsListState.page,
+      syncLogsTypeFilter: this.syncLogsListState.get("logType") || null,
+      syncLogsStatusFilter: this.syncLogsListState.get("logStatus") || null,
       jobs,
+      jobsTotalCount: this._projectId ? this.jobsRepository.totalJobs : 0,
+      jobsPage: this.jobsListState.page,
+      jobsTypeFilter: this.jobsListState.get("jobType") || null,
+      jobsStatusFilter: this.jobsListState.get("jobStatus") || null,
       projectHealth: this._projectHealth,
       projectHealthError: this._projectHealthError,
       isLoading: this._isLoading,
@@ -252,6 +277,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       isClearingEntries: this._isClearingEntries,
       isCleaningUp: this._isCleaningUp,
       isUploadingGlobal: this._isUploadingGlobal,
+      isPullingFiles: this._isPullingFiles,
       showCleanupDialog: this._showCleanupDialog,
       showEditDialog: this._showEditDialog,
     };
@@ -600,6 +626,37 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  private buildJobsParams(): Record<string, string | number> {
+    const params: Record<string, string | number> = { page: this.jobsListState.page };
+    const type = this.jobsListState.get("jobType");
+    const status = this.jobsListState.get("jobStatus");
+    if (type) {
+      params.type = type;
+    }
+    if (status) {
+      params.status = status;
+    }
+    const sort = this.jobsListState.sort;
+    if (sort) {
+      params.sortField = sort.field;
+      params.sortDir = sort.direction;
+    }
+    return params;
+  }
+
+  private buildSyncLogsParams(): Record<string, string | number> {
+    const params: Record<string, string | number> = { page: this.syncLogsListState.page };
+    const type = this.syncLogsListState.get("logType");
+    const status = this.syncLogsListState.get("logStatus");
+    if (type) {
+      params.type = type;
+    }
+    if (status) {
+      params.status = status;
+    }
+    return params;
+  }
+
   private buildEntriesParams(): Record<string, string | number> {
     const params: Record<string, string | number> = { page: this.entriesListState.page };
     const jobId = this.entriesListState.get("jobId");
@@ -620,6 +677,54 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
     return params;
   }
+
+  public loadJobsPage = (page: number): void => {
+    this.jobsListState.setPage(page);
+  };
+
+  public setJobsFilter = (key: string, value: string | null): void => {
+    this.jobsListState.set(key, value ?? "");
+  };
+
+  public clearJobsFilter = (): void => {
+    this.jobsListState.setBatch({ jobType: null, jobStatus: null });
+  };
+
+  public loadSyncLogsPage = (page: number): void => {
+    this.syncLogsListState.setPage(page);
+  };
+
+  public setSyncLogsFilter = (key: string, value: string | null): void => {
+    this.syncLogsListState.set(key, value ?? "");
+  };
+
+  public clearSyncLogsFilter = (): void => {
+    this.syncLogsListState.setBatch({ logType: null, logStatus: null });
+  };
+
+  public pullFiles = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const projectId = this._projectId;
+    const tenant = this.currentTenant();
+    this._isPullingFiles = true;
+    try {
+      const result = await this.filesGateway.pullFiles(projectId, tenant);
+      runInAction(() => {
+        if (result.isOk()) {
+          this.notifications.success(`Pulled ${result.value.synced} file(s) from File Manager.`);
+        } else {
+          this.notifications.error(`Failed to pull files: ${result.error.message}`);
+        }
+      });
+      await this.reloadFiles();
+    } finally {
+      runInAction(() => {
+        this._isPullingFiles = false;
+      });
+    }
+  };
 
   public cancelJob = async (jobId: string): Promise<void> => {
     if (!this._projectId) {
@@ -752,20 +857,20 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "syncLogs": {
-        const result = await this.syncLogsGateway.list(projectId);
+        const result = await this.syncLogsGateway.list(projectId, this.buildSyncLogsParams());
         runInAction(() => {
           if (result.isOk()) {
-            this.syncLogsRepository.setLogs(result.value);
+            this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
           }
           this._loadedDatasets.add(dataset);
         });
         break;
       }
       case "jobs": {
-        const result = await this.jobsGateway.list(projectId);
+        const result = await this.jobsGateway.list(projectId, this.buildJobsParams());
         runInAction(() => {
           if (result.isOk()) {
-            this.jobsRepository.setJobs(result.value);
+            this.jobsRepository.setJobs(result.value.jobs, result.value.total);
           }
           this._loadedDatasets.add(dataset);
         });
@@ -775,14 +880,27 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this._loadingDatasets.delete(dataset);
   };
 
+  private reloadJobs = async (): Promise<void> => {
+    if (!this._projectId) {
+      return;
+    }
+    const result = await this.jobsGateway.list(this._projectId, this.buildJobsParams());
+    runInAction(() => {
+      if (result.isOk()) {
+        this.jobsRepository.setJobs(result.value.jobs, result.value.total);
+      }
+      this._loadedDatasets.add("jobs");
+    });
+  };
+
   private reloadSyncLogs = async (): Promise<void> => {
     if (!this._projectId) {
       return;
     }
-    const result = await this.syncLogsGateway.list(this._projectId);
+    const result = await this.syncLogsGateway.list(this._projectId, this.buildSyncLogsParams());
     runInAction(() => {
       if (result.isOk()) {
-        this.syncLogsRepository.setLogs(result.value);
+        this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
       }
     });
   };

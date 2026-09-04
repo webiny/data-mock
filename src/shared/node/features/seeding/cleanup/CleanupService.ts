@@ -87,6 +87,9 @@ class CleanupServiceImpl implements Abstraction.Interface {
       const modelResults: Abstraction.Output["models"] = [];
       let totalDeleted = 0;
       let totalErrors = 0;
+      let totalProcessed = 0;
+      const totalEntries = entries.length;
+      const onProgress = input.onProgress;
 
       for (const model of orderedModels) {
         const modelEntries = grouped.get(model.modelId) ?? [];
@@ -114,6 +117,15 @@ class CleanupServiceImpl implements Abstraction.Interface {
             this.logger.warn(
               `Cleanup: failed to delete entry "${entry.entryId}" of model "${model.modelId}": ${result.error}`,
             );
+          }
+
+          totalProcessed++;
+          if (onProgress) {
+            const percent =
+              totalEntries > 0
+                ? Math.min(100, Math.round((totalProcessed / totalEntries) * 100))
+                : 100;
+            onProgress(percent, `Deleting entries: ${totalProcessed}/${totalEntries}`);
           }
         }
 

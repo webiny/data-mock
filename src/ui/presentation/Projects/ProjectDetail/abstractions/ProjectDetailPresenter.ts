@@ -119,7 +119,15 @@ export interface IProjectDetailVM {
   entriesTenantFilter: string | null;
   entriesStatusFilter: string | null;
   syncLog: ISyncLogVM[];
+  syncLogsTotalCount: number;
+  syncLogsPage: number;
+  syncLogsTypeFilter: string | null;
+  syncLogsStatusFilter: string | null;
   jobs: Job[];
+  jobsTotalCount: number;
+  jobsPage: number;
+  jobsTypeFilter: string | null;
+  jobsStatusFilter: string | null;
   projectHealth: "unknown" | "checking" | "reachable" | "unreachable";
   projectHealthError: string | null;
   isLoading: boolean;
@@ -129,6 +137,7 @@ export interface IProjectDetailVM {
   isClearingEntries: boolean;
   isCleaningUp: boolean;
   isUploadingGlobal: boolean;
+  isPullingFiles: boolean;
   showEditDialog: boolean;
   showCleanupDialog: boolean;
 }
@@ -159,6 +168,13 @@ export interface IProjectDetailPresenter {
   openCleanupDialog(): void;
   closeCleanupDialog(): void;
   confirmCleanup(): Promise<void>;
+  loadJobsPage(page: number): void;
+  setJobsFilter(key: string, value: string | null): void;
+  clearJobsFilter(): void;
+  loadSyncLogsPage(page: number): void;
+  setSyncLogsFilter(key: string, value: string | null): void;
+  clearSyncLogsFilter(): void;
+  pullFiles(): Promise<void>;
   cancelJob(jobId: string): Promise<void>;
   dispose(): void;
 }

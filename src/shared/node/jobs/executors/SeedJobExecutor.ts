@@ -21,6 +21,7 @@ class SeedJobExecutorImpl implements Abstraction.Interface {
       ...config,
       projectId: context.projectId,
       signal: context.signal,
+      onProgress: (percent, label) => context.setProgress({ percent, label }),
     });
 
     if (result.isFail()) {

@@ -1,14 +1,21 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
-import type { SyncLog } from "~/shared/types.js";
+import type { SyncLog, SyncLogType, SyncLogStatus } from "~/shared/types.js";
 import type { SyncLogPersistenceError } from "~/shared/errors.js";
 
 export interface IListSyncLogsRepositoryInput {
   projectId: string;
+  type?: SyncLogType;
+  status?: SyncLogStatus;
+  limit?: number;
+  offset?: number;
+  sortField?: string;
+  sortDir?: "asc" | "desc";
 }
 
 export interface IListSyncLogsRepositoryOutput {
   logs: SyncLog[];
+  total: number;
 }
 
 export interface IListSyncLogsRepository {

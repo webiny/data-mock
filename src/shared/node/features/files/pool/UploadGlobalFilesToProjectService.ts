@@ -6,6 +6,8 @@ import { LoadFilePoolService } from "./abstractions/LoadFilePoolService.js";
 import { UploadGlobalFilesToProjectService as Abstraction } from "./abstractions/UploadGlobalFilesToProjectService.js";
 import type { ProjectFile } from "~/shared/types.js";
 
+const ALL_FILES_LIMIT = 100000;
+
 class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly listProjectFilesRepository: ListProjectFilesRepository.Interface,
@@ -30,15 +32,17 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const beforeResult = await this.listProjectFilesRepository.execute({
       projectId: input.projectId,
       tenant: input.tenant,
+      limit: ALL_FILES_LIMIT,
     });
     if (beforeResult.isFail()) {
       return Result.fail(beforeResult.error);
     }
-    const beforeCount = beforeResult.value.length;
+    const beforeCount = beforeResult.value.total;
 
     const poolResult = await this.loadFilePoolService.execute({
       projectId: input.projectId,
       tenant: input.tenant,
+      onProgress: input.onProgress,
     });
     if (poolResult.isFail()) {
       return Result.fail(poolResult.error);
@@ -58,11 +62,12 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const dbFilesResult = await this.listProjectFilesRepository.execute({
       projectId: input.projectId,
       tenant: input.tenant,
+      limit: ALL_FILES_LIMIT,
     });
     if (dbFilesResult.isFail()) {
       return Result.fail(dbFilesResult.error);
     }
-    const existingNames = new Set(dbFilesResult.value.map((f) => f.fileName));
+    const existingNames = new Set(dbFilesResult.value.files.map((f) => f.fileName));
 
     const localResult = await this.listLocalImagesService.execute({});
     if (localResult.isFail()) {
@@ -74,7 +79,14 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     );
 
     const uploaded: ProjectFile[] = [];
+    let uploadIndex = 0;
     for (const localFile of toUpload) {
+      uploadIndex++;
+      if (input.onProgress) {
+        const percent = Math.round((uploadIndex / toUpload.length) * 100);
+        input.onProgress(percent, `Uploading: ${uploadIndex}/${toUpload.length} files`);
+      }
+
       try {
         const result = await this.fileUploadService.execute({
           projectId: input.projectId,
@@ -92,7 +104,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
       }
     }
 
-    const allFiles = [...dbFilesResult.value, ...uploaded];
+    const allFiles = [...dbFilesResult.value.files, ...uploaded];
     return Result.ok({ uploaded: uploaded.length, files: allFiles });
   }
 }

@@ -10,10 +10,15 @@ interface IUploadFileInput {
   fileType?: string;
 }
 
+export interface IPullFilesResult {
+  synced: number;
+}
+
 export interface IFilesGateway {
   list(projectId: string): Promise<Result<ProjectFile[], HTTPError>>;
   upload(projectId: string, input: IUploadFileInput): Promise<Result<ProjectFile, HTTPError>>;
   remove(projectId: string, fileId: string): Promise<Result<void, HTTPError>>;
+  pullFiles(projectId: string, tenant: string): Promise<Result<IPullFilesResult, HTTPError>>;
 }
 
 export const FilesGateway = createAbstraction<IFilesGateway>("Ui/FilesGateway");

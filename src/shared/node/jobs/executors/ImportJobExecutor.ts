@@ -19,6 +19,7 @@ class ImportJobExecutorImpl implements Abstraction.Interface {
     const result = await this.importService.execute({
       ...config,
       projectId: context.projectId,
+      onProgress: (percent, label) => context.setProgress({ percent, label }),
     });
 
     if (result.isFail()) {

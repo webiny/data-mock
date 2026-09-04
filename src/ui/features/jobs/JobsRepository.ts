@@ -4,6 +4,7 @@ import { JobsRepository as Abstraction } from "./abstractions/JobsRepository.js"
 
 class JobsRepositoryImpl implements Abstraction.Interface {
   private _jobs: Job[] = [];
+  private _total = 0;
 
   public constructor() {
     makeAutoObservable(this);
@@ -13,8 +14,13 @@ class JobsRepositoryImpl implements Abstraction.Interface {
     return this._jobs;
   }
 
-  public setJobs(jobs: Job[]): void {
+  public get totalJobs(): number {
+    return this._total;
+  }
+
+  public setJobs(jobs: Job[], total: number): void {
     this._jobs = jobs;
+    this._total = total;
   }
 }
 

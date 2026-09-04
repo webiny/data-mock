@@ -1,4 +1,5 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import type { JobWorker } from "./abstractions/JobWorker.js";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { jobs } from "~/shared/node/db/schema.js";
@@ -6,6 +7,18 @@ import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
 import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
 
 const JOB_WAIT_POLL_INTERVAL_MS = 200;
+
+const JOB_SORT_COLUMNS = {
+  createdAt: jobs.createdAt,
+  type: jobs.type,
+  status: jobs.status,
+} as const;
+
+type JobSortField = keyof typeof JOB_SORT_COLUMNS;
+
+function isJobSortField(value: string | undefined): value is JobSortField {
+  return value !== undefined && Object.hasOwn(JOB_SORT_COLUMNS, value);
+}
 
 function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
   return {
@@ -32,12 +45,41 @@ export class JobQueryHelper {
     return row ? toJob(row) : null;
   }
 
-  public async listJobs(projectId: string, status?: string): Promise<JobWorker.Job[]> {
-    const condition =
-      status !== undefined
-        ? and(eq(jobs.projectId, projectId), eq(jobs.status, status))
-        : eq(jobs.projectId, projectId);
-    return this.databaseClient.db.select().from(jobs).where(condition).all().map(toJob);
+  public async listJobs(input: JobWorker.ListJobsInput): Promise<JobWorker.ListJobsOutput> {
+    const conditions: SQL[] = [eq(jobs.projectId, input.projectId)];
+    if (input.status !== undefined) {
+      conditions.push(eq(jobs.status, input.status));
+    }
+    if (input.type !== undefined) {
+      conditions.push(eq(jobs.type, input.type));
+    }
+    const whereClause = and(...conditions)!;
+
+    const totalResult = this.databaseClient.db
+      .select({ total: count() })
+      .from(jobs)
+      .where(whereClause)
+      .all();
+    const total = totalResult[0]?.total ?? 0;
+
+    const sortColumn = isJobSortField(input.sortField)
+      ? JOB_SORT_COLUMNS[input.sortField]
+      : jobs.createdAt;
+    const orderBy = input.sortDir === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+    const limit = input.limit ?? 50;
+    const offset = input.offset ?? 0;
+
+    const rows = this.databaseClient.db
+      .select()
+      .from(jobs)
+      .where(whereClause)
+      .orderBy(orderBy)
+      .limit(limit)
+      .offset(offset)
+      .all();
+
+    return { jobs: rows.map(toJob), total };
   }
 
   public async waitForJob(jobId: string, signal?: AbortSignal): Promise<JobWorker.Job> {

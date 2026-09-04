@@ -18,6 +18,7 @@ class UploadFilesJobExecutorImpl implements Abstraction.Interface {
       projectId: context.projectId,
       tenant: config.tenant,
       fileNames: config.fileNames,
+      onProgress: (percent, label) => context.setProgress({ percent, label }),
     });
 
     if (result.isFail()) {

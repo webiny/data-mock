@@ -9,6 +9,7 @@ import type { OperationLog } from "~/shared/types.js";
 
 export interface ISyncModelsServiceInput {
   projectId: string;
+  onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
 export interface ISyncModelsServiceOutput {

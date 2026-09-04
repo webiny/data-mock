@@ -42,6 +42,9 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
     let tenants: Array<{ tenantId: string; name: string }>;
     const operations: OperationLog[] = [];
     const url = `${project.apiUrl}${operation.path}`;
+    const onProgress = input.onProgress;
+
+    onProgress?.(20, "Fetching tenants...");
 
     try {
       const response = await this.cmsManageClient.post(
@@ -122,6 +125,8 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
         : [],
       unchanged: tenants.filter((t) => existingTenantIds.has(t.tenantId)),
     };
+
+    onProgress?.(70, "Syncing tenants...");
 
     const syncResult = await this.syncProjectTenantsRepository.execute({
       projectId: project.id,

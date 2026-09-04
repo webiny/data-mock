@@ -4,6 +4,7 @@ import { SyncLogsRepository as Abstraction } from "./abstractions/SyncLogsReposi
 
 class SyncLogsRepositoryImpl implements Abstraction.Interface {
   private _logs: SyncLog[] = [];
+  private _total = 0;
 
   public constructor() {
     makeAutoObservable(this);
@@ -13,8 +14,13 @@ class SyncLogsRepositoryImpl implements Abstraction.Interface {
     return this._logs;
   }
 
-  public setLogs(logs: SyncLog[]): void {
+  public get totalLogs(): number {
+    return this._total;
+  }
+
+  public setLogs(logs: SyncLog[], total: number): void {
     this._logs = logs;
+    this._total = total;
   }
 
   public addLog(log: SyncLog): void {

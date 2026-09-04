@@ -61,6 +61,9 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     };
 
     const operations: OperationLog[] = [];
+    const onProgress = input.onProgress;
+
+    onProgress?.(10, "Fetching content model groups...");
 
     const groupsResult = await this.fetchWithOperation<RemoteGroup[]>(
       "listContentModelGroups",
@@ -72,6 +75,8 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     if (groupsResult.isFail()) {
       return Result.fail(groupsResult.error);
     }
+
+    onProgress?.(35, "Fetching content models...");
 
     const modelsResult = await this.fetchWithOperation<RemoteModel[]>(
       "listContentModels",
@@ -86,6 +91,8 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
     const groups = groupsResult.value;
     const models = modelsResult.value;
+
+    onProgress?.(60, "Syncing groups...");
 
     const syncGroupsResult = await this.syncProjectGroupsRepository.execute({
       projectId: project.id,
@@ -103,6 +110,8 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     }
 
     const userModels = models.filter((m) => !isExcludedModel(m.modelId));
+
+    onProgress?.(85, "Syncing models...");
 
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,

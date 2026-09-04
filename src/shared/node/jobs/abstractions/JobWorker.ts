@@ -23,10 +23,25 @@ export interface ICreateJobInput {
   parentJobId?: string;
 }
 
+export interface IListJobsInput {
+  projectId: string;
+  status?: string;
+  type?: string;
+  limit?: number;
+  offset?: number;
+  sortField?: string;
+  sortDir?: "asc" | "desc";
+}
+
+export interface IListJobsOutput {
+  jobs: IJob[];
+  total: number;
+}
+
 export interface IJobWorker {
   enqueue(input: ICreateJobInput): Promise<string>;
   getJob(jobId: string): Promise<IJob | null>;
-  listJobs(projectId: string, status?: string): Promise<IJob[]>;
+  listJobs(input: IListJobsInput): Promise<IListJobsOutput>;
   processNextJob(): Promise<void>;
   cancelJob(jobId: string): Promise<void>;
   drain(): Promise<void>;
@@ -39,4 +54,6 @@ export namespace JobWorker {
   export type Interface = IJobWorker;
   export type Job = IJob;
   export type CreateJobInput = ICreateJobInput;
+  export type ListJobsInput = IListJobsInput;
+  export type ListJobsOutput = IListJobsOutput;
 }

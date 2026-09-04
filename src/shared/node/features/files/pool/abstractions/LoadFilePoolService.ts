@@ -10,6 +10,7 @@ import type {
 export interface ILoadFilePoolServiceInput {
   projectId: string;
   tenant: string;
+  onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
 export interface ILoadFilePoolServiceOutput {

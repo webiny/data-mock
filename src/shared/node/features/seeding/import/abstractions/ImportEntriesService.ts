@@ -11,6 +11,7 @@ export interface IImportEntriesServiceInput {
   projectId: string;
   tenant: string;
   models: string[];
+  onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
 export interface IImportEntriesServiceOutput {

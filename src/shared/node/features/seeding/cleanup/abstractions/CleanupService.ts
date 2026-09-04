@@ -10,6 +10,7 @@ import type {
 export interface ICleanupServiceInput {
   projectId: string;
   jobId?: string;
+  onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
 export interface ICleanupServiceModelResult {

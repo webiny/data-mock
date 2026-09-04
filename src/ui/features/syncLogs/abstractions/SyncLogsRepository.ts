@@ -3,7 +3,8 @@ import type { SyncLog } from "~/shared/types.js";
 
 export interface ISyncLogsRepository {
   readonly logs: SyncLog[];
-  setLogs(logs: SyncLog[]): void;
+  readonly totalLogs: number;
+  setLogs(logs: SyncLog[], total: number): void;
   addLog(log: SyncLog): void;
   removeLog(id: string): void;
   getLogsByProjectId(projectId: string): SyncLog[];

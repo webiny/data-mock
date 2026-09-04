@@ -4,10 +4,12 @@ import {
   listProjectFilesRoute,
   uploadProjectFileRoute,
   deleteProjectFileRoute,
+  pullProjectFilesRoute,
 } from "~/shared/routes/files.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { FilesGateway as Abstraction } from "./abstractions/FilesGateway.js";
+import type { IPullFilesResult } from "./abstractions/FilesGateway.js";
 
 class FilesGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
@@ -50,6 +52,22 @@ class FilesGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(undefined);
+  }
+
+  public async pullFiles(
+    projectId: string,
+    tenant: string,
+  ): Promise<Result<IPullFilesResult, HTTPError>> {
+    const result = await this.httpClient.request(pullProjectFilesRoute, {
+      params: { projectId },
+      body: { tenant },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.result);
   }
 }
 

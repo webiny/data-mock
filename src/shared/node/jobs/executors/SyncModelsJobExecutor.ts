@@ -14,7 +14,10 @@ class SyncModelsJobExecutorImpl implements Abstraction.Interface {
   public async execute(context: JobExecutor.ExecutionContext): Promise<void> {
     context.appendLog(`Syncing models for project ${context.projectId}`);
 
-    const result = await this.syncModelsService.execute({ projectId: context.projectId });
+    const result = await this.syncModelsService.execute({
+      projectId: context.projectId,
+      onProgress: (percent, label) => context.setProgress({ percent, label }),
+    });
 
     if (result.isFail()) {
       await this.createSyncLogRepository.execute({

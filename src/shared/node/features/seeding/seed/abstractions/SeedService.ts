@@ -23,6 +23,7 @@ export interface ISeedServiceInput {
   dryRun?: boolean | undefined;
   batchSize: number;
   signal?: AbortSignal | undefined;
+  onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
 export interface ISeedModelError {

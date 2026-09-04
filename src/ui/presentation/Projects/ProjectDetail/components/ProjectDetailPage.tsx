@@ -240,8 +240,10 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onUploadFiles={(files) => void presenter.uploadFilesToProject(files)}
                 onUploadAllGlobal={() => void presenter.uploadAllGlobalImages()}
                 onUploadSelected={(names) => void presenter.uploadSelectedGlobalImages(names)}
+                onPullFiles={() => void presenter.pullFiles()}
                 onDelete={(id) => void presenter.deleteFile(id)}
                 isUploadingGlobal={isUploadingGlobal}
+                isPullingFiles={vm.isPullingFiles}
                 selectedTenant={project.tenant}
               />
             )}
@@ -270,10 +272,30 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
               />
             )}
             {activeView === "jobs" && (
-              <JobsTab jobs={vm.jobs} onCancel={(jobId) => void presenter.cancelJob(jobId)} />
+              <JobsTab
+                jobs={vm.jobs}
+                totalCount={vm.jobsTotalCount}
+                page={vm.jobsPage}
+                typeFilter={vm.jobsTypeFilter}
+                statusFilter={vm.jobsStatusFilter}
+                onPageChange={(p) => presenter.loadJobsPage(p)}
+                onFilterChange={(k, v) => presenter.setJobsFilter(k, v)}
+                onClearFilter={() => presenter.clearJobsFilter()}
+                onCancel={(jobId) => void presenter.cancelJob(jobId)}
+              />
             )}
             {activeView === "activity" && (
-              <SyncLogTable logs={syncLog} onDelete={(id) => void presenter.deleteSyncLog(id)} />
+              <SyncLogTable
+                logs={syncLog}
+                totalCount={vm.syncLogsTotalCount}
+                page={vm.syncLogsPage}
+                typeFilter={vm.syncLogsTypeFilter}
+                statusFilter={vm.syncLogsStatusFilter}
+                onPageChange={(p) => presenter.loadSyncLogsPage(p)}
+                onFilterChange={(k, v) => presenter.setSyncLogsFilter(k, v)}
+                onClearFilter={() => presenter.clearSyncLogsFilter()}
+                onDelete={(id) => void presenter.deleteSyncLog(id)}
+              />
             )}
             {activeView === "templates" && (
               <TemplatesTab

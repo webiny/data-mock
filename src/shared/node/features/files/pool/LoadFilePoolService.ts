@@ -5,6 +5,8 @@ import { FileUploadService } from "~/shared/node/features/files/upload/abstracti
 import { LoadFilePoolService as Abstraction } from "./abstractions/LoadFilePoolService.js";
 import type { ProjectFile } from "~/shared/types.js";
 
+const ALL_FILES_LIMIT = 100000;
+
 class LoadFilePoolServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly listProjectFilesRepository: ListProjectFilesRepository.Interface,
@@ -19,11 +21,12 @@ class LoadFilePoolServiceImpl implements Abstraction.Interface {
     const dbFilesResult = await this.listProjectFilesRepository.execute({
       projectId: input.projectId,
       tenant: input.tenant,
+      limit: ALL_FILES_LIMIT,
     });
     if (dbFilesResult.isFail()) {
       return Result.fail(dbFilesResult.error);
     }
-    const dbFiles = dbFilesResult.value;
+    const dbFiles = dbFilesResult.value.files;
 
     const localImagesResult = await this.listLocalImagesService.execute({});
     if (localImagesResult.isFail()) {
@@ -33,10 +36,17 @@ class LoadFilePoolServiceImpl implements Abstraction.Interface {
 
     const uploadedFileNames = new Set(dbFiles.map((file) => file.fileName));
     const newlyUploadedFiles: ProjectFile[] = [];
+    const onProgress = input.onProgress;
+    const pendingImages = localImages.filter(
+      (localImage) => !uploadedFileNames.has(localImage.fileName),
+    );
+    let uploadIndex = 0;
 
-    for (const localImage of localImages) {
-      if (uploadedFileNames.has(localImage.fileName)) {
-        continue;
+    for (const localImage of pendingImages) {
+      uploadIndex++;
+      if (onProgress) {
+        const percent = Math.round((uploadIndex / pendingImages.length) * 100);
+        onProgress(percent, `Uploading: ${uploadIndex}/${pendingImages.length} files`);
       }
 
       try {
