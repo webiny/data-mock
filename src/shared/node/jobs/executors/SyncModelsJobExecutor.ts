@@ -12,16 +12,20 @@ class SyncModelsJobExecutorImpl implements Abstraction.Interface {
   ) {}
 
   public async execute(context: JobExecutor.ExecutionContext): Promise<void> {
-    context.appendLog(`Syncing models for project ${context.projectId}`);
+    if (!context.projectId) {
+      throw new Error("Pull models job requires a projectId");
+    }
+    const projectId = context.projectId;
+    context.appendLog(`Syncing models for project ${projectId}`);
 
     const result = await this.syncModelsService.execute({
-      projectId: context.projectId,
+      projectId,
       onProgress: (percent, label) => context.setProgress({ percent, label }),
     });
 
     if (result.isFail()) {
       await this.createSyncLogRepository.execute({
-        projectId: context.projectId,
+        projectId,
         type: "models",
         status: "error",
         message: result.error.message,
@@ -33,7 +37,7 @@ class SyncModelsJobExecutorImpl implements Abstraction.Interface {
     const { operations, ...summary } = result.value;
 
     await this.createSyncLogRepository.execute({
-      projectId: context.projectId,
+      projectId,
       type: "models",
       status: "success",
       message: `Synced ${summary.models} model(s)`,

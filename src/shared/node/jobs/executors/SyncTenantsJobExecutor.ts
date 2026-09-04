@@ -12,16 +12,20 @@ class SyncTenantsJobExecutorImpl implements Abstraction.Interface {
   ) {}
 
   public async execute(context: JobExecutor.ExecutionContext): Promise<void> {
-    context.appendLog(`Syncing tenants for project ${context.projectId}`);
+    if (!context.projectId) {
+      throw new Error("Pull tenants job requires a projectId");
+    }
+    const projectId = context.projectId;
+    context.appendLog(`Syncing tenants for project ${projectId}`);
 
     const result = await this.tenantSyncService.execute({
-      projectId: context.projectId,
+      projectId,
       onProgress: (percent, label) => context.setProgress({ percent, label }),
     });
 
     if (result.isFail()) {
       await this.createSyncLogRepository.execute({
-        projectId: context.projectId,
+        projectId,
         type: "tenants",
         status: "error",
         message: result.error.message,
@@ -33,7 +37,7 @@ class SyncTenantsJobExecutorImpl implements Abstraction.Interface {
     const { operations, ...summary } = result.value;
 
     await this.createSyncLogRepository.execute({
-      projectId: context.projectId,
+      projectId,
       type: "tenants",
       status: "success",
       message: `Synced ${summary.synced} tenant(s)`,

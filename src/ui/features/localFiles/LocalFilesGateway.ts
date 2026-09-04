@@ -47,9 +47,7 @@ class LocalFilesGatewayImpl implements Abstraction.Interface {
     return this.httpClient.request(deleteLocalFileRoute, { params: { fileName } });
   }
 
-  public async pullPicsum(
-    input: ILocalFilesPullPicsumInput,
-  ): Promise<Result<{ downloaded: number }, HTTPError>> {
+  public async pullPicsum(input: ILocalFilesPullPicsumInput): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(pullPicsumImagesRoute, {
       params: {},
       body: {
@@ -63,7 +61,7 @@ class LocalFilesGatewayImpl implements Abstraction.Interface {
       return Result.fail(result.error);
     }
 
-    return Result.ok({ downloaded: result.value.result.downloaded });
+    return Result.ok(result.value.result);
   }
 
   public async uploadGlobalToProject(

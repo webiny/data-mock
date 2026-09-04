@@ -8,11 +8,15 @@ class CleanupJobExecutorImpl implements Abstraction.Interface {
   public constructor(private readonly cleanupService: CleanupService.Interface) {}
 
   public async execute(context: JobExecutor.ExecutionContext): Promise<void> {
-    context.appendLog(`Cleaning up entries for project ${context.projectId}`);
+    if (!context.projectId) {
+      throw new Error("Cleanup job requires a projectId");
+    }
+    const projectId = context.projectId;
+    context.appendLog(`Cleaning up entries for project ${projectId}`);
 
     const config = context.configJson ? (JSON.parse(context.configJson) as { jobId?: string }) : {};
     const input: CleanupService.Input = {
-      projectId: context.projectId,
+      projectId,
       onProgress: (percent, label) => context.setProgress({ percent, label }),
     };
     if (config.jobId) {

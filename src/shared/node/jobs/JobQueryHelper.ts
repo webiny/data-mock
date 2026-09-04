@@ -46,7 +46,10 @@ export class JobQueryHelper {
   }
 
   public async listJobs(input: JobWorker.ListJobsInput): Promise<JobWorker.ListJobsOutput> {
-    const conditions: SQL[] = [eq(jobs.projectId, input.projectId)];
+    const conditions: SQL[] = [];
+    if (input.projectId !== undefined) {
+      conditions.push(eq(jobs.projectId, input.projectId));
+    }
     if (input.status !== undefined) {
       conditions.push(eq(jobs.status, input.status));
     }

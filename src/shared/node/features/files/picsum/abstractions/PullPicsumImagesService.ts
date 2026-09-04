@@ -6,6 +6,7 @@ export interface IPullPicsumImagesServiceInput {
   count: number;
   width?: number;
   height?: number;
+  onProgress?: (percent: number, label: string) => void;
 }
 
 export interface IPullPicsumImagesServiceOutput {

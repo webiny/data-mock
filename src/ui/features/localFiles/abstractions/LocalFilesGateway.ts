@@ -35,7 +35,7 @@ export interface ILocalFilesGateway {
   list(): Promise<Result<ILocalFileVM[], HTTPError>>;
   upload(input: ILocalFileUploadInput): Promise<Result<ILocalFileVM, HTTPError>>;
   remove(fileName: string): Promise<Result<void, HTTPError>>;
-  pullPicsum(input: ILocalFilesPullPicsumInput): Promise<Result<{ downloaded: number }, HTTPError>>;
+  pullPicsum(input: ILocalFilesPullPicsumInput): Promise<Result<Job, HTTPError>>;
   uploadGlobalToProject(
     projectId: string,
     input: ILocalFilesUploadGlobalToProjectInput,

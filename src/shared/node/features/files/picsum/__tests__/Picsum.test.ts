@@ -88,6 +88,21 @@ describe("Picsum Feature", () => {
       }
     }, 10000);
 
+    it("should report progress after each downloaded image", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(makeFakeResponse(true));
+      vi.stubGlobal("fetch", fetchMock);
+
+      const tc = createTestContainer();
+      const service = tc.container.resolve(PullPicsumImagesService);
+
+      const onProgress = vi.fn();
+      await service.execute({ count: 2, onProgress });
+
+      expect(onProgress).toHaveBeenCalledTimes(2);
+      expect(onProgress).toHaveBeenNthCalledWith(1, 50, expect.stringContaining("1/2"));
+      expect(onProgress).toHaveBeenNthCalledWith(2, 100, expect.stringContaining("2/2"));
+    }, 10000);
+
     it("should continue when fetch throws", async () => {
       const fetchMock = vi
         .fn()

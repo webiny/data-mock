@@ -126,9 +126,7 @@ export const syncLogs = sqliteTable("sync_logs", {
 
 export const jobs = sqliteTable("jobs", {
   id: text("id").primaryKey().notNull(),
-  projectId: text("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
+  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   status: text("status").notNull(),
   config: text("config"),

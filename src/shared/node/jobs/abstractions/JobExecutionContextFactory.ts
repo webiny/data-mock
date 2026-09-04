@@ -11,7 +11,7 @@ export interface IJobExecutionContext {
 
 export interface IJobExecutionContextFactoryInput {
   jobId: string;
-  projectId: string;
+  projectId: string | null;
 }
 
 export interface IJobExecutionContextFactory {

@@ -48,6 +48,9 @@ class PullPicsumImagesServiceImpl implements Abstraction.Interface {
         );
       }
 
+      const percent = Math.round(((i + 1) / input.count) * 100);
+      input.onProgress?.(percent, `Downloading: ${i + 1}/${input.count} images`);
+
       if (i < input.count - 1) {
         await delay(DOWNLOAD_DELAY_MS);
       }

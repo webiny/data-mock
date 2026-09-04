@@ -16,6 +16,7 @@ export const FileManagerPage = observer(function FileManagerPage({
 }: FileManagerPageProps) {
   useEffect(() => {
     void presenter.load();
+    return () => presenter.dispose();
   }, [presenter]);
 
   const { files, isLoading, isPullingPicsum, picsumCount, error, previewFile } = presenter.vm;

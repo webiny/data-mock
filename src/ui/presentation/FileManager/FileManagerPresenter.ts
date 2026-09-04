@@ -2,6 +2,10 @@ import { makeAutoObservable, runInAction } from "mobx";
 import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
 import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
 import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
+import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
+import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
+import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
+import type { WSJobStatus } from "~/shared/websocket/types.js";
 import { FileManagerPresenter as Abstraction } from "./abstractions/FileManagerPresenter.js";
 import type {
   IFileManagerVM,
@@ -17,11 +21,15 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
   private _picsumCount = DEFAULT_PICSUM_COUNT;
   private _error: string | null = null;
   private _previewFileName: string | null = null;
+  private readonly disposeJobSubscription: () => void;
 
   public constructor(
     private readonly localFilesGateway: LocalFilesGateway.Interface,
     private readonly localFilesRepository: LocalFilesRepository.Interface,
+    private readonly notifications: NotificationService.Interface,
+    eventBridge: EventBridge.Interface,
   ) {
+    this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
     makeAutoObservable(this);
   }
 
@@ -81,14 +89,15 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
     this._error = null;
     try {
       const result = await this.localFilesGateway.pullPicsum({ count: this._picsumCount });
-      if (result.isFail()) {
-        runInAction(() => {
+      runInAction(() => {
+        if (result.isFail()) {
           this._error = result.error.message;
-        });
-        return;
-      }
-      await this.load();
-    } finally {
+          this._isPullingPicsum = false;
+          return;
+        }
+        this.notifications.success("Picsum download job started.");
+      });
+    } catch {
       runInAction(() => {
         this._isPullingPicsum = false;
       });
@@ -151,6 +160,30 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
   public closePreview = (): void => {
     this._previewFileName = null;
   };
+
+  public dispose = (): void => {
+    this.disposeJobSubscription();
+  };
+
+  private handleJobStatus = (event: WSJobStatus): void => {
+    if (event.type !== "pull-picsum") {
+      return;
+    }
+    if (!TERMINAL_JOB_STATUSES.has(event.status)) {
+      return;
+    }
+    runInAction(() => {
+      this._isPullingPicsum = false;
+    });
+    if (event.status === "completed") {
+      this.notifications.success("Picsum images downloaded.");
+      void this.load();
+    } else if (event.status === "failed") {
+      runInAction(() => {
+        this._error = "Picsum download job failed.";
+      });
+    }
+  };
 }
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -174,5 +207,5 @@ function readFileAsBase64(file: File): Promise<string> {
 
 export const FileManagerPresenter = Abstraction.createImplementation({
   implementation: FileManagerPresenterImpl,
-  dependencies: [LocalFilesGateway, LocalFilesRepository],
+  dependencies: [LocalFilesGateway, LocalFilesRepository, NotificationService, EventBridge],
 });

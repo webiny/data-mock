@@ -11,14 +11,18 @@ class ImportJobExecutorImpl implements Abstraction.Interface {
     if (!context.configJson) {
       throw new Error("Import job requires config");
     }
+    if (!context.projectId) {
+      throw new Error("Import job requires a projectId");
+    }
+    const projectId = context.projectId;
     const config = JSON.parse(context.configJson) as ImportEntriesService.Input;
     context.appendLog(
-      `Importing entries for project ${context.projectId}, models: ${config.models.join(", ")}`,
+      `Importing entries for project ${projectId}, models: ${config.models.join(", ")}`,
     );
 
     const result = await this.importService.execute({
       ...config,
-      projectId: context.projectId,
+      projectId,
       onProgress: (percent, label) => context.setProgress({ percent, label }),
     });
 

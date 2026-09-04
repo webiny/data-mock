@@ -2,21 +2,21 @@ import type { JobStatus, JobType } from "~/shared/jobs/constants.js";
 
 export interface WSJobStatus {
   jobId: string;
-  projectId: string;
+  projectId: string | null;
   type: JobType;
   status: JobStatus;
 }
 
 export interface WSJobProgress {
   jobId: string;
-  projectId: string;
+  projectId: string | null;
   progress: number;
   progressLabel: string | null;
 }
 
 export interface WSJobLog {
   jobId: string;
-  projectId: string;
+  projectId: string | null;
   line: string;
 }
 

@@ -6,7 +6,8 @@ export type JobType =
   | "pull-models"
   | "cleanup"
   | "import"
-  | "upload-files";
+  | "upload-files"
+  | "pull-picsum";
 
 export type JobStatus =
   | "pending"

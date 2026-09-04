@@ -7,7 +7,7 @@ export interface ISetProgressInput {
 
 export interface IJobExecutionContext {
   jobId: string;
-  projectId: string;
+  projectId: string | null;
   configJson: string | null;
   appendLog: (line: string) => void;
   setProgress: (input: ISetProgressInput) => void;

@@ -128,7 +128,7 @@ export type SeedEntryStatus = "created" | "failed" | "dry-run" | "imported" | "d
 
 export interface Job {
   id: string;
-  projectId: string;
+  projectId: string | null;
   type: string;
   status: string;
   config: unknown;

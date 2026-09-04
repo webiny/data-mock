@@ -17,7 +17,7 @@ export class JobExecutionContext {
 
   public constructor(
     private readonly jobId: string,
-    private readonly projectId: string,
+    private readonly projectId: string | null,
     private readonly databaseClient: DatabaseClient.Interface,
     private readonly webSocketBroadcaster: WebSocketBroadcaster.Interface,
     private readonly logger: Logger.Interface,

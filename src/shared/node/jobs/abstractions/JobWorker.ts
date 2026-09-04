@@ -3,7 +3,7 @@ import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
 
 export interface IJob {
   id: string;
-  projectId: string;
+  projectId: string | null;
   type: JobType;
   status: JobStatus;
   config: string | null;
@@ -17,14 +17,14 @@ export interface IJob {
 }
 
 export interface ICreateJobInput {
-  projectId: string;
+  projectId: string | null;
   type: JobType;
   config?: Record<string, unknown>;
   parentJobId?: string;
 }
 
 export interface IListJobsInput {
-  projectId: string;
+  projectId?: string;
   status?: string;
   type?: string;
   limit?: number;

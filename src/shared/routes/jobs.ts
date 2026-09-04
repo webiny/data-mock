@@ -3,7 +3,7 @@ import { defineListRoute, defineOneRoute } from "~/shared/routing/defineTypedRou
 
 export const jobSchema = z.object({
   id: z.string(),
-  projectId: z.string(),
+  projectId: z.string().nullable(),
   type: z.string(),
   status: z.string(),
   config: z.unknown().nullable(),
@@ -17,7 +17,7 @@ export const jobSchema = z.object({
 });
 
 const enqueueJobBodySchema = z.object({
-  type: z.enum(["seed", "pull-tenants", "pull-models", "cleanup", "import"]),
+  type: z.enum(["seed", "pull-tenants", "pull-models", "cleanup", "import", "pull-picsum"]),
   config: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -25,6 +25,13 @@ export const listJobsRoute = defineListRoute("jobs", {
   path: "/api/projects/:projectId/jobs",
   description: "List jobs for a project",
   params: z.object({ projectId: z.string() }),
+  item: jobSchema,
+});
+
+export const listGlobalJobsRoute = defineListRoute("jobs", {
+  path: "/api/jobs",
+  description: "List all jobs (global, not project-scoped)",
+  params: z.object({}),
   item: jobSchema,
 });
 

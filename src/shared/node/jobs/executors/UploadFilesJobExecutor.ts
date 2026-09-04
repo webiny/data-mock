@@ -11,11 +11,15 @@ class UploadFilesJobExecutorImpl implements Abstraction.Interface {
     if (!context.configJson) {
       throw new Error("Upload files job requires config");
     }
+    if (!context.projectId) {
+      throw new Error("Upload files job requires a projectId");
+    }
+    const projectId = context.projectId;
     const config = JSON.parse(context.configJson) as { tenant: string; fileNames?: string[] };
-    context.appendLog(`Uploading global images to project ${context.projectId}`);
+    context.appendLog(`Uploading global images to project ${projectId}`);
 
     const result = await this.uploadService.execute({
-      projectId: context.projectId,
+      projectId,
       tenant: config.tenant,
       fileNames: config.fileNames,
       onProgress: (percent, label) => context.setProgress({ percent, label }),

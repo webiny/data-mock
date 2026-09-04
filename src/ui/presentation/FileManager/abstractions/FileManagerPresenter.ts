@@ -32,6 +32,7 @@ export interface IFileManagerPresenter {
   uploadFiles(files: File[]): Promise<void>;
   openPreview(file: IFileManagerFileVM): void;
   closePreview(): void;
+  dispose(): void;
 }
 
 export const FileManagerPresenter =

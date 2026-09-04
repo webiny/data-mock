@@ -104,6 +104,30 @@ describe("Jobs System", () => {
       expect(result.total).toBe(0);
     });
 
+    it("should enqueue a global job with a null projectId", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      const id = await worker.enqueue({
+        projectId: null,
+        type: "pull-picsum",
+        config: { count: 5 },
+      });
+
+      const job = await worker.getJob(id);
+      expect(job).not.toBeNull();
+      expect(job!.projectId).toBeNull();
+      expect(job!.type).toBe("pull-picsum");
+    });
+
+    it("should list all jobs across projects when no projectId is given", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      await worker.enqueue({ projectId, type: "seed" });
+      await worker.enqueue({ projectId: null, type: "pull-picsum" });
+
+      const all = await worker.listJobs({});
+      expect(all.total).toBe(2);
+      expect(all.jobs.map((j) => j.type).sort()).toEqual(["pull-picsum", "seed"]);
+    });
+
     it("should filter jobs by type", async () => {
       const worker = tc.container.resolve(JobWorker);
       await worker.enqueue({ projectId, type: "seed" });
@@ -210,6 +234,12 @@ describe("Jobs System", () => {
       const registry = tc.container.resolve(JobExecutorRegistry);
       const executor = registry.getExecutor("upload-files");
       expect(executor.type).toBe("upload-files");
+    });
+
+    it("should resolve pull-picsum executor", () => {
+      const registry = tc.container.resolve(JobExecutorRegistry);
+      const executor = registry.getExecutor("pull-picsum");
+      expect(executor.type).toBe("pull-picsum");
     });
 
     it("should throw for unknown executor type", () => {
@@ -491,6 +521,28 @@ describe("Jobs API routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe("GET /api/jobs (global)", () => {
+    it("should list jobs across all projects, including global (null-projectId) jobs", async () => {
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${projectId}/jobs`,
+        payload: { type: "seed" },
+      });
+
+      const worker = tc.container.resolve(JobWorker);
+      await worker.enqueue({ projectId: null, type: "pull-picsum", config: { count: 3 } });
+
+      const response = await app.inject({ method: "GET", url: "/api/jobs" });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.jobs.total).toBe(2);
+      const globalJob = body.jobs.items.find((job: { type: string }) => job.type === "pull-picsum");
+      expect(globalJob).toBeDefined();
+      expect(globalJob.projectId).toBeNull();
     });
   });
 });

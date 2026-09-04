@@ -6,7 +6,6 @@ import {
   syncFilesBodySchema,
   syncFilesResponseSchema,
   pullPicsumBodySchema,
-  pullPicsumResponseSchema,
   localFileSchema,
   uploadLocalFileBodySchema,
   localFileUploadResultSchema,
@@ -49,10 +48,10 @@ export const pullProjectFilesRoute = defineOneRoute("result", {
 export const pullPicsumImagesRoute = defineOneRoute("result", {
   method: "POST",
   path: "/api/files/picsum/pull",
-  description: "Pull placeholder images from picsum.photos",
+  description: "Pull placeholder images from picsum.photos (background job)",
   params: z.object({}),
   body: pullPicsumBodySchema,
-  item: pullPicsumResponseSchema,
+  item: jobSchema,
 });
 
 export const listLocalFilesRoute = defineListRoute("files", {
