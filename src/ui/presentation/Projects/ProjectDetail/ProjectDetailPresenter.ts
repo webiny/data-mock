@@ -47,6 +47,7 @@ const VIEW_DATASETS: Record<string, string[]> = {
   templates: ["templates"],
   "pull-tenants": ["syncLogs"],
   "pull-models": ["syncLogs"],
+  "pull-images": ["syncLogs"],
   jobs: ["jobs"],
   activity: ["syncLogs"],
   seed: ["tenants", "models"],

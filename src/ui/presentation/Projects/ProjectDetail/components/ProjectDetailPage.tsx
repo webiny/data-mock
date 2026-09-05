@@ -27,6 +27,7 @@ import { FilesTab } from "./FilesTab.js";
 import { AuditLogTab } from "./AuditLogTab.js";
 import { SyncTenantsTab } from "./SyncTenantsTab.js";
 import { SyncModelsTab } from "./SyncModelsTab.js";
+import { PullImagesTab } from "./PullImagesTab.js";
 import { SyncLogTable } from "./SyncLogTable.js";
 import { ImportEntriesTab } from "./ImportEntriesTab.js";
 import { JobsTab } from "./JobsTab.js";
@@ -203,6 +204,11 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 active={activeView === "pull-models"}
                 onClick={() => goTo("pull-models")}
               />
+              <NavLink
+                label="Pull Images"
+                active={activeView === "pull-images"}
+                onClick={() => goTo("pull-images")}
+              />
 
               <Divider my="xs" />
 
@@ -323,6 +329,14 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 logs={syncLog}
                 isSyncing={isSyncingModels}
                 onSync={() => void presenter.pullModels()}
+                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
+              />
+            )}
+            {activeView === "pull-images" && (
+              <PullImagesTab
+                logs={syncLog}
+                isPulling={vm.isPullingFiles}
+                onPull={() => void presenter.pullFiles()}
                 onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
