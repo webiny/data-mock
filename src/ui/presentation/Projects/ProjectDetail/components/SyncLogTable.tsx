@@ -5,12 +5,18 @@ import type { ISyncLogVM } from "../abstractions/ProjectDetailPresenter.js";
 
 const PAGE_SIZE = 25;
 
-interface OperationEntry {
+interface RequestEntry {
   name: string;
-  url: string;
-  query: string;
+  url?: string;
+  query?: string;
+  method?: string;
+  variables?: unknown;
+}
+
+interface ResponseEntry {
+  name: string;
   httpStatus: number;
-  response: unknown;
+  body: unknown;
 }
 
 interface ViewerState {
@@ -19,9 +25,9 @@ interface ViewerState {
   language: string;
 }
 
-function extractOperations(request: unknown): OperationEntry[] {
-  if (Array.isArray(request)) {
-    return request as OperationEntry[];
+function extractArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
   }
   return [];
 }
@@ -79,21 +85,29 @@ export function SyncLogTable({
   const showFilters = onFilterChange !== undefined;
   const hasFilters = typeFilter || statusFilter;
 
-  const showRequest = (op: OperationEntry) => {
-    const info = [
-      `# ${op.name}`,
-      `# URL: ${op.url}`,
-      `# HTTP Status: ${op.httpStatus}`,
-      "",
-      op.query,
-    ].join("\n");
-    setViewer({ title: `Request — ${op.name}`, value: info, language: "graphql" });
+  const showRequest = (req: RequestEntry) => {
+    const lines: string[] = [`# ${req.name}`];
+    if (req.url) {
+      lines.push(`# URL: ${req.url}`);
+    }
+    if (req.method) {
+      lines.push(`# Method: ${req.method}`);
+    }
+    lines.push("");
+    if (req.query) {
+      lines.push(req.query);
+    }
+    if (req.variables !== undefined) {
+      lines.push("", "# Variables", formatJson(req.variables));
+    }
+    setViewer({ title: `Request — ${req.name}`, value: lines.join("\n"), language: "graphql" });
   };
 
-  const showResponse = (op: OperationEntry) => {
+  const showResponse = (resp: ResponseEntry) => {
+    const lines: string[] = [`// HTTP Status: ${resp.httpStatus}`, "", formatJson(resp.body)];
     setViewer({
-      title: `Response — ${op.name}`,
-      value: formatJson(op.response),
+      title: `Response — ${resp.name}`,
+      value: lines.join("\n"),
       language: "json",
     });
   };
@@ -166,7 +180,8 @@ export function SyncLogTable({
             </Table.Thead>
             <Table.Tbody>
               {displayLogs.map((log) => {
-                const operations = extractOperations(log.request);
+                const requestOps = extractArray<RequestEntry>(log.request);
+                const responseOps = extractArray<ResponseEntry>(log.response);
                 return (
                   <Table.Tr key={log.id}>
                     <Table.Td>
@@ -181,16 +196,16 @@ export function SyncLogTable({
                       <Text size="sm">{log.message}</Text>
                     </Table.Td>
                     <Table.Td>
-                      {operations.length > 0 ? (
+                      {requestOps.length > 0 ? (
                         <Stack gap={4}>
-                          {operations.map((op) => (
+                          {requestOps.map((req) => (
                             <Button
-                              key={op.name}
+                              key={req.name}
                               variant="light"
                               size="compact-xs"
-                              onClick={() => showRequest(op)}
+                              onClick={() => showRequest(req)}
                             >
-                              {op.name}
+                              {req.name}
                             </Button>
                           ))}
                         </Stack>
@@ -209,16 +224,16 @@ export function SyncLogTable({
                       )}
                     </Table.Td>
                     <Table.Td>
-                      {operations.length > 0 ? (
+                      {responseOps.length > 0 ? (
                         <Stack gap={4}>
-                          {operations.map((op) => (
+                          {responseOps.map((resp) => (
                             <Button
-                              key={op.name}
+                              key={resp.name}
                               variant="light"
                               size="compact-xs"
-                              onClick={() => showResponse(op)}
+                              onClick={() => showResponse(resp)}
                             >
-                              {op.name}
+                              {resp.name}
                             </Button>
                           ))}
                         </Stack>

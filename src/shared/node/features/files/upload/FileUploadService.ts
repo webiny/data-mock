@@ -30,15 +30,6 @@ interface CreatedFmFile {
   size: number;
 }
 
-interface UploadOperationLogEntry {
-  name: string;
-  url: string;
-  query: string;
-  variables?: unknown;
-  httpStatus: number;
-  response: unknown;
-}
-
 class FileUploadServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly getProjectRepository: GetProjectRepository.Interface,
@@ -71,7 +62,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       "x-tenant": input.tenant,
     };
 
-    const operations: UploadOperationLogEntry[] = [];
+    const requests: unknown[] = [];
+    const responses: unknown[] = [];
 
     // Step 1: get a presigned S3 POST payload for the file.
     const presignedQuery = `query GetPreSignedPostPayload($data: PreSignedPostPayloadInput!) { fileManager { getPreSignedPostPayload(data: $data) { data { data file { id name type size key } } error { message code } } } }`;
@@ -83,13 +75,16 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       fileType,
       fileSize,
     );
-    operations.push({
+    requests.push({
       name: "getPreSignedPostPayload",
       url: graphqlUrl,
       query: presignedQuery,
       variables: presignedVariables,
+    });
+    responses.push({
+      name: "getPreSignedPostPayload",
       httpStatus: presignedResult.isOk() ? 200 : 0,
-      response: presignedResult.isOk() ? presignedResult.value : presignedResult.error.data,
+      body: presignedResult.isOk() ? presignedResult.value : presignedResult.error.data,
     });
     if (presignedResult.isFail()) {
       await this.logUpload(
@@ -97,7 +92,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
         fileName,
         "error",
         presignedResult.error.message,
-        operations,
+        requests,
+        responses,
       );
       return Result.fail(presignedResult.error);
     }
@@ -105,12 +101,15 @@ class FileUploadServiceImpl implements Abstraction.Interface {
 
     // Step 2: upload the actual file bytes directly to S3.
     const uploadResult = await this.uploadToS3(payload, input.filePath, fileName, fileType);
-    operations.push({
+    requests.push({
       name: "uploadToS3",
       url: payload.url,
-      query: "(multipart POST)",
+      method: "POST (multipart)",
+    });
+    responses.push({
+      name: "uploadToS3",
       httpStatus: uploadResult.isOk() ? 204 : 0,
-      response: uploadResult.isOk() ? { status: 204 } : uploadResult.error.data,
+      body: uploadResult.isOk() ? { status: 204 } : uploadResult.error.data,
     });
     if (uploadResult.isFail()) {
       await this.logUpload(
@@ -118,7 +117,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
         fileName,
         "error",
         uploadResult.error.message,
-        operations,
+        requests,
+        responses,
       );
       return Result.fail(uploadResult.error);
     }
@@ -142,13 +142,16 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       fileType,
       fileSize,
     );
-    operations.push({
+    requests.push({
       name: "createFile",
       url: graphqlUrl,
       query: createFileMutation,
       variables: createFileVariables,
+    });
+    responses.push({
+      name: "createFile",
       httpStatus: createFileResult.isOk() ? 200 : 0,
-      response: createFileResult.isOk() ? createFileResult.value : createFileResult.error.data,
+      body: createFileResult.isOk() ? createFileResult.value : createFileResult.error.data,
     });
     if (createFileResult.isFail()) {
       await this.logUpload(
@@ -156,7 +159,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
         fileName,
         "error",
         createFileResult.error.message,
-        operations,
+        requests,
+        responses,
       );
       return Result.fail(createFileResult.error);
     }
@@ -182,7 +186,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       fileName,
       "success",
       `Uploaded "${fileName}" to File Manager`,
-      operations,
+      requests,
+      responses,
     );
 
     this.logger.info(`Uploaded "${fileName}" → ${createdFile.key}`);
@@ -194,14 +199,16 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     fileName: string,
     status: "success" | "error",
     message: string,
-    operations: unknown[],
+    requests: unknown[],
+    responses: unknown[],
   ): Promise<void> {
     await this.createSyncLogRepository.execute({
       projectId,
       type: "upload-file",
       status,
       message,
-      request: operations,
+      request: requests,
+      response: responses,
     });
   }
 
