@@ -2,18 +2,17 @@ import { useState } from "react";
 import {
   Badge,
   Button,
-  Code,
   Group,
   Modal,
   Pagination,
   Progress,
-  ScrollArea,
   Select,
   Stack,
   Table,
   Text,
   Title,
 } from "@mantine/core";
+import { Editor } from "@monaco-editor/react";
 import type { Job } from "~/shared/types.js";
 
 const PAGE_SIZE = 25;
@@ -301,11 +300,22 @@ function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | unde
           <Text size="xs" c="dimmed" fw={600}>
             Config
           </Text>
-          <Code block>
-            {String(
-              typeof job.config === "string" ? job.config : JSON.stringify(job.config, null, 2),
-            )}
-          </Code>
+          <Editor
+            height="200px"
+            language="json"
+            value={
+              typeof job.config === "string" ? job.config : JSON.stringify(job.config, null, 2)
+            }
+            theme="vs-dark"
+            options={{
+              readOnly: true,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              fontSize: 13,
+              wordWrap: "on",
+              lineNumbers: "on",
+            }}
+          />
         </>
       )}
 
@@ -314,11 +324,20 @@ function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | unde
           <Text size="xs" c="dimmed" fw={600}>
             Logs
           </Text>
-          <ScrollArea h={300}>
-            <Code block style={{ whiteSpace: "pre-wrap" }}>
-              {job.logs}
-            </Code>
-          </ScrollArea>
+          <Editor
+            height="300px"
+            language="plaintext"
+            value={job.logs}
+            theme="vs-dark"
+            options={{
+              readOnly: true,
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              fontSize: 13,
+              wordWrap: "on",
+              lineNumbers: "off",
+            }}
+          />
         </>
       )}
     </Stack>
