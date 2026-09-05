@@ -303,9 +303,7 @@ function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | unde
           <Editor
             height="200px"
             language="json"
-            value={
-              typeof job.config === "string" ? job.config : JSON.stringify(job.config, null, 2)
-            }
+            value={formatJsonValue(job.config)}
             theme="vs-dark"
             options={{
               readOnly: true,
@@ -342,6 +340,17 @@ function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | unde
       )}
     </Stack>
   );
+}
+
+function formatJsonValue(value: unknown): string {
+  if (typeof value === "string") {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
+  return JSON.stringify(value, null, 2);
 }
 
 function formatDuration(job: Job): string {
