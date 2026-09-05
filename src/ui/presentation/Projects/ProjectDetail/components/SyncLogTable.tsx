@@ -86,30 +86,11 @@ export function SyncLogTable({
   const hasFilters = typeFilter || statusFilter;
 
   const showRequest = (req: RequestEntry) => {
-    const lines: string[] = [`# ${req.name}`];
-    if (req.url) {
-      lines.push(`# URL: ${req.url}`);
-    }
-    if (req.method) {
-      lines.push(`# Method: ${req.method}`);
-    }
-    lines.push("");
-    if (req.query) {
-      lines.push(req.query);
-    }
-    if (req.variables !== undefined) {
-      lines.push("", "# Variables", formatJson(req.variables));
-    }
-    setViewer({ title: `Request — ${req.name}`, value: lines.join("\n"), language: "graphql" });
+    setViewer({ title: `Request — ${req.name}`, value: formatJson(req), language: "json" });
   };
 
   const showResponse = (resp: ResponseEntry) => {
-    const lines: string[] = [`// HTTP Status: ${resp.httpStatus}`, "", formatJson(resp.body)];
-    setViewer({
-      title: `Response — ${resp.name}`,
-      value: lines.join("\n"),
-      language: "json",
-    });
+    setViewer({ title: `Response — ${resp.name}`, value: formatJson(resp), language: "json" });
   };
 
   const showFullDetail = (log: ISyncLogVM) => {
