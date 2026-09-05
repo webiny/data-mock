@@ -177,11 +177,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 active={activeView === "history"}
                 onClick={() => goTo("history")}
               />
-              <NavLink
-                label="Templates"
-                active={activeView === "templates"}
-                onClick={() => goTo("templates")}
-              />
+              {/* Templates hidden — not needed currently */}
               <NavLink label="Jobs" active={activeView === "jobs"} onClick={() => goTo("jobs")} />
               <NavLink
                 label="Activity Log"
