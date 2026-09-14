@@ -1,6 +1,8 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type {
+  EnvironmentNotFoundError,
+  EnvironmentNotConnectedError,
   ProjectNotFoundError,
   ProjectPersistenceError,
   SeedingError,
@@ -14,7 +16,7 @@ export interface ISeedServiceModelInput {
 }
 
 export interface ISeedServiceInput {
-  projectId: string;
+  environmentId: string;
   tenant: string;
   models: ISeedServiceModelInput[];
   publishStrategy?: PublishStrategy | undefined;
@@ -56,5 +58,10 @@ export namespace SeedService {
   export type Output = ISeedServiceOutput;
   export type ModelError = ISeedModelError;
   export type GeneratedModelEntries = ISeedGeneratedModelEntries;
-  export type Error = ProjectNotFoundError | ProjectPersistenceError | SeedingError;
+  export type Error =
+    | EnvironmentNotFoundError
+    | EnvironmentNotConnectedError
+    | ProjectNotFoundError
+    | ProjectPersistenceError
+    | SeedingError;
 }

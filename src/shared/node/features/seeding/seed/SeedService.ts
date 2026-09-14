@@ -1,6 +1,6 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { SeedService as Abstraction } from "./abstractions/SeedService.js";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
 import { GeneratorRegistry } from "~/shared/node/generators/abstractions/GeneratorRegistry.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
@@ -60,7 +60,7 @@ function resolveRevisionCount(revisions: Revisions): number {
 
 class SeedServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
     private readonly generatorRegistry: GeneratorRegistry.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
@@ -77,12 +77,16 @@ class SeedServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
+
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
 
-    const project = projectResult.value;
+    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
+      contextResult.value;
 
     const jobResult = await this.createSeedJobRepository.execute({
       projectId: project.id,
@@ -128,7 +132,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
+      authorization: `Bearer ${apiToken}`,
       "x-tenant": input.tenant,
     };
 
@@ -188,14 +192,10 @@ class SeedServiceImpl implements Abstraction.Interface {
         }).query;
         const publishMutation = buildPublishQuery(singularApiName).query;
         const unpublishMutation = buildUnpublishQuery(singularApiName).query;
-        const createOp = this.operationRegistry.resolve(
-          "createContentEntry",
-          project.webinyVersion,
-        );
-        const revisionOp = this.operationRegistry.resolve("createRevision", project.webinyVersion);
-        const publishOp = this.operationRegistry.resolve("publishEntry", project.webinyVersion);
-        const unpublishOp = this.operationRegistry.resolve("unpublishEntry", project.webinyVersion);
-        const apiUrl = project.apiUrl;
+        const createOp = this.operationRegistry.resolve("createContentEntry", operationsVersion);
+        const revisionOp = this.operationRegistry.resolve("createRevision", operationsVersion);
+        const publishOp = this.operationRegistry.resolve("publishEntry", operationsVersion);
+        const unpublishOp = this.operationRegistry.resolve("unpublishEntry", operationsVersion);
 
         let modelFailed = false;
         for (
@@ -681,7 +681,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 export const SeedService = Abstraction.createImplementation({
   implementation: SeedServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     GetProjectModelRepository,
     GeneratorRegistry,
     OperationRegistry,

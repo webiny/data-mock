@@ -1,6 +1,6 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { CleanupService as Abstraction } from "./abstractions/CleanupService.js";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
 import { ListSeedEntriesRepository } from "~/shared/node/features/seeding/entries/abstractions/ListSeedEntriesRepository.js";
 import { UpdateSeedEntryStatusRepository } from "~/shared/node/features/seeding/entries/abstractions/UpdateSeedEntryStatusRepository.js";
@@ -25,7 +25,7 @@ interface DeleteResult {
 
 class CleanupServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
     private readonly listSeedEntriesRepository: ListSeedEntriesRepository.Interface,
     private readonly updateSeedEntryStatusRepository: UpdateSeedEntryStatusRepository.Interface,
@@ -38,11 +38,16 @@ class CleanupServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
+
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
-    const project = projectResult.value;
+
+    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
+      contextResult.value;
 
     const entriesResult = await this.fetchCreatedEntries(project.id, input.jobId);
     if (entriesResult.isFail()) {
@@ -81,8 +86,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
       }
 
       const orderedModels = this.reverseDependencyOrder(resolvedModels);
-      const deleteOp = this.operationRegistry.resolve("deleteEntry", project.webinyVersion);
-      const apiUrl = project.apiUrl;
+      const deleteOp = this.operationRegistry.resolve("deleteEntry", operationsVersion);
 
       const modelResults: Abstraction.Output["models"] = [];
       let totalDeleted = 0;
@@ -103,7 +107,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
         for (const entry of modelEntries) {
           const headers: Record<string, string> = {
             "Content-Type": "application/json",
-            authorization: `Bearer ${project.apiToken}`,
+            authorization: `Bearer ${apiToken}`,
             "x-tenant": entry.tenant,
           };
 
@@ -229,7 +233,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
 export const CleanupService = Abstraction.createImplementation({
   implementation: CleanupServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     GetProjectModelRepository,
     ListSeedEntriesRepository,
     UpdateSeedEntryStatusRepository,

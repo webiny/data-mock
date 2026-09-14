@@ -17,20 +17,88 @@ export interface CmsEntry<T> {
   values: T;
 }
 
+/**
+ * A Webiny system. `rootPath` set = a checkout on disk that can be deployed, destroyed and synced;
+ * null = a remote-only connection that can still be seeded.
+ *
+ * `webinyVersion` is detected and display-only — legitimately null for a framework workspace root.
+ * `operationsVersion` drives the GraphQL operation registry and is never null.
+ */
 export interface Project {
   id: string;
   name: string;
-  apiUrl: string;
-  apiToken: string;
-  tenant: string;
-  webinyVersion: string;
+  rootPath: string | null;
+  webinyVersion: string | null;
+  versionSource: VersionSource | null;
+  versionMajor: number | null;
+  operationsVersion: string;
+  pulumiBackend: string | null;
+  awsProfile: string | null;
+  awsRegion: string | null;
+  lastSyncedAt: number | null;
+  lastSyncStatus: SyncStatus | null;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Which rung of the version fallback chain answered. */
+export type VersionSource =
+  | "env-var"
+  | "package-json"
+  | "node-modules"
+  | "template-field"
+  | "workspace-root";
+
+export type SyncStatus = "success" | "partial" | "error" | "stale-possible";
+
+/** How a stack file read resolved. "unknown" must never overwrite good data. */
+export type StackReadState = "deployed" | "not-deployed" | "unknown";
+
+/**
+ * One Pulumi stack name of a project — `<env>` or `<env>___<variant>`.
+ *
+ * `deployed` means ANY app is deployed. `apiUrl` / `adminUrl` are per-app facts and stay null when
+ * their app is not deployed, so a partially deployed environment has `deployed: true` with a null
+ * `apiUrl` and cannot be seeded.
+ */
+export interface ProjectEnvironment {
+  id: string;
+  projectId: string;
+  env: string;
+  variant: string;
+  region: string | null;
+  deployed: boolean;
+  apiUrl: string | null;
+  adminUrl: string | null;
+  apiToken: string | null;
+  tenant: string;
+  lastSyncedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** One app within an environment. `app` is free text — whatever was found on disk. */
+export interface ProjectStack {
+  id: string;
+  environmentId: string;
+  app: string;
+  deployed: boolean;
+  resourceCount: number | null;
+  stackOutput: GenericRecord<string, unknown> | null;
+  readState: StackReadState;
+  syncedAt: number | null;
+}
+
+export interface ScanRoot {
+  id: string;
+  path: string;
+  createdAt: number;
 }
 
 export interface ProjectTenant {
   id: string;
   projectId: string;
+  environmentId: string;
   tenantId: string;
   name: string;
   discoveredAt: number;
@@ -39,6 +107,7 @@ export interface ProjectTenant {
 export interface ProjectGroup {
   id: string;
   projectId: string;
+  environmentId: string;
   slug: string;
   name: string;
   description: string | null;
@@ -51,6 +120,7 @@ export interface ProjectGroup {
 export interface ProjectModel {
   id: string;
   projectId: string;
+  environmentId: string;
   groupSlug: string;
   modelId: string;
   name: string;
@@ -81,6 +151,7 @@ export interface SeedTemplate {
 export interface ProjectFile {
   id: string;
   projectId: string;
+  environmentId: string;
   tenant: string;
   fileKey: string;
   fileUrl: string;
@@ -111,6 +182,7 @@ export type SeedJobStatus = "pending" | "running" | "completed" | "failed" | "dr
 export interface SeedJob {
   id: string;
   projectId: string;
+  environmentId: string;
   status: SeedJobStatus;
   config: SeedJobConfig;
   result: SeedJobResult | null;
@@ -129,6 +201,7 @@ export type SeedEntryStatus = "created" | "failed" | "dry-run" | "imported" | "d
 export interface Job {
   id: string;
   projectId: string | null;
+  environmentId: string | null;
   type: string;
   status: string;
   config: unknown;
@@ -155,6 +228,7 @@ export type SyncLogStatus = "success" | "error";
 export interface SyncLog {
   id: string;
   projectId: string;
+  environmentId: string;
   type: SyncLogType;
   status: SyncLogStatus;
   message: string;
@@ -167,6 +241,7 @@ export interface SeedEntry {
   id: string;
   jobId: string | null;
   projectId: string;
+  environmentId: string;
   tenant: string;
   modelId: string;
   entryId: string;

@@ -16,11 +16,12 @@ class SyncProjectGroupsRepositoryImpl implements Abstraction.Interface {
       const { db } = this.databaseClient;
       const now = Date.now();
 
-      db.delete(projectGroups).where(eq(projectGroups.projectId, input.projectId)).run();
+      db.delete(projectGroups).where(eq(projectGroups.environmentId, input.environmentId)).run();
 
       const rows: ProjectGroup[] = input.groups.map((g) => ({
         id: generateId(),
         projectId: input.projectId,
+        environmentId: input.environmentId,
         slug: g.slug,
         name: g.name,
         description: g.description ?? null,

@@ -16,11 +16,12 @@ class SyncProjectTenantsRepositoryImpl implements Abstraction.Interface {
       const { db } = this.databaseClient;
       const now = Date.now();
 
-      db.delete(projectTenants).where(eq(projectTenants.projectId, input.projectId)).run();
+      db.delete(projectTenants).where(eq(projectTenants.environmentId, input.environmentId)).run();
 
       const rows: ProjectTenant[] = input.tenants.map((t) => ({
         id: generateId(),
         projectId: input.projectId,
+        environmentId: input.environmentId,
         tenantId: t.tenantId,
         name: t.name,
         discoveredAt: now,

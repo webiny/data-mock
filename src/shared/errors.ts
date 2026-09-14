@@ -9,6 +9,29 @@ export class ProjectNotFoundError extends BaseError {
   }
 }
 
+export class EnvironmentNotFoundError extends BaseError {
+  override readonly code = "Environment/NotFound" as const;
+  public readonly statusCode = 404;
+
+  public constructor(id: string) {
+    super({ message: `Environment "${id}" not found` });
+  }
+}
+
+/**
+ * Raised when an environment exists but cannot be talked to — its `api` app is not deployed, so it
+ * has no `apiUrl`. This is a real state, not a corrupt one: an environment with only `core`
+ * deployed is "partially deployed" and cannot be seeded until the api app is deployed too.
+ */
+export class EnvironmentNotConnectedError extends BaseError {
+  override readonly code = "Environment/NotConnected" as const;
+  public readonly statusCode = 409;
+
+  public constructor(env: string, reason: string) {
+    super({ message: `Environment "${env}" is not connectable: ${reason}` });
+  }
+}
+
 export class ProjectPersistenceError extends BaseError<{ error: Error }> {
   override readonly code = "Project/PersistenceError" as const;
   public readonly statusCode = 500;

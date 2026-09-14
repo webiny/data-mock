@@ -4,7 +4,18 @@ export {
   createProjectRoute,
   updateProjectRoute,
   removeProjectRoute,
+  healthCheckProjectRoute,
 } from "./projects.js";
+
+export {
+  listProjectEnvironmentsRoute,
+  getProjectEnvironmentRoute,
+  createProjectEnvironmentRoute,
+  updateProjectEnvironmentRoute,
+  removeProjectEnvironmentRoute,
+  listEnvironmentStacksRoute,
+  syncProjectRoute,
+} from "./environments.js";
 
 export { listProjectTenantsRoute, syncProjectTenantsRoute } from "./tenants.js";
 

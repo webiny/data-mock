@@ -1,6 +1,6 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { ImportEntriesService as Abstraction } from "./abstractions/ImportEntriesService.js";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
 import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
@@ -29,7 +29,7 @@ interface GqlOp {
 
 class ImportEntriesServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
     private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
@@ -40,11 +40,16 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
+
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
-    const project = projectResult.value;
+
+    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
+      contextResult.value;
 
     const models: Array<{ modelId: string; count: number }> = [];
     let imported = 0;
@@ -110,11 +115,11 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     const fieldSelection = createModelFields(model.fields);
     const { pluralApiName } = model;
     const query = buildListEntriesQuery({ pluralApiName, fieldSelection }).query;
-    const listOp = this.operationRegistry.resolve("listContentEntries", project.webinyVersion);
+    const listOp = this.operationRegistry.resolve("listContentEntries", operationsVersion);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
+      authorization: `Bearer ${apiToken}`,
       "x-tenant": tenant,
     };
 
@@ -125,7 +130,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     this.logger.info(`Importing entries for model "${model.name}"...`);
 
     while (hasMore) {
-      const page = await this.fetchPage(project.apiUrl, query, headers, listOp, cursor);
+      const page = await this.fetchPage(apiUrl, query, headers, listOp, cursor);
 
       for (const entry of page.data) {
         const entryId = typeof entry["id"] === "string" ? entry["id"] : "";
@@ -191,7 +196,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 export const ImportEntriesService = Abstraction.createImplementation({
   implementation: ImportEntriesServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     GetProjectModelRepository,
     CmsManageEndpointClient,
     OperationRegistry,

@@ -54,11 +54,12 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
       const { db } = this.databaseClient;
       const now = Date.now();
 
-      db.delete(projectModels).where(eq(projectModels.projectId, input.projectId)).run();
+      db.delete(projectModels).where(eq(projectModels.environmentId, input.environmentId)).run();
 
       const rows: ProjectModel[] = input.models.map((m) => ({
         id: generateId(),
         projectId: input.projectId,
+        environmentId: input.environmentId,
         groupSlug: m.groupSlug,
         modelId: m.modelId,
         name: m.name,

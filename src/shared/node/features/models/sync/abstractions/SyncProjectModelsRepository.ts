@@ -5,6 +5,7 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface ISyncProjectModelsRepositoryInput {
   projectId: string;
+  environmentId: string;
   models: Array<{
     groupSlug: string;
     modelId: string;

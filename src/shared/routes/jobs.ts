@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { defineListRoute, defineOneRoute } from "~/shared/routing/defineTypedRoutes.js";
+import { ENQUEUEABLE_JOB_TYPES } from "~/shared/jobs/descriptors.js";
 
 export const jobSchema = z.object({
   id: z.string(),
   projectId: z.string().nullable(),
+  environmentId: z.string().nullable(),
   type: z.string(),
   status: z.string(),
   config: z.unknown().nullable(),
@@ -16,8 +18,13 @@ export const jobSchema = z.object({
   createdAt: z.number(),
 });
 
+/**
+ * Derived from the descriptor table's `enqueueable` flag rather than hand-listed. The per-type
+ * `configSchema` is applied in the route handler — this endpoint's `config` is otherwise an
+ * unvalidated record, which would let a destructive type be started without its confirmation flow.
+ */
 const enqueueJobBodySchema = z.object({
-  type: z.enum(["seed", "pull-tenants", "pull-models", "cleanup", "import", "pull-picsum"]),
+  type: z.enum(ENQUEUEABLE_JOB_TYPES as [string, ...string[]]),
   config: z.record(z.string(), z.unknown()).optional(),
 });
 

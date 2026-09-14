@@ -16,7 +16,7 @@ class GetProjectModelRepositoryImpl implements Abstraction.Interface {
         .from(projectModels)
         .where(
           and(
-            eq(projectModels.projectId, input.projectId),
+            eq(projectModels.environmentId, input.environmentId),
             eq(projectModels.modelId, input.modelId),
           ),
         )

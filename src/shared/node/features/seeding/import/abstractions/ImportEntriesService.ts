@@ -1,6 +1,8 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type {
+  EnvironmentNotFoundError,
+  EnvironmentNotConnectedError,
   ProjectNotFoundError,
   ProjectPersistenceError,
   GraphQLRequestError,
@@ -8,7 +10,7 @@ import type {
 } from "~/shared/errors.js";
 
 export interface IImportEntriesServiceInput {
-  projectId: string;
+  environmentId: string;
   tenant: string;
   models: string[];
   onProgress?: ((percent: number, label: string) => void) | undefined;
@@ -34,6 +36,8 @@ export namespace ImportEntriesService {
   export type Input = IImportEntriesServiceInput;
   export type Output = IImportEntriesServiceOutput;
   export type Error =
+    | EnvironmentNotFoundError
+    | EnvironmentNotConnectedError
     | ProjectNotFoundError
     | ProjectPersistenceError
     | GraphQLRequestError

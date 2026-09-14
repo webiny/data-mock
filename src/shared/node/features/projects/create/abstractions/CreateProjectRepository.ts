@@ -5,10 +5,17 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface ICreateProjectRepositoryInput {
   name: string;
-  apiUrl: string;
-  apiToken: string;
-  tenant: string;
-  webinyVersion?: string;
+  /** Absolute path to a Webiny checkout. Null for a remote-only project. */
+  rootPath?: string | null;
+  /** Detected version — display only, and legitimately absent for a workspace root. */
+  webinyVersion?: string | null;
+  versionSource?: string | null;
+  versionMajor?: number | null;
+  /** Drives the GraphQL operation registry. Never null, never "0.0.0". */
+  operationsVersion?: string;
+  pulumiBackend?: string | null;
+  awsProfile?: string | null;
+  awsRegion?: string | null;
 }
 
 export interface ICreateProjectRepository {

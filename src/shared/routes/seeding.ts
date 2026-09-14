@@ -5,16 +5,16 @@ import { jobSchema } from "./jobs.js";
 
 export const triggerSeedRoute = defineOneRoute("job", {
   method: "POST",
-  path: "/api/projects/:projectId/seed",
+  path: "/api/projects/:projectId/environments/:environmentId/seed",
   description: "Trigger data seeding for a project",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   body: triggerSeedBodySchema,
   item: jobSchema,
 });
 
 export const listSeedJobsRoute = defineListRoute("seedJobs", {
-  path: "/api/projects/:projectId/seed-jobs",
+  path: "/api/projects/:projectId/environments/:environmentId/seed-jobs",
   description: "List seed job history for a project",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   item: seedJobSchema,
 });

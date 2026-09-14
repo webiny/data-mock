@@ -2,16 +2,15 @@ import { Result } from "@webiny/stdlib";
 import { eq } from "drizzle-orm";
 import { projects } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
-import { EncryptionService } from "~/shared/node/encryption/abstractions/EncryptionService.js";
 import { UpdateProjectRepository as Abstraction } from "./abstractions/UpdateProjectRepository.js";
 import { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/errors.js";
+import { toProject, toProjectError } from "../toProject.js";
 import type { Project } from "~/shared/types.js";
 
+type ProjectUpdate = Partial<typeof projects.$inferInsert>;
+
 class UpdateProjectRepositoryImpl implements Abstraction.Interface {
-  public constructor(
-    private readonly databaseClient: DatabaseClient.Interface,
-    private readonly encryptionService: EncryptionService.Interface,
-  ) {}
+  public constructor(private readonly databaseClient: DatabaseClient.Interface) {}
 
   public async execute(input: Abstraction.Input): Promise<Result<Project, Abstraction.Error>> {
     try {
@@ -25,22 +24,40 @@ class UpdateProjectRepositoryImpl implements Abstraction.Interface {
         return Result.fail(new ProjectNotFoundError(input.id));
       }
 
-      const updates: Record<string, unknown> = { updatedAt: Date.now() };
+      const updates: ProjectUpdate = { updatedAt: Date.now() };
 
       if (input.name !== undefined) {
         updates.name = input.name;
       }
-      if (input.apiUrl !== undefined) {
-        updates.apiUrl = input.apiUrl;
-      }
-      if (input.apiToken !== undefined) {
-        updates.apiToken = this.encryptionService.encrypt(input.apiToken);
-      }
-      if (input.tenant !== undefined) {
-        updates.tenant = input.tenant;
+      if (input.rootPath !== undefined) {
+        updates.rootPath = input.rootPath;
       }
       if (input.webinyVersion !== undefined) {
         updates.webinyVersion = input.webinyVersion;
+      }
+      if (input.versionSource !== undefined) {
+        updates.versionSource = input.versionSource;
+      }
+      if (input.versionMajor !== undefined) {
+        updates.versionMajor = input.versionMajor;
+      }
+      if (input.operationsVersion !== undefined) {
+        updates.operationsVersion = input.operationsVersion;
+      }
+      if (input.pulumiBackend !== undefined) {
+        updates.pulumiBackend = input.pulumiBackend;
+      }
+      if (input.awsProfile !== undefined) {
+        updates.awsProfile = input.awsProfile;
+      }
+      if (input.awsRegion !== undefined) {
+        updates.awsRegion = input.awsRegion;
+      }
+      if (input.lastSyncedAt !== undefined) {
+        updates.lastSyncedAt = input.lastSyncedAt;
+      }
+      if (input.lastSyncStatus !== undefined) {
+        updates.lastSyncStatus = input.lastSyncStatus;
       }
 
       this.databaseClient.db.update(projects).set(updates).where(eq(projects.id, input.id)).run();
@@ -51,18 +68,14 @@ class UpdateProjectRepositoryImpl implements Abstraction.Interface {
         .where(eq(projects.id, input.id))
         .get()!;
 
-      return Result.ok({ ...updated, apiToken: this.encryptionService.decrypt(updated.apiToken) });
+      return Result.ok(toProject(updated));
     } catch (error) {
-      return Result.fail(new ProjectPersistenceError(toError(error)));
+      return Result.fail(new ProjectPersistenceError(toProjectError(error)));
     }
   }
 }
 
-function toError(value: unknown): Error {
-  return value instanceof Error ? value : new Error(String(value));
-}
-
 export const UpdateProjectRepository = Abstraction.createImplementation({
   implementation: UpdateProjectRepositoryImpl,
-  dependencies: [DatabaseClient, EncryptionService],
+  dependencies: [DatabaseClient],
 });

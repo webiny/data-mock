@@ -1,5 +1,5 @@
 import { Result, Logger } from "@webiny/stdlib";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { SyncProjectFilesRepository } from "./abstractions/SyncProjectFilesRepository.js";
 import { CreateSyncLogRepository } from "~/shared/node/features/syncLogs/create/abstractions/CreateSyncLogRepository.js";
@@ -59,7 +59,7 @@ interface IListFilesResult {
 
 class SyncFilesServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly httpClient: HttpClient.Interface,
     private readonly syncProjectFilesRepository: SyncProjectFilesRepository.Interface,
     private readonly createSyncLogRepository: CreateSyncLogRepository.Interface,
@@ -69,16 +69,20 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
+
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
 
-    const project = projectResult.value;
-    const apiUrl = project.apiUrl.replace(/\/cms\/manage.*$/, "");
+    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
+      contextResult.value;
+    const apiUrl = apiUrl.replace(/\/cms\/manage.*$/, "");
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
+      authorization: `Bearer ${apiToken}`,
       "x-tenant": input.tenant,
     };
 
@@ -172,7 +176,7 @@ function extractListFilesResult(json: Record<string, unknown>): IListFilesResult
 export const SyncFilesService = Abstraction.createImplementation({
   implementation: SyncFilesServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     HttpClient,
     SyncProjectFilesRepository,
     CreateSyncLogRepository,

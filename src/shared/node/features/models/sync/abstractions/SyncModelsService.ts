@@ -2,13 +2,15 @@ import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type {
   ProjectNotFoundError,
+  EnvironmentNotFoundError,
+  EnvironmentNotConnectedError,
   GraphQLRequestError,
   ProjectPersistenceError,
 } from "~/shared/errors.js";
 import type { OperationLog } from "~/shared/types.js";
 
 export interface ISyncModelsServiceInput {
-  projectId: string;
+  environmentId: string;
   onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
@@ -30,5 +32,10 @@ export namespace SyncModelsService {
   export type Interface = ISyncModelsService;
   export type Input = ISyncModelsServiceInput;
   export type Output = ISyncModelsServiceOutput;
-  export type Error = ProjectNotFoundError | GraphQLRequestError | ProjectPersistenceError;
+  export type Error =
+    | EnvironmentNotFoundError
+    | EnvironmentNotConnectedError
+    | ProjectNotFoundError
+    | GraphQLRequestError
+    | ProjectPersistenceError;
 }
