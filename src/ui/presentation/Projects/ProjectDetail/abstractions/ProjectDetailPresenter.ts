@@ -4,11 +4,27 @@ import type { SeedTemplateConfig, SeedEntryStatus, Job } from "~/shared/types.js
 export interface IProjectVM {
   id: string;
   name: string;
-  apiUrl: string;
-  apiToken: string;
-  webinyVersion: string;
-  tenant: string;
+  rootPath: string | null;
+  /** Detected version, null for a framework workspace root built from source. */
+  webinyVersion: string | null;
+  operationsVersion: string;
   createdAt: number;
+}
+
+/** One selectable environment. `stackName` is its URL identity. */
+export interface IEnvironmentVM {
+  id: string;
+  stackName: string;
+  env: string;
+  variant: string;
+  region: string | null;
+  deployed: boolean;
+  /** False when the api app is not deployed — the environment cannot be seeded. */
+  connectable: boolean;
+  apiUrl: string | null;
+  adminUrl: string | null;
+  tenant: string;
+  lastSyncedAt: number | null;
 }
 
 export interface ITenantVM {
@@ -104,6 +120,11 @@ export interface IEditProjectInput {
 
 export interface IProjectDetailVM {
   project: IProjectVM | null;
+  environments: IEnvironmentVM[];
+  currentEnvironment: IEnvironmentVM | null;
+  /** Hidden when a project has a single environment, which is the common case. */
+  showEnvironmentSelector: boolean;
+  environmentError: string | null;
   tenants: ITenantVM[];
   groups: IGroupVM[];
   models: IModelVM[];
@@ -147,7 +168,7 @@ export interface IProjectDetailVM {
 
 export interface IProjectDetailPresenter {
   readonly vm: IProjectDetailVM;
-  load(projectId: string): Promise<void>;
+  load(projectId: string, envName: string | null): Promise<void>;
   activateView(view: string): Promise<void>;
   checkHealth(): Promise<void>;
   loadTemplate(templateId: string): void;

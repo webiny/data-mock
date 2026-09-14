@@ -25,8 +25,8 @@ class FilesRepositoryImpl implements Abstraction.Interface {
     this._files = this._files.filter((f) => f.id !== id);
   };
 
-  public getFilesByProjectId = (projectId: string): ProjectFile[] => {
-    return this._files.filter((f) => f.projectId === projectId);
+  public getFilesByEnvironmentId = (environmentId: string): ProjectFile[] => {
+    return this._files.filter((f) => f.environmentId === environmentId);
   };
 }
 

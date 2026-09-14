@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
 import type {
+  IEnvironmentVM,
   IProjectDetailVM,
   IEditProjectInput,
   IMergedFileVM,
@@ -21,7 +22,10 @@ import { FilesRepository } from "~/ui/features/files/abstractions/FilesRepositor
 import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
 import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
 import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
-import type { ProjectFile } from "~/shared/types.js";
+import type { EnvironmentRef, ProjectEnvironment, ProjectFile } from "~/shared/types.js";
+import { getStackName } from "~/shared/environments/index.js";
+import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
+import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
 import { EntriesGateway } from "~/ui/features/entries/abstractions/EntriesGateway.js";
 import { EntriesRepository } from "~/ui/features/entries/abstractions/EntriesRepository.js";
 import { SeedingGateway } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
@@ -63,8 +67,29 @@ const JOB_TYPE_DATASETS: Record<string, string[]> = {
   "upload-files": ["files", "syncLogs", "jobs"],
 };
 
+function toEnvironmentVM(environment: ProjectEnvironment): IEnvironmentVM {
+  return {
+    id: environment.id,
+    stackName: getStackName({ env: environment.env, variant: environment.variant }),
+    env: environment.env,
+    variant: environment.variant,
+    region: environment.region,
+    deployed: environment.deployed,
+    // Seeding needs an API to talk to; a core-only deployment has none.
+    connectable: environment.apiUrl !== null,
+    apiUrl: environment.apiUrl,
+    adminUrl: environment.adminUrl,
+    tenant: environment.tenant,
+    lastSyncedAt: environment.lastSyncedAt,
+  };
+}
+
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _projectId: string | null = null;
+  private _environmentId: string | null = null;
+  /** Stack name from the URL (`dev`, `dev___blue`), or null to take the project's first. */
+  private _envName: string | null = null;
+  private _environmentError: string | null = null;
   private _isLoading = false;
   private _isSyncingTenants = false;
   private _isSyncingModels = false;
@@ -91,6 +116,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly deleteTemplateUseCase: DeleteTemplateUseCase.Interface,
     private readonly projectsGateway: ProjectsGateway.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
+    private readonly environmentsGateway: EnvironmentsGateway.Interface,
+    private readonly environmentsRepository: EnvironmentsRepository.Interface,
     private readonly tenantsGateway: TenantsGateway.Interface,
     private readonly tenantsRepository: TenantsRepository.Interface,
     private readonly modelsGateway: ModelsGateway.Interface,
@@ -147,16 +174,22 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   }
 
   public get vm(): IProjectDetailVM {
+    const environmentId = this._environmentId;
+    const environmentVMs = (
+      this._projectId ? this.environmentsRepository.getEnvironmentsByProjectId(this._projectId) : []
+    ).map((environment) => toEnvironmentVM(environment));
+    const currentEnvironmentVM =
+      environmentVMs.find((environment) => environment.id === environmentId) ?? null;
     const project = this._projectId
       ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
       : null;
 
-    const tenants = this._projectId
-      ? this.tenantsRepository.getTenantsByProjectId(this._projectId)
+    const tenants = environmentId
+      ? this.tenantsRepository.getTenantsByEnvironmentId(environmentId)
       : [];
 
-    const models = this._projectId
-      ? this.modelsRepository.getModelsByProjectId(this._projectId)
+    const models = environmentId
+      ? this.modelsRepository.getModelsByEnvironmentId(environmentId)
       : [];
 
     const groupMap = new Map<string, { slug: string; name: string; modelCount: number }>();
@@ -173,23 +206,23 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       }
     }
 
-    const seedJobs = this._projectId ? this.seedingRepository.seedJobs : [];
+    const seedJobs = environmentId ? this.seedingRepository.seedJobs : [];
     const jobs = this._projectId ? this.jobsRepository.jobs : [];
 
     const templates = this._projectId
       ? this.templatesRepository.getTemplatesByProjectId(this._projectId)
       : [];
 
-    const files = this._projectId ? this.filesRepository.getFilesByProjectId(this._projectId) : [];
+    const files = environmentId ? this.filesRepository.getFilesByEnvironmentId(environmentId) : [];
     const localFiles = this._projectId ? this.localFilesRepository.files : [];
     const mergedFiles = this.buildMergedFiles(files, localFiles);
 
-    const entries = this._projectId
-      ? this.entriesRepository.getEntriesByProjectId(this._projectId)
+    const entries = environmentId
+      ? this.entriesRepository.getEntriesByEnvironmentId(environmentId)
       : [];
 
-    const syncLogs = this._projectId
-      ? this.syncLogsRepository.getLogsByProjectId(this._projectId)
+    const syncLogs = environmentId
+      ? this.syncLogsRepository.getLogsByEnvironmentId(environmentId)
       : [];
 
     return {
@@ -197,13 +230,16 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         ? {
             id: project.id,
             name: project.name,
-            apiUrl: project.apiUrl,
-            apiToken: project.apiToken,
+            rootPath: project.rootPath,
             webinyVersion: project.webinyVersion,
-            tenant: project.tenant,
+            operationsVersion: project.operationsVersion,
             createdAt: project.createdAt,
           }
         : null,
+      environments: environmentVMs,
+      currentEnvironment: currentEnvironmentVM,
+      showEnvironmentSelector: environmentVMs.length > 1,
+      environmentError: this._environmentError,
       tenants: tenants.map((t) => ({
         tenantId: t.tenantId,
         name: t.name,
@@ -255,7 +291,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         error: e.error,
         createdAt: e.createdAt,
       })),
-      entriesTotalCount: this._projectId ? this.entriesRepository.totalEntries : 0,
+      entriesTotalCount: environmentId ? this.entriesRepository.totalEntries : 0,
       entriesPage: this.entriesListState.page,
       entriesJobFilter: this.entriesListState.get("jobId") || null,
       entriesModelFilter: this.entriesListState.get("modelId") || null,
@@ -270,7 +306,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         response: l.response,
         createdAt: l.createdAt,
       })),
-      syncLogsTotalCount: this._projectId ? this.syncLogsRepository.totalLogs : 0,
+      syncLogsTotalCount: environmentId ? this.syncLogsRepository.totalLogs : 0,
       syncLogsPage: this.syncLogsListState.page,
       syncLogsTypeFilter: this.syncLogsListState.get("logType") || null,
       syncLogsStatusFilter: this.syncLogsListState.get("logStatus") || null,
@@ -294,17 +330,42 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     };
   }
 
-  public load = async (projectId: string): Promise<void> => {
-    if (this._loadingProjectId === projectId || this._projectId === projectId) {
+  /** Both ids together, or null until an environment has been resolved. */
+  private get currentEnvironment(): ProjectEnvironment | null {
+    if (!this._projectId || !this._environmentId) {
+      return null;
+    }
+    const environmentId = this._environmentId;
+    return (
+      this.environmentsRepository
+        .getEnvironmentsByProjectId(this._projectId)
+        .find((environment) => environment.id === environmentId) ?? null
+    );
+  }
+
+  private get ref(): EnvironmentRef | null {
+    if (!this._projectId || !this._environmentId) {
+      return null;
+    }
+    return { projectId: this._projectId, environmentId: this._environmentId };
+  }
+
+  public load = async (projectId: string, envName: string | null): Promise<void> => {
+    const alreadyLoaded = this._projectId === projectId && this._envName === envName;
+    if (this._loadingProjectId === projectId || alreadyLoaded) {
       return;
     }
     this._loadingProjectId = projectId;
     this._projectId = projectId;
+    this._envName = envName;
+    this._environmentId = null;
+    this._environmentError = null;
     this._loadedDatasets.clear();
     this._loadingDatasets.clear();
     this._isLoading = true;
     try {
       await this.loadProjectDetailUseCase.execute({ projectId });
+      await this.resolveEnvironment(projectId, envName);
     } finally {
       runInAction(() => {
         this._loadingProjectId = null;
@@ -314,13 +375,52 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     void this.checkHealth();
   };
 
+  /**
+   * Environments are addressed by stack name in the URL, so they must be listed before anything
+   * else can load. With no name in the URL the first environment is taken — the common case, since
+   * most projects have only `dev`.
+   */
+  private resolveEnvironment = async (projectId: string, envName: string | null): Promise<void> => {
+    const result = await this.environmentsGateway.listForProject(projectId);
+
+    if (result.isFail()) {
+      runInAction(() => {
+        this._environmentError = result.error.message;
+      });
+      return;
+    }
+
+    const environments = result.value;
+    this.environmentsRepository.setEnvironments(projectId, environments);
+
+    const selected =
+      envName === null
+        ? (environments[0] ?? null)
+        : this.environmentsRepository.findByStackName(projectId, envName);
+
+    runInAction(() => {
+      if (selected === null) {
+        this._environmentId = null;
+        this._environmentError =
+          environments.length === 0
+            ? "This project has no environments yet. Sync it to discover them."
+            : `Environment "${envName ?? ""}" not found in this project.`;
+        return;
+      }
+      this._environmentId = selected.id;
+      this._envName = getStackName({ env: selected.env, variant: selected.variant });
+      this._environmentError = null;
+    });
+  };
+
   public checkHealth = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     this._projectHealth = "checking";
     this._projectHealthError = null;
-    const result = await this.projectsGateway.healthCheck(this._projectId);
+    const result = await this.projectsGateway.healthCheck(ref);
     runInAction(() => {
       if (result.isFail()) {
         this._projectHealth = "unreachable";
@@ -333,7 +433,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public activateView = async (view: string): Promise<void> => {
-    if (!this._projectId) {
+    if (!this.ref) {
       return;
     }
     const datasets = VIEW_DATASETS[view];
@@ -356,10 +456,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public viewJobEntries = (jobId: string): void => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    navigate(AppRoutes.projectTab(this._projectId, "entries"));
+    navigate(AppRoutes.environmentTab(ref.projectId, this._envName ?? "", "entries"));
     this.entriesListState.setBatch({ jobId, modelId: null, tenant: null, status: null });
   };
 
@@ -369,25 +470,27 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
 
   public loadTemplate = (_templateId: string): void => {
     if (this._projectId) {
-      navigate(AppRoutes.seedConfig(this._projectId));
+      navigate(AppRoutes.seedConfig(this._projectId, this._envName ?? ""));
     }
   };
 
   public deleteTemplate = async (templateId: string): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    await this.deleteTemplateUseCase.execute({ projectId: this._projectId, templateId });
+    await this.deleteTemplateUseCase.execute({ projectId: ref.projectId, templateId });
     this.notifications.success("Template deleted.");
   };
 
   public pullTenants = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     this._isSyncingTenants = true;
     try {
-      const result = await this.tenantsGateway.syncForProject(this._projectId);
+      const result = await this.tenantsGateway.syncForProject(ref);
       runInAction(() => {
         if (result.isOk()) {
           this.notifications.success("Tenant pull job started.");
@@ -404,12 +507,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public pullModels = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     this._isSyncingModels = true;
     try {
-      const result = await this.modelsGateway.pullModels(this._projectId);
+      const result = await this.modelsGateway.pullModels(ref);
       runInAction(() => {
         if (result.isOk()) {
           this.notifications.success("Model pull job started.");
@@ -434,10 +538,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public submitEdit = async (input: IEditProjectInput): Promise<boolean> => {
-    if (!this._projectId) {
+    const projectId = this._projectId;
+    if (!projectId) {
       return false;
     }
-    const result = await this.projectsGateway.update(this._projectId, input);
+    const result = await this.projectsGateway.update(projectId, input);
     if (result.isOk()) {
       this.projectsRepository.updateProject(result.value);
       this.notifications.success("Project updated.");
@@ -449,12 +554,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public clearEntries = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     this._isClearingEntries = true;
     try {
-      const result = await this.entriesGateway.clear(this._projectId);
+      const result = await this.entriesGateway.clear(ref);
       runInAction(() => {
         if (result.isOk()) {
           this.entriesRepository.clearEntries(this._projectId!);
@@ -471,10 +577,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public deleteFile = async (fileId: string): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    const result = await this.filesGateway.remove(this._projectId, fileId);
+    const result = await this.filesGateway.remove(ref, fileId);
     if (result.isOk()) {
       this.filesRepository.removeFile(fileId);
       this.notifications.success("File deleted.");
@@ -484,7 +591,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public uploadFilesToProject = async (files: File[]): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     const projectId = this._projectId;
@@ -494,7 +602,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     for (const file of files) {
       try {
         const fileContent = await readFileAsBase64(file);
-        const result = await this.filesGateway.upload(projectId, {
+        const result = await this.filesGateway.upload(ref, {
           tenant,
           fileName: file.name,
           fileContent,
@@ -520,14 +628,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public uploadAllGlobalImages = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    const projectId = this._projectId;
     const tenant = this.currentTenant();
     this._isUploadingGlobal = true;
     try {
-      const result = await this.localFilesGateway.uploadGlobalToProject(projectId, { tenant });
+      const result = await this.localFilesGateway.uploadGlobalToProject(ref, { tenant });
       runInAction(() => {
         if (result.isOk()) {
           this.notifications.success("Upload job started.");
@@ -543,14 +651,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public uploadSelectedGlobalImages = async (fileNames: string[]): Promise<void> => {
-    if (!this._projectId || fileNames.length === 0) {
+    const ref = this.ref;
+    if (!ref || fileNames.length === 0) {
       return;
     }
-    const projectId = this._projectId;
     const tenant = this.currentTenant();
     this._isUploadingGlobal = true;
     try {
-      const result = await this.localFilesGateway.uploadGlobalToProject(projectId, {
+      const result = await this.localFilesGateway.uploadGlobalToProject(ref, {
         tenant,
         fileNames,
       });
@@ -569,10 +677,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public deleteSyncLog = async (logId: string): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    const result = await this.syncLogsGateway.remove(this._projectId, logId);
+    const result = await this.syncLogsGateway.remove(ref, logId);
     if (result.isOk()) {
       this.syncLogsRepository.removeLog(logId);
       this.notifications.success("Sync log deleted.");
@@ -590,13 +699,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public confirmCleanup = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     this._showCleanupDialog = false;
     this._isCleaningUp = true;
     try {
-      const result = await this.seedingGateway.cleanupEntries(this._projectId);
+      const result = await this.seedingGateway.cleanupEntries(ref);
       runInAction(() => {
         if (result.isOk()) {
           this.notifications.success("Cleanup job started.");
@@ -613,12 +723,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public importEntries = async (tenant: string, modelIds: string[]): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     this._isImporting = true;
     try {
-      const result = await this.seedingGateway.importEntries(this._projectId, {
+      const result = await this.seedingGateway.importEntries(ref, {
         tenant,
         models: modelIds,
       });
@@ -735,14 +846,15 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public pullFiles = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     const projectId = this._projectId;
     const tenant = this.currentTenant();
     this._isPullingFiles = true;
     try {
-      const result = await this.filesGateway.pullFiles(projectId, tenant);
+      const result = await this.filesGateway.pullFiles(ref, tenant);
       runInAction(() => {
         if (result.isOk()) {
           this.notifications.success(`Pulled ${result.value.synced} file(s) from File Manager.`);
@@ -759,10 +871,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public cancelJob = async (jobId: string): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    const result = await this.jobsGateway.cancel(this._projectId, jobId);
+    const result = await this.jobsGateway.cancel(ref.projectId, jobId);
     runInAction(() => {
       if (result.isOk()) {
         this.notifications.success("Job cancelled.");
@@ -797,11 +910,12 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private reloadEntries = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     const projectId = this._projectId;
-    const result = await this.entriesGateway.list(projectId, this.buildEntriesParams());
+    const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
     runInAction(() => {
       if (result.isOk()) {
         this.entriesRepository.setEntries(result.value.entries, result.value.total);
@@ -811,19 +925,16 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private loadDataset = async (dataset: string): Promise<void> => {
-    if (
-      !this._projectId ||
-      this._loadedDatasets.has(dataset) ||
-      this._loadingDatasets.has(dataset)
-    ) {
+    const ref = this.ref;
+    if (!ref || this._loadedDatasets.has(dataset) || this._loadingDatasets.has(dataset)) {
       return;
     }
     this._loadingDatasets.add(dataset);
-    const projectId = this._projectId;
+    const { projectId, environmentId } = ref;
 
     switch (dataset) {
       case "tenants": {
-        const result = await this.tenantsGateway.listForProject(projectId);
+        const result = await this.tenantsGateway.listForProject(ref);
         runInAction(() => {
           if (result.isOk()) {
             this.tenantsRepository.setTenants(projectId, result.value);
@@ -833,7 +944,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "models": {
-        const result = await this.modelsGateway.listModels(projectId);
+        const result = await this.modelsGateway.listModels(ref);
         runInAction(() => {
           if (result.isOk()) {
             this.modelsRepository.setModels(result.value);
@@ -844,7 +955,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       }
       case "files": {
         const [filesResult, localFilesResult] = await Promise.all([
-          this.filesGateway.list(projectId),
+          this.filesGateway.list(ref),
           this.localFilesGateway.list(),
         ]);
         runInAction(() => {
@@ -859,7 +970,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "entries": {
-        const result = await this.entriesGateway.list(projectId, this.buildEntriesParams());
+        const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
         runInAction(() => {
           if (result.isOk()) {
             this.entriesRepository.setEntries(result.value.entries, result.value.total);
@@ -869,10 +980,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "seedJobs": {
-        const result = await this.seedingGateway.listSeedJobs(
-          projectId,
-          this.buildSeedJobsParams(),
-        );
+        const result = await this.seedingGateway.listSeedJobs(ref, this.buildSeedJobsParams());
         runInAction(() => {
           if (result.isOk()) {
             this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
@@ -892,7 +1000,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "syncLogs": {
-        const result = await this.syncLogsGateway.list(projectId, this.buildSyncLogsParams());
+        const result = await this.syncLogsGateway.list(ref, this.buildSyncLogsParams());
         runInAction(() => {
           if (result.isOk()) {
             this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
@@ -916,13 +1024,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private reloadSeedJobs = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    const result = await this.seedingGateway.listSeedJobs(
-      this._projectId,
-      this.buildSeedJobsParams(),
-    );
+    const result = await this.seedingGateway.listSeedJobs(ref, this.buildSeedJobsParams());
     runInAction(() => {
       if (result.isOk()) {
         this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
@@ -932,10 +1038,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private reloadJobs = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    const result = await this.jobsGateway.list(this._projectId, this.buildJobsParams());
+    const result = await this.jobsGateway.list(ref.projectId, this.buildJobsParams());
     runInAction(() => {
       if (result.isOk()) {
         this.jobsRepository.setJobs(result.value.jobs, result.value.total);
@@ -945,10 +1052,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private reloadSyncLogs = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
-    const result = await this.syncLogsGateway.list(this._projectId, this.buildSyncLogsParams());
+    const result = await this.syncLogsGateway.list(ref, this.buildSyncLogsParams());
     runInAction(() => {
       if (result.isOk()) {
         this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
@@ -957,12 +1065,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private reloadFiles = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     const projectId = this._projectId;
     const [filesResult, localFilesResult] = await Promise.all([
-      this.filesGateway.list(projectId),
+      this.filesGateway.list(ref),
       this.localFilesGateway.list(),
     ]);
     runInAction(() => {
@@ -980,7 +1089,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     const project = this._projectId
       ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
       : null;
-    return project?.tenant ?? "root";
+    return this.currentEnvironment?.tenant ?? "root";
   };
 
   private buildMergedFiles = (
@@ -1041,6 +1150,8 @@ export const ProjectDetailPresenter = Abstraction.createImplementation({
     DeleteTemplateUseCase,
     ProjectsGateway,
     ProjectsRepository,
+    EnvironmentsGateway,
+    EnvironmentsRepository,
     TenantsGateway,
     TenantsRepository,
     ModelsGateway,

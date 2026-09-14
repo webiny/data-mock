@@ -12,9 +12,7 @@ import { EnvironmentsGateway as Abstraction } from "./abstractions/EnvironmentsG
 class EnvironmentsGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
-  public async listForProject(
-    projectId: string,
-  ): Promise<Result<ProjectEnvironment[], HTTPError>> {
+  public async listForProject(projectId: string): Promise<Result<ProjectEnvironment[], HTTPError>> {
     const result = await this.httpClient.request(listProjectEnvironmentsRoute, {
       params: { projectId },
     });

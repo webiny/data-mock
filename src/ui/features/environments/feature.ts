@@ -1,4 +1,4 @@
-import { createFeature } from "@webiny/stdlib";
+import { createFeature } from "~/ui/di/createFeature.js";
 import { HTTPClientFeature } from "~/ui/infrastructure/httpClient/feature.js";
 import { EnvironmentsGateway } from "./EnvironmentsGateway.js";
 import { EnvironmentsRepository } from "./EnvironmentsRepository.js";

@@ -6,7 +6,7 @@ export interface IFilesRepository {
   setFiles(files: ProjectFile[]): void;
   addFile(file: ProjectFile): void;
   removeFile(id: string): void;
-  getFilesByProjectId(projectId: string): ProjectFile[];
+  getFilesByEnvironmentId(environmentId: string): ProjectFile[];
 }
 
 export const FilesRepository = createAbstraction<IFilesRepository>("Ui/FilesRepository");

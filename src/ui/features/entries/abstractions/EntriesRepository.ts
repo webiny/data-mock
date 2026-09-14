@@ -5,8 +5,8 @@ export interface IEntriesRepository {
   readonly entries: SeedEntry[];
   readonly totalEntries: number;
   setEntries(entries: SeedEntry[], total: number): void;
-  clearEntries(projectId: string): void;
-  getEntriesByProjectId(projectId: string): SeedEntry[];
+  clearEntries(environmentId: string): void;
+  getEntriesByEnvironmentId(environmentId: string): SeedEntry[];
 }
 
 export const EntriesRepository = createAbstraction<IEntriesRepository>("Ui/EntriesRepository");

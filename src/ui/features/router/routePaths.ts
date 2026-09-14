@@ -14,8 +14,7 @@ export const AppRoutes = {
   environmentTab: (projectId: string, envName: string, tab: string) =>
     `/projects/${projectId}/env/${envName}/${tab}`,
 
-  seedConfig: (projectId: string, envName: string) =>
-    `/projects/${projectId}/env/${envName}/seed`,
+  seedConfig: (projectId: string, envName: string) => `/projects/${projectId}/env/${envName}/seed`,
   seedHistory: (projectId: string, envName: string) =>
     `/projects/${projectId}/env/${envName}/history`,
 
