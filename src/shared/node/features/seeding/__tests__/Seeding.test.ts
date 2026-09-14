@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { SyncProjectModelsRepository } from "~/shared/node/features/models/sync/abstractions/SyncProjectModelsRepository.js";
 import { CreateSeedJobRepository } from "../create/abstractions/CreateSeedJobRepository.js";
@@ -45,55 +46,25 @@ const numberField: ApiCmsModelField = {
   listValidation: [],
 };
 
-async function setupProject(tc: ReturnType<typeof createTestContainer>) {
-  const createUseCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await createUseCase.execute({
-    name: "Seed Project",
-    apiUrl: "https://api.example.com/cms/manage",
-    apiToken: "seed-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
-
-  const syncModels = tc.container.resolve(SyncProjectModelsRepository);
-  await syncModels.execute({
-    projectId: result.value.id,
-    models: [
-      {
-        groupSlug: "blog",
-        modelId: "article",
-        name: "Article",
-        singularApiName: "Article",
-        pluralApiName: "Articles",
-        fields: [textField, numberField],
-        remoteId: "m1",
-      },
-    ],
-  });
-
-  return result.value;
-}
-
 describe("Seeding Feature", () => {
   describe("CreateSeedJobRepository", () => {
     it("should create a seed job", async () => {
       const tc = createTestContainer();
       try {
-        const project = await setupProject(tc);
+        const project = await createTestProject(tc);
         const repo = tc.container.resolve(CreateSeedJobRepository);
         const result = await repo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 5 }] },
         });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value.projectId).toBe(project.id);
+          expect(result.value.projectId).toBe(project.projectId);
           expect(["pending", "running"]).toContain(result.value.status);
           expect(result.value.config.models).toHaveLength(1);
-          expect(result.value.id).toBeDefined();
+          expect(result.value.project.id).toBeDefined();
         }
       } finally {
         tc.cleanup();
@@ -105,13 +76,14 @@ describe("Seeding Feature", () => {
     it("should update seed job status and result", async () => {
       const tc = createTestContainer();
       try {
-        const project = await setupProject(tc);
+        const project = await createTestProject(tc);
         const createRepo = tc.container.resolve(CreateSeedJobRepository);
         const updateRepo = tc.container.resolve(UpdateSeedJobRepository);
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
 
         const createResult = await createRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 5 }] },
         });
 
@@ -128,7 +100,7 @@ describe("Seeding Feature", () => {
 
         expect(updateResult.isOk()).toBe(true);
 
-        const listResult = await listRepo.execute({ projectId: project.id });
+        const listResult = await listRepo.execute({ projectId: project.projectId });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.seedJobs).toHaveLength(1);
@@ -145,21 +117,23 @@ describe("Seeding Feature", () => {
     it("should list seed jobs ordered by date desc", async () => {
       const tc = createTestContainer();
       try {
-        const project = await setupProject(tc);
+        const project = await createTestProject(tc);
         const createRepo = tc.container.resolve(CreateSeedJobRepository);
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
 
         await createRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 3 }] },
         });
 
         await createRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 10 }] },
         });
 
-        const result = await listRepo.execute({ projectId: project.id });
+        const result = await listRepo.execute({ projectId: project.projectId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value.seedJobs).toHaveLength(2);
@@ -176,7 +150,7 @@ describe("Seeding Feature", () => {
       const tc = createTestContainer();
       try {
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
-        const result = await listRepo.execute({ projectId: "any-id" });
+        const result = await listRepo.execute({ environmentId: "any-id" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value.seedJobs).toEqual([]);
@@ -202,11 +176,12 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await createTestProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 2 }],
           batchSize: 1,
@@ -259,11 +234,12 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await createTestProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
           batchSize: 1,
@@ -283,11 +259,12 @@ describe("Seeding Feature", () => {
       const mockHttpClient = createMockHttpClient();
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await createTestProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 3 }],
           batchSize: 1,
@@ -321,11 +298,12 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await createTestProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
           batchSize: 1,

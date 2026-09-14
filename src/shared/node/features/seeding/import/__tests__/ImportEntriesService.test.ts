@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { SyncProjectModelsRepository } from "~/shared/node/features/models/sync/abstractions/SyncProjectModelsRepository.js";
 import { ListSeedEntriesRepository } from "~/shared/node/features/seeding/entries/abstractions/ListSeedEntriesRepository.js";
@@ -31,37 +32,6 @@ const textField: ApiCmsModelField = {
   listValidation: [],
 };
 
-async function setupProject(tc: ReturnType<typeof createTestContainer>) {
-  const createUseCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await createUseCase.execute({
-    name: "Import Project",
-    apiUrl: "https://api.example.com/cms/manage",
-    apiToken: "import-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
-
-  const syncModels = tc.container.resolve(SyncProjectModelsRepository);
-  await syncModels.execute({
-    projectId: result.value.id,
-    models: [
-      {
-        groupSlug: "blog",
-        modelId: "article",
-        name: "Article",
-        singularApiName: "Article",
-        pluralApiName: "Articles",
-        fields: [textField],
-        remoteId: "m1",
-      },
-    ],
-  });
-
-  return result.value;
-}
-
 function listArticlesResponse(input: {
   data: Array<{ id: string; entryId: string; title: string }>;
   hasMoreItems: boolean;
@@ -88,7 +58,7 @@ describe("ImportEntriesService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
 
       vi.mocked(mockHttpClient.post).mockReset();
       vi.mocked(mockHttpClient.post).mockResolvedValue(
@@ -108,7 +78,8 @@ describe("ImportEntriesService", () => {
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],
       });
@@ -121,7 +92,8 @@ describe("ImportEntriesService", () => {
 
       const listSeedEntries = tc.container.resolve(ListSeedEntriesRepository);
       const entriesResult = await listSeedEntries.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         status: "imported",
       });
       expect(entriesResult.isOk()).toBe(true);
@@ -145,7 +117,7 @@ describe("ImportEntriesService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
 
       vi.mocked(mockHttpClient.post).mockReset();
       vi.mocked(mockHttpClient.post)
@@ -173,7 +145,8 @@ describe("ImportEntriesService", () => {
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],
       });
@@ -216,11 +189,12 @@ describe("ImportEntriesService", () => {
   it("should return an error when a model is not found locally", async () => {
     const tc = createTestContainer();
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         tenant: "root",
         models: ["non-existent-model"],
       });
@@ -250,11 +224,12 @@ describe("ImportEntriesService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],
       });
@@ -277,11 +252,12 @@ describe("ImportEntriesService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],
       });

@@ -22,7 +22,7 @@ describe("Templates Feature", () => {
     if (result.isFail()) {
       throw new Error("Failed to create project");
     }
-    projectId = result.value.id;
+    projectId = result.value.project.id;
   });
 
   afterEach(() => {
@@ -40,7 +40,7 @@ describe("Templates Feature", () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.id).toBeDefined();
+        expect(result.value.project.id).toBeDefined();
         expect(result.value.projectId).toBe(projectId);
         expect(result.value.name).toBe("Blog Template");
         expect(result.value.config.models).toHaveLength(1);
@@ -105,7 +105,7 @@ describe("Templates Feature", () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.name).toBe("Get Me");
-        expect(result.value.id).toBe(createResult.value.id);
+        expect(result.value.project.id).toBe(createResult.value.id);
       }
     });
 

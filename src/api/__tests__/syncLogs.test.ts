@@ -11,6 +11,7 @@ describe("Sync Logs API routes", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let app: FastifyInstance;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -27,7 +28,8 @@ describe("Sync Logs API routes", () => {
     if (result.isFail()) {
       throw new Error("Failed to create project");
     }
-    projectId = result.value.id;
+    projectId = result.value.project.id;
+    environmentId = result.value.environment.id;
   });
 
   afterEach(async () => {
@@ -40,12 +42,14 @@ describe("Sync Logs API routes", () => {
 
     await createLog.execute({
       projectId,
+      environmentId,
       type: "tenants",
       status: "success",
       message: "Pulled tenants",
     });
     await createLog.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status: "success",
       message: 'Uploaded "photo.jpg"',
@@ -54,6 +58,7 @@ describe("Sync Logs API routes", () => {
     });
     await createLog.execute({
       projectId,
+      environmentId,
       type: "pull-files",
       status: "success",
       message: "Pulled 5 files",
@@ -80,6 +85,7 @@ describe("Sync Logs API routes", () => {
 
     await createLog.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status: "success",
       message: 'Uploaded "image.png"',
@@ -103,6 +109,7 @@ describe("Sync Logs API routes", () => {
     const createLog = tc.container.resolve(CreateSyncLogRepository);
     const result = await createLog.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status: "success",
       message: "Test log",

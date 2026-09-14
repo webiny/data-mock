@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { JobWorker } from "../abstractions/JobWorker.js";
 import { JobExecutorRegistry } from "../abstractions/JobExecutorRegistry.js";
@@ -12,27 +13,13 @@ import { createServer } from "~/api/server.js";
 import { registerApiRoutes } from "~/api/routes/index.js";
 import type { FastifyInstance } from "fastify";
 
-async function createProject(tc: ReturnType<typeof createTestContainer>): Promise<string> {
-  const useCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await useCase.execute({
-    name: "Job Test Project",
-    apiUrl: "https://api.example.com",
-    apiToken: "test-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
-  return result.value.id;
-}
-
 describe("Jobs System", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let projectId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
-    projectId = await createProject(tc);
+    projectId = await createTestProject(tc);
   });
 
   afterEach(() => {
@@ -330,7 +317,7 @@ describe("Jobs API routes", () => {
         tenant: "root",
       },
     });
-    projectId = createResponse.json().project.id;
+    projectId = createResponse.json().project.projectId;
   });
 
   afterEach(async () => {

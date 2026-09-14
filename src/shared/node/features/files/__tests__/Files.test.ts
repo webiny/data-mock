@@ -8,6 +8,7 @@ import { DeleteProjectFileRepository } from "../delete/abstractions/DeleteProjec
 describe("Files Feature", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -21,7 +22,7 @@ describe("Files Feature", () => {
     if (result.isFail()) {
       throw new Error("Failed to create project");
     }
-    projectId = result.value.id;
+    projectId = result.value.project.id;
   });
 
   afterEach(() => {
@@ -33,6 +34,7 @@ describe("Files Feature", () => {
       const repo = tc.container.resolve(UploadFileRepository);
       const result = await repo.execute({
         projectId,
+        environmentId,
         tenant: "root",
         fileKey: "images/photo.jpg",
         fileUrl: "https://cdn.example.com/images/photo.jpg",
@@ -57,6 +59,7 @@ describe("Files Feature", () => {
       const repo = tc.container.resolve(UploadFileRepository);
       const result = await repo.execute({
         projectId,
+        environmentId,
         tenant: "root",
         fileKey: "docs/readme.md",
         fileUrl: "https://cdn.example.com/docs/readme.md",
@@ -75,7 +78,7 @@ describe("Files Feature", () => {
   describe("ListProjectFilesRepository", () => {
     it("should return empty array when no files exist", async () => {
       const repo = tc.container.resolve(ListProjectFilesRepository);
-      const result = await repo.execute({ projectId });
+      const result = await repo.execute({ environmentId });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -89,6 +92,7 @@ describe("Files Feature", () => {
 
       await uploadRepo.execute({
         projectId,
+        environmentId,
         tenant: "root",
         fileKey: "a.jpg",
         fileUrl: "https://cdn.example.com/a.jpg",
@@ -98,6 +102,7 @@ describe("Files Feature", () => {
       });
       await uploadRepo.execute({
         projectId,
+        environmentId,
         tenant: "root",
         fileKey: "b.png",
         fileUrl: "https://cdn.example.com/b.png",
@@ -106,7 +111,7 @@ describe("Files Feature", () => {
         fileSize: 200,
       });
 
-      const result = await listRepo.execute({ projectId });
+      const result = await listRepo.execute({ environmentId });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.files).toHaveLength(2);
@@ -122,6 +127,7 @@ describe("Files Feature", () => {
 
       const uploadResult = await uploadRepo.execute({
         projectId,
+        environmentId,
         tenant: "root",
         fileKey: "delete-me.jpg",
         fileUrl: "https://cdn.example.com/delete-me.jpg",
@@ -137,7 +143,7 @@ describe("Files Feature", () => {
       const deleteResult = await deleteRepo.execute({ id: uploadResult.value.id });
       expect(deleteResult.isOk()).toBe(true);
 
-      const listResult = await listRepo.execute({ projectId });
+      const listResult = await listRepo.execute({ environmentId });
       expect(listResult.isOk()).toBe(true);
       if (listResult.isOk()) {
         expect(listResult.value.files).toHaveLength(0);

@@ -21,6 +21,7 @@ vi.mock("node:fs", async (importOriginal) => {
 describe("UploadGlobalFilesToProjectService", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -35,7 +36,7 @@ describe("UploadGlobalFilesToProjectService", () => {
     if (result.isFail()) {
       throw new Error("Failed to create project");
     }
-    projectId = result.value.id;
+    projectId = result.value.project.id;
   });
 
   afterEach(() => {
@@ -45,7 +46,7 @@ describe("UploadGlobalFilesToProjectService", () => {
   it("should report zero uploaded when there are no local images to link", async () => {
     const service = tc.container.resolve(UploadGlobalFilesToProjectService);
 
-    const result = await service.execute({ projectId, tenant: "root" });
+    const result = await service.execute({ environmentId, tenant: "root" });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -58,6 +59,7 @@ describe("UploadGlobalFilesToProjectService", () => {
     const uploadRepo = tc.container.resolve(UploadFileRepository);
     await uploadRepo.execute({
       projectId,
+      environmentId,
       tenant: "root",
       fileKey: "images/existing.jpg",
       fileUrl: "https://cdn.example.com/images/existing.jpg",
@@ -67,7 +69,7 @@ describe("UploadGlobalFilesToProjectService", () => {
     });
 
     const service = tc.container.resolve(UploadGlobalFilesToProjectService);
-    const result = await service.execute({ projectId, tenant: "root" });
+    const result = await service.execute({ environmentId, tenant: "root" });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {

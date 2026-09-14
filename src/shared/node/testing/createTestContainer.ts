@@ -27,7 +27,7 @@ interface TestContainerOptions {
   httpClient?: HttpClient.Interface;
 }
 
-interface TestContainer {
+export interface TestContainer {
   container: Container;
   databaseClient: DatabaseClient.Interface;
   cleanup(): void;

@@ -104,7 +104,7 @@ describe("FileUploadService", () => {
     const service = tc.container.resolve(FileUploadService);
 
     const result = await service.execute({
-      projectId: project.id,
+      projectId: project.projectId,
       tenant: "root",
       filePath,
     });
@@ -153,7 +153,11 @@ describe("FileUploadService", () => {
     const project = await setupProject(tc);
     const service = tc.container.resolve(FileUploadService);
 
-    const result = await service.execute({ projectId: project.id, tenant: "root", filePath });
+    const result = await service.execute({
+      environmentId: project.environmentId,
+      tenant: "root",
+      filePath,
+    });
 
     expect(result.isFail()).toBe(true);
     if (result.isFail()) {
@@ -176,7 +180,11 @@ describe("FileUploadService", () => {
     vi.mocked(mockHttpClient.post).mockClear();
     const service = tc.container.resolve(FileUploadService);
 
-    const result = await service.execute({ projectId: project.id, tenant: "root", filePath });
+    const result = await service.execute({
+      environmentId: project.environmentId,
+      tenant: "root",
+      filePath,
+    });
 
     expect(result.isFail()).toBe(true);
     if (result.isFail()) {
@@ -215,7 +223,11 @@ describe("FileUploadService", () => {
     const project = await setupProject(tc);
     const service = tc.container.resolve(FileUploadService);
 
-    const result = await service.execute({ projectId: project.id, tenant: "root", filePath });
+    const result = await service.execute({
+      environmentId: project.environmentId,
+      tenant: "root",
+      filePath,
+    });
 
     expect(result.isFail()).toBe(true);
     if (result.isFail()) {

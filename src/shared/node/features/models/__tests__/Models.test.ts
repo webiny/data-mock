@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { ListProjectGroupsRepository } from "../list/abstractions/ListProjectGroupsRepository.js";
 import { ListProjectModelsRepository } from "../list/abstractions/ListProjectModelsRepository.js";
@@ -34,27 +35,13 @@ const testField: ApiCmsModelField = {
   listValidation: [],
 };
 
-async function createProject(tc: ReturnType<typeof createTestContainer>) {
-  const useCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await useCase.execute({
-    name: "Test Project",
-    apiUrl: "https://api.example.com/cms/manage",
-    apiToken: "test-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
-  return result.value;
-}
-
 describe("Models Feature", () => {
   describe("ListProjectGroupsRepository", () => {
     it("should return empty array when no groups stored", async () => {
       const tc = createTestContainer();
       try {
         const repo = tc.container.resolve(ListProjectGroupsRepository);
-        const result = await repo.execute({ projectId: "any-id" });
+        const result = await repo.execute({ environmentId: "any-id" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toEqual([]);
@@ -67,10 +54,11 @@ describe("Models Feature", () => {
     it("should return stored groups", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const syncRepo = tc.container.resolve(SyncProjectGroupsRepository);
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           groups: [
             { slug: "blog", name: "Blog", description: "Blog group", remoteId: "g1" },
             { slug: "cars", name: "Cars", remoteId: "g2" },
@@ -78,7 +66,7 @@ describe("Models Feature", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectGroupsRepository);
-        const result = await listRepo.execute({ projectId: project.id });
+        const result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(2);
@@ -95,7 +83,7 @@ describe("Models Feature", () => {
       const tc = createTestContainer();
       try {
         const repo = tc.container.resolve(ListProjectModelsRepository);
-        const result = await repo.execute({ projectId: "any-id" });
+        const result = await repo.execute({ environmentId: "any-id" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toEqual([]);
@@ -108,10 +96,11 @@ describe("Models Feature", () => {
     it("should return stored models with parsed JSON fields", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const syncRepo = tc.container.resolve(SyncProjectModelsRepository);
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           models: [
             {
               groupSlug: "blog",
@@ -126,7 +115,7 @@ describe("Models Feature", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectModelsRepository);
-        const result = await listRepo.execute({ projectId: project.id });
+        const result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(1);
@@ -145,16 +134,17 @@ describe("Models Feature", () => {
     it("should replace groups on re-sync", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const syncRepo = tc.container.resolve(SyncProjectGroupsRepository);
         const listRepo = tc.container.resolve(ListProjectGroupsRepository);
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           groups: [{ slug: "old-group", name: "Old", remoteId: "g1" }],
         });
 
-        let result = await listRepo.execute({ projectId: project.id });
+        let result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(1);
@@ -162,14 +152,15 @@ describe("Models Feature", () => {
         }
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           groups: [
             { slug: "new-group-1", name: "New 1", remoteId: "g2" },
             { slug: "new-group-2", name: "New 2", remoteId: "g3" },
           ],
         });
 
-        result = await listRepo.execute({ projectId: project.id });
+        result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(2);
@@ -188,12 +179,13 @@ describe("Models Feature", () => {
     it("should replace models on re-sync", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const syncRepo = tc.container.resolve(SyncProjectModelsRepository);
         const listRepo = tc.container.resolve(ListProjectModelsRepository);
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           models: [
             {
               groupSlug: "blog",
@@ -207,14 +199,15 @@ describe("Models Feature", () => {
           ],
         });
 
-        let result = await listRepo.execute({ projectId: project.id });
+        let result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(1);
         }
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           models: [
             {
               groupSlug: "blog",
@@ -237,7 +230,7 @@ describe("Models Feature", () => {
           ],
         });
 
-        result = await listRepo.execute({ projectId: project.id });
+        result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(2);
@@ -256,10 +249,11 @@ describe("Models Feature", () => {
     it("should return a model by projectId and modelId", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const syncRepo = tc.container.resolve(SyncProjectModelsRepository);
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           models: [
             {
               groupSlug: "blog",
@@ -275,7 +269,8 @@ describe("Models Feature", () => {
 
         const getRepo = tc.container.resolve(GetProjectModelRepository);
         const result = await getRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           modelId: "article",
         });
         expect(result.isOk()).toBe(true);
@@ -291,10 +286,11 @@ describe("Models Feature", () => {
     it("should return not found for non-existent model", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const getRepo = tc.container.resolve(GetProjectModelRepository);
         const result = await getRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           modelId: "non-existent",
         });
         expect(result.isFail()).toBe(true);
@@ -353,10 +349,10 @@ describe("Models Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
 
         const syncService = tc.container.resolve(SyncModelsService);
-        const result = await syncService.execute({ projectId: project.id });
+        const result = await syncService.execute({ environmentId: project.environmentId });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -365,7 +361,7 @@ describe("Models Feature", () => {
         }
 
         const listGroups = tc.container.resolve(ListProjectGroupsRepository);
-        const groupsResult = await listGroups.execute({ projectId: project.id });
+        const groupsResult = await listGroups.execute({ environmentId: project.environmentId });
         expect(groupsResult.isOk()).toBe(true);
         if (groupsResult.isOk()) {
           expect(groupsResult.value).toHaveLength(1);
@@ -373,7 +369,7 @@ describe("Models Feature", () => {
         }
 
         const listModels = tc.container.resolve(ListProjectModelsRepository);
-        const modelsResult = await listModels.execute({ projectId: project.id });
+        const modelsResult = await listModels.execute({ environmentId: project.environmentId });
         expect(modelsResult.isOk()).toBe(true);
         if (modelsResult.isOk()) {
           expect(modelsResult.value).toHaveLength(1);

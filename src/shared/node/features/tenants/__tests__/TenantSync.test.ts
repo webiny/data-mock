@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { TenantSyncService } from "../sync/abstractions/TenantSyncService.js";
 import { ListProjectTenantsRepository } from "../list/abstractions/ListProjectTenantsRepository.js";
@@ -29,20 +30,6 @@ function createTenantListResponse(tenants: Array<{ id: string; name: string }>) 
   });
 }
 
-async function createProject(tc: ReturnType<typeof createTestContainer>) {
-  const useCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await useCase.execute({
-    name: "Test Project",
-    apiUrl: "https://api.example.com/cms/manage",
-    apiToken: "test-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
-  return result.value;
-}
-
 describe("Tenant Sync", () => {
   describe("TenantSyncService", () => {
     it("should fetch and store tenants from Webiny API", async () => {
@@ -58,10 +45,10 @@ describe("Tenant Sync", () => {
       const tc = createTestContainer({ httpClient: mockHttpClient });
 
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
 
         const syncService = tc.container.resolve(TenantSyncService);
-        const result = await syncService.execute({ projectId: project.id });
+        const result = await syncService.execute({ environmentId: project.environmentId });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -75,7 +62,7 @@ describe("Tenant Sync", () => {
         }
 
         const listRepo = tc.container.resolve(ListProjectTenantsRepository);
-        const listResult = await listRepo.execute({ projectId: project.id });
+        const listResult = await listRepo.execute({ environmentId: project.environmentId });
 
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
@@ -93,10 +80,10 @@ describe("Tenant Sync", () => {
       const tc = createTestContainer({ httpClient: mockHttpClient });
 
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
 
         const syncService = tc.container.resolve(TenantSyncService);
-        const result = await syncService.execute({ projectId: project.id });
+        const result = await syncService.execute({ environmentId: project.environmentId });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -114,7 +101,7 @@ describe("Tenant Sync", () => {
 
       try {
         const syncService = tc.container.resolve(TenantSyncService);
-        const result = await syncService.execute({ projectId: "non-existent" });
+        const result = await syncService.execute({ environmentId: "non-existent" });
 
         expect(result.isFail()).toBe(true);
         if (result.isFail()) {
@@ -136,12 +123,13 @@ describe("Tenant Sync", () => {
       const tc = createTestContainer({ httpClient: mockHttpClient });
 
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
 
         const syncRepo = tc.container.resolve(SyncProjectTenantsRepository);
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           tenants: [
             { tenantId: "root", name: "Root" },
             { tenantId: "old-tenant", name: "Old" },
@@ -149,14 +137,15 @@ describe("Tenant Sync", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectTenantsRepository);
-        let listResult = await listRepo.execute({ projectId: project.id });
+        let listResult = await listRepo.execute({ environmentId: project.environmentId });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value).toHaveLength(2);
         }
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           tenants: [
             { tenantId: "root", name: "Root" },
             { tenantId: "new-tenant", name: "New" },
@@ -164,7 +153,7 @@ describe("Tenant Sync", () => {
           ],
         });
 
-        listResult = await listRepo.execute({ projectId: project.id });
+        listResult = await listRepo.execute({ environmentId: project.environmentId });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value).toHaveLength(3);
@@ -186,7 +175,7 @@ describe("Tenant Sync", () => {
 
       try {
         const listRepo = tc.container.resolve(ListProjectTenantsRepository);
-        const result = await listRepo.execute({ projectId: "any-id" });
+        const result = await listRepo.execute({ environmentId: "any-id" });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
