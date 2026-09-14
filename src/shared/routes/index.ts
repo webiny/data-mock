@@ -23,6 +23,14 @@ export {
   healthCheckEnvironmentRoute,
 } from "./environments.js";
 
+export {
+  browseDirectoryRoute,
+  scanForProjectsRoute,
+  listScanRootsRoute,
+  createScanRootRoute,
+  removeScanRootRoute,
+} from "./filesystem.js";
+
 export { listProjectTenantsRoute, syncProjectTenantsRoute } from "./tenants.js";
 
 export { listProjectModelsRoute, syncProjectModelsRoute } from "./models.js";

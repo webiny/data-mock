@@ -11,6 +11,8 @@ import { OperationsFeature } from "~/shared/node/graphql/operations/feature.js";
 import { ProjectsFeature } from "~/shared/node/features/projects/feature.js";
 import { EnvironmentsFeature } from "~/shared/node/features/environments/feature.js";
 import { DeletionFeature } from "~/shared/node/features/deletion/feature.js";
+import { ScanRootsFeature } from "~/shared/node/features/scanRoots/feature.js";
+import { FileSystemFeature } from "~/shared/node/features/filesystem/feature.js";
 import { WebinyCliFeature } from "~/shared/node/features/webinyCli/feature.js";
 import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
 import { ModelsFeature } from "~/shared/node/features/models/feature.js";
@@ -57,6 +59,8 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   ProjectsFeature.register(container);
   EnvironmentsFeature.register(container);
   DeletionFeature.register(container);
+  ScanRootsFeature.register(container);
+  FileSystemFeature.register(container);
   WebinyCliFeature.register(container);
   SeedingFeature.register(container);
   TemplatesFeature.register(container);

@@ -14,6 +14,8 @@ import { EndpointsFeature } from "./graphql/endpoints/feature.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
 import { EnvironmentsFeature } from "./features/environments/feature.js";
 import { DeletionFeature } from "./features/deletion/feature.js";
+import { ScanRootsFeature } from "./features/scanRoots/feature.js";
+import { FileSystemFeature } from "./features/filesystem/feature.js";
 import { WebinyCliFeature } from "./features/webinyCli/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
@@ -47,6 +49,8 @@ export const AppFeature = createFeature({
     ProjectsFeature.register(container);
     EnvironmentsFeature.register(container);
     DeletionFeature.register(container);
+    ScanRootsFeature.register(container);
+    FileSystemFeature.register(container);
     WebinyCliFeature.register(container);
     TenantsFeature.register(container);
     ModelsFeature.register(container);

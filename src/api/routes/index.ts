@@ -11,6 +11,7 @@ import { registerSyncLogRoutes } from "./syncLogs/index.js";
 import { registerImportRoutes } from "./import/index.js";
 import { registerCleanupRoutes } from "./cleanup/index.js";
 import { registerJobRoutes } from "./jobs/index.js";
+import { registerFileSystemRoutes } from "./filesystem/index.js";
 
 export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerProjectRoutes(app);
@@ -25,4 +26,5 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerImportRoutes(app);
   await registerCleanupRoutes(app);
   await registerJobRoutes(app);
+  await registerFileSystemRoutes(app);
 }

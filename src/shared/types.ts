@@ -122,6 +122,49 @@ export interface ProjectStack {
   syncedAt: number | null;
 }
 
+/**
+ * One subdirectory offered by the directory browser. `readable` is false when the directory exists
+ * but cannot be opened — it is still listed, because hiding it would look like it is not there.
+ */
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+  isWebinyProject: boolean;
+  readable: boolean;
+}
+
+export interface BrowseResult {
+  /** The resolved, real path that was listed. */
+  path: string;
+  /** Null at the filesystem root, where there is nowhere to go up to. */
+  parentPath: string | null;
+  isWebinyProject: boolean;
+  entries: DirectoryEntry[];
+}
+
+/** A Webiny checkout found by a scan. `registered` marks one that is already a project. */
+export interface ProjectCandidate {
+  rootPath: string;
+  name: string;
+  versionMajor: number | null;
+  webinyVersion: string | null;
+  registered: boolean;
+}
+
+export interface ScanError {
+  path: string;
+  message: string;
+}
+
+/**
+ * Unreadable roots are reported alongside the candidates rather than dropped: a scan that silently
+ * skipped half the tree would read as "nothing is there".
+ */
+export interface ScanResult {
+  candidates: ProjectCandidate[];
+  errors: ScanError[];
+}
+
 export interface ScanRoot {
   id: string;
   path: string;

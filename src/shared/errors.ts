@@ -32,6 +32,15 @@ export class EnvironmentNotConnectedError extends BaseError {
   }
 }
 
+export class ScanRootNotFoundError extends BaseError {
+  override readonly code = "ScanRoot/NotFound" as const;
+  public readonly statusCode = 404;
+
+  public constructor(id: string) {
+    super({ message: `Scan root "${id}" not found` });
+  }
+}
+
 export class ProjectPersistenceError extends BaseError<{ error: Error }> {
   override readonly code = "Project/PersistenceError" as const;
   public readonly statusCode = 500;
