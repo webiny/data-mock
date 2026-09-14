@@ -5,6 +5,7 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface ICreateSeedJobInput {
   projectId: string;
+  environmentId: string;
   config: SeedJobConfig;
 }
 

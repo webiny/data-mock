@@ -18,13 +18,17 @@ class SyncProjectFilesRepositoryImpl implements Abstraction.Interface {
 
       db.delete(projectFiles)
         .where(
-          and(eq(projectFiles.projectId, input.projectId), eq(projectFiles.tenant, input.tenant)),
+          and(
+            eq(projectFiles.environmentId, input.environmentId),
+            eq(projectFiles.tenant, input.tenant),
+          ),
         )
         .run();
 
       const rows: ProjectFile[] = input.files.map((file) => ({
         id: generateId(),
         projectId: input.projectId,
+        environmentId: input.environmentId,
         tenant: input.tenant,
         fileKey: file.fileKey,
         fileUrl: file.fileUrl,

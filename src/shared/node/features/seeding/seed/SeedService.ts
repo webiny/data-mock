@@ -90,6 +90,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     const jobResult = await this.createSeedJobRepository.execute({
       projectId: project.id,
+      environmentId: environment.id,
       config: {
         models: input.models,
         publishStrategy: input.publishStrategy,
@@ -142,7 +143,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
       const availableRefs = new Map<string, string[]>();
 
-      await this.preloadExistingRefs(project.id, availableRefs);
+      await this.preloadExistingRefs(environment.id, availableRefs);
 
       const filePoolResult = await this.loadFilePoolService.execute({
         projectId: project.id,
@@ -173,6 +174,7 @@ class SeedServiceImpl implements Abstraction.Interface {
             availableRefs,
             job.id,
             project.id,
+            environment.id,
             input.tenant,
             filePool,
           );
@@ -241,7 +243,15 @@ class SeedServiceImpl implements Abstraction.Interface {
           for (const { entryData, result: created } of failed) {
             modelErrors.push(created.error!);
             errors.push({ modelId: ctx.modelId, message: created.error! });
-            await this.logEntry(job.id, project.id, input.tenant, ctx.modelId, entryData, created);
+            await this.logEntry(
+              job.id,
+              project.id,
+              environment.id,
+              input.tenant,
+              ctx.modelId,
+              entryData,
+              created,
+            );
           }
 
           if (failed.length > 0) {
@@ -261,6 +271,7 @@ class SeedServiceImpl implements Abstraction.Interface {
               await this.logEntry(
                 job.id,
                 project.id,
+                environment.id,
                 input.tenant,
                 ctx.modelId,
                 entryData,
@@ -292,6 +303,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                 await this.logEntry(
                   job.id,
                   project.id,
+                  environment.id,
                   input.tenant,
                   ctx.modelId,
                   revData,
@@ -382,12 +394,15 @@ class SeedServiceImpl implements Abstraction.Interface {
 
   private async resolveModels(
     input: Abstraction.Input,
-    projectId: string,
+    environmentId: string,
     errors: Abstraction.ModelError[],
   ): Promise<ModelSeedContext[]> {
     const contexts: ModelSeedContext[] = [];
     for (const mc of input.models) {
-      const r = await this.getProjectModelRepository.execute({ projectId, modelId: mc.modelId });
+      const r = await this.getProjectModelRepository.execute({
+        environmentId,
+        modelId: mc.modelId,
+      });
       if (r.isFail()) {
         errors.push({ modelId: mc.modelId, message: r.error.message });
         continue;
@@ -576,7 +591,7 @@ class SeedServiceImpl implements Abstraction.Interface {
   }
 
   private async preloadExistingRefs(
-    projectId: string,
+    environmentId: string,
     availableRefs: Map<string, string[]>,
   ): Promise<void> {
     let totalLoaded = 0;
@@ -585,7 +600,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     while (true) {
       const result = await this.listSeedEntriesRepository.execute({
-        projectId,
+        environmentId,
         limit: pageSize,
         offset,
       });
@@ -619,6 +634,7 @@ class SeedServiceImpl implements Abstraction.Interface {
   private async logEntry(
     jobId: string,
     projectId: string,
+    environmentId: string,
     tenant: string,
     modelId: string,
     entryData: Record<string, unknown>,
@@ -627,6 +643,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     await this.createSeedEntryRepository.execute({
       jobId,
       projectId,
+      environmentId,
       tenant,
       modelId,
       entryId: result.entryId,
@@ -644,6 +661,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     availableRefs: Map<string, string[]>,
     jobId: string,
     projectId: string,
+    environmentId: string,
     tenant: string,
     filePool: ProjectFile[],
   ): Promise<Record<string, unknown>[]> {
@@ -660,6 +678,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       await this.createSeedEntryRepository.execute({
         jobId,
         projectId,
+        environmentId,
         tenant,
         modelId: ctx.modelId,
         entryId: "",

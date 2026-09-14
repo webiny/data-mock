@@ -5,6 +5,7 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IUploadFileRepositoryInput {
   projectId: string;
+  environmentId: string;
   tenant: string;
   fileKey: string;
   fileUrl: string;

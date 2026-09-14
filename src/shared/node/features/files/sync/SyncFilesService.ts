@@ -79,11 +79,11 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
 
     const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
       contextResult.value;
-    const apiUrl = apiUrl.replace(/\/cms\/manage.*$/, "");
+    const fileManagerUrl = apiUrl.replace(/\/cms\/manage.*$/, "");
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       authorization: `Bearer ${apiToken}`,
-      "x-tenant": input.tenant,
+      "x-tenant": tenant,
     };
 
     const allFiles: IFmFile[] = [];
@@ -134,7 +134,8 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
     }));
 
     const syncResult = await this.syncProjectFilesRepository.execute({
-      projectId: input.projectId,
+      projectId: project.id,
+      environmentId: environment.id,
       tenant: input.tenant,
       files: mapped,
     });
@@ -146,7 +147,8 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
     const syncedCount = syncResult.value.length;
 
     await this.createSyncLogRepository.execute({
-      projectId: input.projectId,
+      projectId: project.id,
+      environmentId: environment.id,
       type: "pull-files",
       status: "success",
       message: `Pulled ${syncedCount} file(s) from File Manager`,

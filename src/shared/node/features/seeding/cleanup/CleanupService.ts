@@ -49,7 +49,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
     const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
       contextResult.value;
 
-    const entriesResult = await this.fetchCreatedEntries(project.id, input.jobId);
+    const entriesResult = await this.fetchCreatedEntries(environment.id, input.jobId);
     if (entriesResult.isFail()) {
       return Result.fail(entriesResult.error);
     }
@@ -72,7 +72,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
 
       for (const modelId of grouped.keys()) {
         const modelResult = await this.getProjectModelRepository.execute({
-          projectId: project.id,
+          environmentId: environment.id,
           modelId,
         });
         if (modelResult.isFail()) {
@@ -154,7 +154,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
   }
 
   private async fetchCreatedEntries(
-    projectId: string,
+    environmentId: string,
     jobId: string | undefined,
   ): Promise<Result<SeedEntry[], ProjectPersistenceError>> {
     const entries: SeedEntry[] = [];
@@ -162,7 +162,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
 
     for (;;) {
       const listInput: ListSeedEntriesRepository.Input = {
-        projectId,
+        environmentId,
         status: "created",
         limit: PAGE_SIZE,
         offset,

@@ -27,6 +27,15 @@ interface GqlOp {
   getVariables?(input: unknown): GenericRecord;
 }
 
+/** Everything importModel needs to reach one environment's API. */
+interface IImportConnection {
+  projectId: string;
+  environmentId: string;
+  apiUrl: string;
+  apiToken: string;
+  operationsVersion: string;
+}
+
 class ImportEntriesServiceImpl implements Abstraction.Interface {
   public constructor(
     private readonly environmentContextService: EnvironmentContextService.Interface,
@@ -64,7 +73,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
           continue;
         }
         const modelResult = await this.getProjectModelRepository.execute({
-          projectId: project.id,
+          environmentId: environment.id,
           modelId,
         });
         if (modelResult.isFail()) {
@@ -73,7 +82,13 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 
         const currentModelIndex = modelIndex;
         const count = await this.importModel(
-          project,
+          {
+            projectId: project.id,
+            environmentId: environment.id,
+            apiUrl,
+            apiToken,
+            operationsVersion,
+          },
           modelResult.value,
           input.tenant,
           onProgress
@@ -107,11 +122,12 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
   }
 
   private async importModel(
-    project: Project,
+    connection: IImportConnection,
     model: ProjectModel,
     tenant: string,
     onModelProgress?: (count: number, totalForModel: number) => void,
   ): Promise<number> {
+    const { projectId, environmentId, apiUrl, apiToken, operationsVersion } = connection;
     const fieldSelection = createModelFields(model.fields);
     const { pluralApiName } = model;
     const query = buildListEntriesQuery({ pluralApiName, fieldSelection }).query;
@@ -136,7 +152,8 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
         const entryId = typeof entry["id"] === "string" ? entry["id"] : "";
         await this.createSeedEntryRepository.execute({
           jobId: null,
-          projectId: project.id,
+          projectId,
+          environmentId,
           tenant,
           modelId: model.modelId,
           entryId,

@@ -20,6 +20,7 @@ class CreateSeedEntryRepositoryImpl implements Abstraction.Interface {
           id,
           jobId: input.jobId,
           projectId: input.projectId,
+          environmentId: input.environmentId,
           tenant: input.tenant,
           modelId: input.modelId,
           entryId: input.entryId,

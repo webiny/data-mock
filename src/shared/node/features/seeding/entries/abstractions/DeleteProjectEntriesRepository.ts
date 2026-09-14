@@ -3,7 +3,7 @@ import type { Result } from "@webiny/stdlib";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IDeleteProjectEntriesInput {
-  projectId: string;
+  environmentId: string;
 }
 
 export interface IDeleteProjectEntriesRepository {

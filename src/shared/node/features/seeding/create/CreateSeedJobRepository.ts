@@ -19,6 +19,7 @@ class CreateSeedJobRepositoryImpl implements Abstraction.Interface {
         .values({
           id,
           projectId: input.projectId,
+          environmentId: input.environmentId,
           status: "running",
           config: JSON.stringify(input.config),
           startedAt: now,

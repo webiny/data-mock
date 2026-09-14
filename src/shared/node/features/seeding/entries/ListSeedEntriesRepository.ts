@@ -14,7 +14,7 @@ class ListSeedEntriesRepositoryImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     try {
-      const conditions: SQL[] = [eq(seedEntries.projectId, input.projectId)];
+      const conditions: SQL[] = [eq(seedEntries.environmentId, input.environmentId)];
 
       if (input.modelId) {
         conditions.push(eq(seedEntries.modelId, input.modelId));
