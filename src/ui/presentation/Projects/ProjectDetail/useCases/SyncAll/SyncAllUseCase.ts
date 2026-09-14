@@ -3,6 +3,7 @@ import { ModelsGateway } from "~/ui/features/models/abstractions/ModelsGateway.j
 import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
 import { ModelsRepository } from "~/ui/features/models/abstractions/ModelsRepository.js";
 import { SyncAllUseCase as Abstraction } from "./abstractions/SyncAllUseCase.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class SyncAllUseCaseImpl implements Abstraction.Interface {
   public constructor(
@@ -12,19 +13,19 @@ class SyncAllUseCaseImpl implements Abstraction.Interface {
     private readonly modelsRepository: ModelsRepository.Interface,
   ) {}
 
-  public async execute(input: { projectId: string }): Promise<Abstraction.Result> {
+  public async execute(ref: EnvironmentRef): Promise<Abstraction.Result> {
     const errors: string[] = [];
 
     const [tenantsResult, modelsResult] = await Promise.all([
-      this.tenantsGateway.syncForProject(input.projectId),
-      this.modelsGateway.pullModels(input.projectId),
+      this.tenantsGateway.syncForProject(ref),
+      this.modelsGateway.pullModels(ref),
     ]);
 
     let tenantsSynced = false;
     if (tenantsResult.isOk()) {
-      const listResult = await this.tenantsGateway.listForProject(input.projectId);
+      const listResult = await this.tenantsGateway.listForProject(ref);
       if (listResult.isOk()) {
-        this.tenantsRepository.setTenants(input.projectId, listResult.value);
+        this.tenantsRepository.setTenants(ref.environmentId, listResult.value);
         tenantsSynced = true;
       }
     } else {
@@ -33,7 +34,7 @@ class SyncAllUseCaseImpl implements Abstraction.Interface {
 
     let modelsSynced = false;
     if (modelsResult.isOk()) {
-      const listResult = await this.modelsGateway.listModels(input.projectId);
+      const listResult = await this.modelsGateway.listModels(ref);
       if (listResult.isOk()) {
         this.modelsRepository.setModels(listResult.value);
         modelsSynced = true;

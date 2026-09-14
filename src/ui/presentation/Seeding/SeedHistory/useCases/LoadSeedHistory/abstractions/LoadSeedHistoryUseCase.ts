@@ -3,8 +3,9 @@ import type { Result } from "@webiny/stdlib";
 import type { SeedJobsListResult } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
+import type { EnvironmentRef } from "~/shared/types.js";
 export interface ILoadSeedHistoryUseCase {
-  execute(projectId: string): Promise<Result<SeedJobsListResult, HTTPError>>;
+  execute(ref: EnvironmentRef): Promise<Result<SeedJobsListResult, HTTPError>>;
 }
 
 export const LoadSeedHistoryUseCase = createAbstraction<ILoadSeedHistoryUseCase>(

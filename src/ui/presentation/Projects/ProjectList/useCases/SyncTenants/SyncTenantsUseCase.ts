@@ -1,6 +1,7 @@
 import { TenantsGateway } from "~/ui/features/tenants/abstractions/TenantsGateway.js";
 import { SyncTenantsUseCase as Abstraction } from "./abstractions/SyncTenantsUseCase.js";
 import { LoadTenantsUseCase } from "../LoadTenants/abstractions/LoadTenantsUseCase.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class SyncTenantsUseCaseImpl implements Abstraction.Interface {
   public constructor(
@@ -8,10 +9,10 @@ class SyncTenantsUseCaseImpl implements Abstraction.Interface {
     private readonly loadTenantsUseCase: LoadTenantsUseCase.Interface,
   ) {}
 
-  public async execute(projectId: string): Promise<void> {
-    const syncResult = await this.tenantsGateway.syncForProject(projectId);
+  public async execute(ref: EnvironmentRef): Promise<void> {
+    const syncResult = await this.tenantsGateway.syncForProject(ref);
     if (syncResult.isOk()) {
-      await this.loadTenantsUseCase.execute(projectId);
+      await this.loadTenantsUseCase.execute(ref);
     }
   }
 }

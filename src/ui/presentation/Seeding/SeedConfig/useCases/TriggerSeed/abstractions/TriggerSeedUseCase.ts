@@ -3,6 +3,7 @@ import type { Result } from "@webiny/stdlib";
 import type { Job, Revisions, PublishStrategy } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
+import type { EnvironmentRef } from "~/shared/types.js";
 export interface ITriggerSeedModelInput {
   modelId: string;
   amount: number;
@@ -10,7 +11,7 @@ export interface ITriggerSeedModelInput {
 }
 
 export interface ITriggerSeedInput {
-  projectId: string;
+  ref: EnvironmentRef;
   tenant: string;
   models: ITriggerSeedModelInput[];
   publishStrategy?: PublishStrategy | undefined;

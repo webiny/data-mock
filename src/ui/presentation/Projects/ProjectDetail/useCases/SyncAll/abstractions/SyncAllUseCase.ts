@@ -1,5 +1,6 @@
 import { createAbstraction } from "@webiny/stdlib";
 
+import type { EnvironmentRef } from "~/shared/types.js";
 export interface ISyncAllResult {
   tenants: boolean;
   models: boolean;
@@ -7,7 +8,7 @@ export interface ISyncAllResult {
 }
 
 export interface ISyncAllUseCase {
-  execute(input: { projectId: string }): Promise<ISyncAllResult>;
+  execute(ref: EnvironmentRef): Promise<ISyncAllResult>;
 }
 
 export const SyncAllUseCase = createAbstraction<ISyncAllUseCase>("Ui/SyncAllUseCase");

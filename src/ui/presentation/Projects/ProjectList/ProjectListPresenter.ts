@@ -1,13 +1,11 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
-import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
+import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
+import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 import { LoadProjectsUseCase } from "./useCases/LoadProjects/abstractions/LoadProjectsUseCase.js";
 import { DeleteProjectUseCase } from "./useCases/DeleteProject/abstractions/DeleteProjectUseCase.js";
-import { LoadTenantsUseCase } from "./useCases/LoadTenants/abstractions/LoadTenantsUseCase.js";
-import { SyncTenantsUseCase } from "./useCases/SyncTenants/abstractions/SyncTenantsUseCase.js";
-import { SyncModelsUseCase } from "./useCases/SyncModels/abstractions/SyncModelsUseCase.js";
 import { ProjectListPresenter as Abstraction } from "./abstractions/ProjectListPresenter.js";
 import type { ProjectListVM } from "./abstractions/ProjectListPresenter.js";
 
@@ -20,17 +18,14 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   private _syncingModelsProjectIds = new Set<string>();
   private _removeProjectId: string | null = null;
   private _removeProjectName: string | null = null;
-  private _healthMap = new Map<string, HealthStatus>();
 
   public constructor(
     private readonly loadProjectsUseCase: LoadProjectsUseCase.Interface,
     private readonly deleteProjectUseCase: DeleteProjectUseCase.Interface,
-    private readonly loadTenantsUseCase: LoadTenantsUseCase.Interface,
-    private readonly syncTenantsUseCase: SyncTenantsUseCase.Interface,
-    private readonly syncModelsUseCase: SyncModelsUseCase.Interface,
     private readonly projectsGateway: ProjectsGateway.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
-    private readonly tenantsRepository: TenantsRepository.Interface,
+    private readonly environmentsGateway: EnvironmentsGateway.Interface,
+    private readonly environmentsRepository: EnvironmentsRepository.Interface,
     private readonly notificationService: NotificationService.Interface,
   ) {
     makeAutoObservable(this);
@@ -38,15 +33,15 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
 
   public get vm(): ProjectListVM {
     const projects = this.projectsRepository.projects.map((p) => {
-      const tenants = this.tenantsRepository.getTenantsByProjectId(p.id);
+      const environments = this.environmentsRepository.getEnvironmentsByProjectId(p.id);
       return {
         id: p.id,
         name: p.name,
-        apiUrl: p.apiUrl,
-        tenant: p.tenant,
+        rootPath: p.rootPath,
         webinyVersion: p.webinyVersion,
-        tenants: tenants.map((t) => ({ tenantId: t.tenantId, name: t.name })),
-        health: this._healthMap.get(p.id) ?? "unknown",
+        environmentCount: environments.length,
+        deployedCount: environments.filter((environment) => environment.deployed).length,
+        lastSyncedAt: p.lastSyncedAt,
         isSyncing: this._syncingProjectIds.has(p.id),
         isSyncingModels: this._syncingModelsProjectIds.has(p.id),
       };
@@ -72,42 +67,13 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     try {
       await this.loadProjectsUseCase.execute();
       const projects = this.projectsRepository.projects;
-      await Promise.all(projects.map((p) => this.loadTenantsUseCase.execute(p.id)));
+      await Promise.all(projects.map((p) => this.loadEnvironments(p.id)));
     } finally {
       runInAction(() => {
         this._isLoading = false;
         this._loaded = true;
       });
     }
-    void this.checkAllHealth();
-  };
-
-  private checkAllHealth = async (): Promise<void> => {
-    const projects = this.projectsRepository.projects;
-    for (const p of projects) {
-      void this.checkHealth(p.id);
-    }
-  };
-
-  public refreshHealth = (projectId: string): void => {
-    void this.checkHealth(projectId, true);
-  };
-
-  private checkHealth = async (projectId: string, force = false): Promise<void> => {
-    if (this._healthMap.get(projectId) === "checking") {
-      return;
-    }
-    runInAction(() => {
-      this._healthMap.set(projectId, "checking");
-    });
-    const result = await this.projectsGateway.healthCheck(projectId, force);
-    runInAction(() => {
-      if (result.isFail()) {
-        this._healthMap.set(projectId, "unreachable");
-        return;
-      }
-      this._healthMap.set(projectId, result.value.reachable ? "reachable" : "unreachable");
-    });
   };
 
   public remove = async (id: string): Promise<void> => {
@@ -137,13 +103,20 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     await this.load();
   };
 
-  public pullTenants = async (projectId: string): Promise<void> => {
+  /**
+   * Syncing is project-scoped: it reads the Pulumi checkpoints on disk and rediscovers this
+   * project's environments. Pulling tenants or models needs a specific environment, so those
+   * actions live on the project detail page where one is selected.
+   */
+  public syncProject = async (projectId: string): Promise<void> => {
     this._syncingProjectIds.add(projectId);
     try {
-      await this.syncTenantsUseCase.execute(projectId);
-      this.notificationService.success("Tenants pulled successfully.");
-    } catch {
-      this.notificationService.error("Failed to pull tenants.");
+      const result = await this.environmentsGateway.sync(projectId);
+      if (result.isOk()) {
+        this.notificationService.success("Sync started.");
+      } else {
+        this.notificationService.error(`Failed to start sync: ${result.error.message}`);
+      }
     } finally {
       runInAction(() => {
         this._syncingProjectIds.delete(projectId);
@@ -151,17 +124,10 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  public pullModels = async (projectId: string): Promise<void> => {
-    this._syncingModelsProjectIds.add(projectId);
-    try {
-      await this.syncModelsUseCase.execute(projectId);
-      this.notificationService.success("Models pulled successfully.");
-    } catch {
-      this.notificationService.error("Failed to pull models.");
-    } finally {
-      runInAction(() => {
-        this._syncingModelsProjectIds.delete(projectId);
-      });
+  private loadEnvironments = async (projectId: string): Promise<void> => {
+    const result = await this.environmentsGateway.listForProject(projectId);
+    if (result.isOk()) {
+      this.environmentsRepository.setEnvironments(projectId, result.value);
     }
   };
 }
@@ -171,12 +137,10 @@ export const ProjectListPresenter = Abstraction.createImplementation({
   dependencies: [
     LoadProjectsUseCase,
     DeleteProjectUseCase,
-    LoadTenantsUseCase,
-    SyncTenantsUseCase,
-    SyncModelsUseCase,
     ProjectsGateway,
     ProjectsRepository,
-    TenantsRepository,
+    EnvironmentsGateway,
+    EnvironmentsRepository,
     NotificationService,
   ],
 });
