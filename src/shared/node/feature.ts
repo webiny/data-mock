@@ -13,6 +13,7 @@ import { OperationsFeature } from "./graphql/operations/feature.js";
 import { EndpointsFeature } from "./graphql/endpoints/feature.js";
 import { ProjectsFeature } from "./features/projects/feature.js";
 import { EnvironmentsFeature } from "./features/environments/feature.js";
+import { WebinyCliFeature } from "./features/webinyCli/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
 import { SeedingFeature } from "./features/seeding/feature.js";
@@ -44,6 +45,7 @@ export const AppFeature = createFeature({
     EndpointsFeature.register(container);
     ProjectsFeature.register(container);
     EnvironmentsFeature.register(container);
+    WebinyCliFeature.register(container);
     TenantsFeature.register(container);
     ModelsFeature.register(container);
     SeedingFeature.register(container);
