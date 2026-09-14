@@ -5,6 +5,7 @@ import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClie
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { SyncLogsGateway as Abstraction } from "./abstractions/SyncLogsGateway.js";
 import type { SyncLogsListParams, SyncLogsListResult } from "./abstractions/SyncLogsGateway.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 interface SyncLogsListResponse {
   syncLogs: { items: SyncLog[]; total: number };
@@ -14,7 +15,7 @@ class SyncLogsGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
   public async list(
-    projectId: string,
+    ref: EnvironmentRef,
     params?: SyncLogsListParams,
   ): Promise<Result<SyncLogsListResult, HTTPError>> {
     const parts: string[] = [];
@@ -30,7 +31,7 @@ class SyncLogsGatewayImpl implements Abstraction.Interface {
     const qs = parts.join("&");
 
     const result = await this.httpClient.get<SyncLogsListResponse>(
-      `/api/projects/${projectId}/sync-logs?${qs}`,
+      `/api/projects/${ref.projectId}/sync-logs?${qs}`,
     );
 
     if (result.isFail()) {
@@ -43,9 +44,9 @@ class SyncLogsGatewayImpl implements Abstraction.Interface {
     });
   }
 
-  public async remove(projectId: string, logId: string): Promise<Result<void, HTTPError>> {
+  public async remove(ref: EnvironmentRef, logId: string): Promise<Result<void, HTTPError>> {
     return this.httpClient.request(deleteSyncLogRoute, {
-      params: { projectId, logId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId, logId },
     });
   }
 }

@@ -7,16 +7,17 @@ import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClie
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { SeedingGateway as Abstraction } from "./abstractions/SeedingGateway.js";
 import type { SeedJobsListParams, SeedJobsListResult } from "./abstractions/SeedingGateway.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class SeedingGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
   public async triggerSeed(
-    projectId: string,
+    ref: EnvironmentRef,
     input: Abstraction.TriggerInput,
   ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(triggerSeedRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input,
     });
 
@@ -28,7 +29,7 @@ class SeedingGatewayImpl implements Abstraction.Interface {
   }
 
   public async listSeedJobs(
-    projectId: string,
+    ref: EnvironmentRef,
     params?: SeedJobsListParams,
   ): Promise<Result<SeedJobsListResult, HTTPError>> {
     const parts: string[] = [];
@@ -47,7 +48,7 @@ class SeedingGatewayImpl implements Abstraction.Interface {
     const qs = parts.join("&");
 
     const result = await this.httpClient.get<{ seedJobs: { items: SeedJob[]; total: number } }>(
-      `/api/projects/${projectId}/seed-jobs?${qs}`,
+      `/api/projects/${ref.projectId}/seed-jobs?${qs}`,
     );
 
     if (result.isFail()) {
@@ -61,11 +62,11 @@ class SeedingGatewayImpl implements Abstraction.Interface {
   }
 
   public async importEntries(
-    projectId: string,
+    ref: EnvironmentRef,
     input: { tenant: string; models: string[] },
   ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(importEntriesRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input,
     });
 
@@ -77,11 +78,11 @@ class SeedingGatewayImpl implements Abstraction.Interface {
   }
 
   public async cleanupEntries(
-    projectId: string,
+    ref: EnvironmentRef,
     input?: { jobId?: string },
   ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(cleanupEntriesRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input ?? {},
     });
 

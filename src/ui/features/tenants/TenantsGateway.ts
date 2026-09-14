@@ -4,13 +4,14 @@ import { listProjectTenantsRoute, syncProjectTenantsRoute } from "~/shared/route
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { TenantsGateway as Abstraction } from "./abstractions/TenantsGateway.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class TenantsGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
-  public async listForProject(projectId: string): Promise<Result<ProjectTenant[], HTTPError>> {
+  public async listForProject(ref: EnvironmentRef): Promise<Result<ProjectTenant[], HTTPError>> {
     const result = await this.httpClient.request(listProjectTenantsRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
     });
 
     if (result.isFail()) {
@@ -20,9 +21,9 @@ class TenantsGatewayImpl implements Abstraction.Interface {
     return Result.ok(result.value.tenants.items);
   }
 
-  public async syncForProject(projectId: string): Promise<Result<Job, HTTPError>> {
+  public async syncForProject(ref: EnvironmentRef): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(syncProjectTenantsRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
     });
 
     if (result.isFail()) {

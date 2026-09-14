@@ -41,6 +41,15 @@ export interface Project {
   updatedAt: number;
 }
 
+/**
+ * Addresses one environment. Passed as an object rather than two positional strings so a call site
+ * cannot silently transpose the ids — they are both opaque generated ids of the same shape.
+ */
+export interface EnvironmentRef {
+  projectId: string;
+  environmentId: string;
+}
+
 /** Which rung of the version fallback chain answered. */
 export type VersionSource =
   | "env-var"

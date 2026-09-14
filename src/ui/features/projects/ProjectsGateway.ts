@@ -1,13 +1,13 @@
 import { Result } from "@webiny/stdlib";
-import type { Project } from "~/shared/types.js";
+import type { Project, EnvironmentRef } from "~/shared/types.js";
 import {
   listProjectsRoute,
   getProjectRoute,
   createProjectRoute,
   updateProjectRoute,
   removeProjectRoute,
-  healthCheckProjectRoute,
 } from "~/shared/routes/projects.js";
+import { healthCheckEnvironmentRoute } from "~/shared/routes/environments.js";
 import type { HealthCheckResult } from "./abstractions/ProjectsGateway.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
@@ -76,11 +76,11 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
   }
 
   public async healthCheck(
-    id: string,
+    ref: EnvironmentRef,
     force?: boolean,
   ): Promise<Result<HealthCheckResult, HTTPError>> {
-    const result = await this.httpClient.request(healthCheckProjectRoute, {
-      params: { id },
+    const result = await this.httpClient.request(healthCheckEnvironmentRoute, {
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       query: force ? { force: "true" } : undefined,
     });
 
