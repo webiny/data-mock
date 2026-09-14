@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { Stack, Text, Table, Badge, Loader } from "@mantine/core";
+import type { EnvironmentRef } from "~/shared/types.js";
 import type { SeedHistoryPresenter } from "../abstractions/SeedHistoryPresenter.js";
 
 interface SeedHistoryPageProps {
   presenter: SeedHistoryPresenter.Interface;
-  projectId: string;
+  envRef: EnvironmentRef;
 }
 
 function statusColor(status: string): string {
@@ -27,11 +28,11 @@ function formatDate(timestamp: number): string {
 
 export const SeedHistoryPage = observer(function SeedHistoryPage({
   presenter,
-  projectId,
+  envRef,
 }: SeedHistoryPageProps) {
   useEffect(() => {
-    void presenter.load(projectId);
-  }, [presenter, projectId]);
+    void presenter.load(envRef);
+  }, [presenter, envRef]);
 
   const { vm } = presenter;
 

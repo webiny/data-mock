@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Group, Stack, TextInput } from "@mantine/core";
+import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import type { IProjectVM, IEditProjectInput } from "../abstractions/ProjectDetailPresenter.js";
 
 interface EditProjectFormProps {
@@ -8,33 +8,30 @@ interface EditProjectFormProps {
   onCancel: () => void;
 }
 
+/**
+ * Edits the project — the system on disk. Connection details (API URL, token, tenant) belong to an
+ * environment now and are edited there, because a project can have several.
+ */
 export function EditProjectForm({ project, onSubmit, onCancel }: EditProjectFormProps) {
   const [name, setName] = useState(project.name);
-  const [apiUrl, setApiUrl] = useState(project.apiUrl);
-  const [apiToken, setApiToken] = useState("");
-  const [tenant, setTenant] = useState(project.tenant);
-  const [webinyVersion, setWebinyVersion] = useState(project.webinyVersion);
+  const [rootPath, setRootPath] = useState(project.rootPath ?? "");
+  const [operationsVersion, setOperationsVersion] = useState(project.operationsVersion);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const input: Record<string, string> = {};
+    const input: IEditProjectInput = {};
     if (name !== project.name) {
       input.name = name;
     }
-    if (apiUrl !== project.apiUrl) {
-      input.apiUrl = apiUrl;
+    if (rootPath !== (project.rootPath ?? "")) {
+      // An emptied path means the project is remote-only again, which is null rather than "".
+      input.rootPath = rootPath === "" ? null : rootPath;
     }
-    if (apiToken) {
-      input.apiToken = apiToken;
-    }
-    if (tenant !== project.tenant) {
-      input.tenant = tenant;
-    }
-    if (webinyVersion !== project.webinyVersion) {
-      input.webinyVersion = webinyVersion;
+    if (operationsVersion !== project.operationsVersion) {
+      input.operationsVersion = operationsVersion;
     }
 
     if (Object.keys(input).length === 0) {
@@ -56,28 +53,21 @@ export function EditProjectForm({ project, onSubmit, onCancel }: EditProjectForm
           required
         />
         <TextInput
-          label="API URL"
-          value={apiUrl}
-          onChange={(e) => setApiUrl(e.currentTarget.value)}
-          required
+          label="Project path"
+          description="Absolute path to the Webiny checkout. Leave blank for a remote-only project."
+          placeholder="/Users/you/work/my-webiny-project"
+          value={rootPath}
+          onChange={(e) => setRootPath(e.currentTarget.value)}
         />
         <TextInput
-          label="API Token"
-          type="password"
-          value={apiToken}
-          onChange={(e) => setApiToken(e.currentTarget.value)}
-          placeholder="Leave blank to keep current token"
+          label="Operations version"
+          description="Selects the GraphQL operation set. Detected on sync; override only if wrong."
+          value={operationsVersion}
+          onChange={(e) => setOperationsVersion(e.currentTarget.value)}
         />
-        <TextInput
-          label="Default Tenant"
-          value={tenant}
-          onChange={(e) => setTenant(e.currentTarget.value)}
-        />
-        <TextInput
-          label="Webiny Version"
-          value={webinyVersion}
-          onChange={(e) => setWebinyVersion(e.currentTarget.value)}
-        />
+        <Text size="xs" c="dimmed">
+          Detected version: {project.webinyVersion ?? "workspace root — built from source"}
+        </Text>
         <Group justify="flex-end" mt="sm">
           <Button variant="default" onClick={onCancel}>
             Cancel

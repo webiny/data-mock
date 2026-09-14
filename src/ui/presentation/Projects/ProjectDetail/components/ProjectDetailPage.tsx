@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import {
+  Select,
   Badge,
   Box,
   Button,
@@ -33,11 +34,14 @@ import { ImportEntriesTab } from "./ImportEntriesTab.js";
 import { JobsTab } from "./JobsTab.js";
 import { EditProjectForm } from "./EditProjectForm.js";
 import { navigate } from "~/ui/features/router/Router.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 import { AppRoutes } from "~/ui/features/router/routePaths.js";
 
 interface ProjectDetailPageProps {
   presenter: ProjectDetailPresenter.Interface;
   projectId: string;
+  /** Stack name from the URL, or null when the URL addresses no specific environment. */
+  envName: string | null;
   subPath: string;
 }
 
@@ -53,14 +57,15 @@ function resolveView(subPath: string): string {
 export const ProjectDetailPage = observer(function ProjectDetailPage({
   presenter,
   projectId,
+  envName,
   subPath,
 }: ProjectDetailPageProps) {
   const activeView = resolveView(subPath);
 
   useEffect(() => {
-    void presenter.load(projectId);
+    void presenter.load(projectId, envName);
     return () => presenter.dispose();
-  }, [presenter, projectId]);
+  }, [presenter, projectId, envName]);
 
   useEffect(() => {
     void presenter.activateView(activeView);
@@ -105,11 +110,13 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
   }
 
   const goTo = (tab: string) => {
-    if (tab === VIEW_DEFAULT) {
-      navigate(AppRoutes.projectDetail(projectId));
-    } else {
-      navigate(AppRoutes.projectTab(projectId, tab));
+    const stackName = vm.currentEnvironment?.stackName;
+    if (stackName) {
+      navigate(AppRoutes.environmentTab(projectId, stackName, tab));
+      return;
     }
+    // No environment resolved yet — keep the bare project URL, which resolves to the first one.
+    navigate(AppRoutes.projectTab(projectId, tab));
   };
 
   return (
@@ -119,7 +126,28 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           <Stack gap={4}>
             <Group gap="sm">
               <Title order={2}>{project.name}</Title>
-              <Badge variant="light">v{project.webinyVersion}</Badge>
+              <Badge variant="light">
+                {project.webinyVersion ? `v${project.webinyVersion}` : "workspace root"}
+              </Badge>
+              {vm.showEnvironmentSelector && (
+                <Select
+                  size="xs"
+                  w={180}
+                  aria-label="Environment"
+                  value={vm.currentEnvironment?.stackName ?? null}
+                  data={vm.environments.map((environment) => ({
+                    value: environment.stackName,
+                    label: environment.deployed
+                      ? environment.stackName
+                      : `${environment.stackName} (not deployed)`,
+                  }))}
+                  onChange={(value) => {
+                    if (value) {
+                      navigate(AppRoutes.environmentTab(projectId, value, activeView));
+                    }
+                  }}
+                />
+              )}
               <HealthBadge
                 status={vm.projectHealth}
                 error={vm.projectHealthError}
@@ -127,14 +155,25 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
               />
             </Group>
             <Text size="sm" c="dimmed">
-              {project.apiUrl}
+              {vm.currentEnvironment?.apiUrl ?? project.rootPath ?? "no local checkout"}
             </Text>
+            {vm.environmentError && (
+              <Text size="sm" c="orange">
+                {vm.environmentError}
+              </Text>
+            )}
+            {vm.currentEnvironment && !vm.currentEnvironment.connectable && (
+              <Text size="xs" c="orange">
+                Partially deployed — the api app is not deployed, so this environment cannot be
+                seeded.
+              </Text>
+            )}
             <Group gap="xs">
               <Text size="xs" c="dimmed">
-                Default tenant:
+                Tenant:
               </Text>
               <Badge size="xs" variant="outline">
-                {project.tenant}
+                {vm.currentEnvironment?.tenant ?? "root"}
               </Badge>
             </Group>
           </Stack>
@@ -246,7 +285,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onDelete={(id) => void presenter.deleteFile(id)}
                 isUploadingGlobal={isUploadingGlobal}
                 isPullingFiles={vm.isPullingFiles}
-                selectedTenant={project.tenant}
+                selectedTenant={vm.currentEnvironment?.tenant ?? "root"}
               />
             )}
             {activeView === "entries" && (
@@ -336,7 +375,9 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
               />
             )}
-            {activeView === "seed" && <EmbeddedSeedConfig projectId={projectId} />}
+            {activeView === "seed" && vm.currentEnvironment && (
+              <EmbeddedSeedConfig envRef={{ projectId, environmentId: vm.currentEnvironment.id }} />
+            )}
             {activeView === "import" && (
               <ImportEntriesTab
                 tenants={tenants}
@@ -419,7 +460,7 @@ function HealthBadge({ status, error, onCheck }: HealthBadgeProps) {
   return badge;
 }
 
-function EmbeddedSeedConfig({ projectId }: { projectId: string }) {
+function EmbeddedSeedConfig({ envRef }: { envRef: EnvironmentRef }) {
   const { presenter } = useFeature(SeedConfigPresentationFeature);
-  return <SeedConfigPage presenter={presenter} projectId={projectId} />;
+  return <SeedConfigPage presenter={presenter} envRef={envRef} />;
 }

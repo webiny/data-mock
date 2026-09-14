@@ -3,6 +3,7 @@ import { SeedingRepository } from "~/ui/features/seeding/abstractions/SeedingRep
 import { LoadSeedHistoryUseCase } from "./useCases/LoadSeedHistory/abstractions/LoadSeedHistoryUseCase.js";
 import { SeedHistoryPresenter as Abstraction } from "./abstractions/SeedHistoryPresenter.js";
 import type { SeedHistoryVM, SeedHistoryJobVM } from "./abstractions/SeedHistoryPresenter.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class SeedHistoryPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
@@ -31,10 +32,10 @@ class SeedHistoryPresenterImpl implements Abstraction.Interface {
     };
   }
 
-  public load = async (projectId: string): Promise<void> => {
+  public load = async (ref: EnvironmentRef): Promise<void> => {
     this._isLoading = true;
     try {
-      await this.loadSeedHistoryUseCase.execute(projectId);
+      await this.loadSeedHistoryUseCase.execute(ref);
     } finally {
       runInAction(() => {
         this._isLoading = false;

@@ -10,6 +10,22 @@ interface ProjectListPageProps {
   onViewHistory?: (projectId: string) => void;
 }
 
+function formatRelative(timestamp: number): string {
+  const seconds = Math.round((Date.now() - timestamp) / 1000);
+  if (seconds < 60) {
+    return "just now";
+  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  return `${Math.round(hours / 24)}d ago`;
+}
+
 export const ProjectListPage = observer(function ProjectListPage({
   presenter,
   onOpenProject,
@@ -60,15 +76,11 @@ export const ProjectListPage = observer(function ProjectListPage({
                     {project.name}
                   </Text>
                   <Badge variant="light" size="sm">
-                    v{project.webinyVersion}
+                    {project.webinyVersion ? `v${project.webinyVersion}` : "workspace root"}
                   </Badge>
-                  <HealthDot
-                    status={project.health}
-                    onClick={() => presenter.refreshHealth(project.id)}
-                  />
                 </Group>
                 <Text size="sm" c="dimmed">
-                  {project.apiUrl}
+                  {project.rootPath ?? "remote only \u2014 no local checkout"}
                 </Text>
               </Stack>
               <Group gap="xs">
@@ -95,33 +107,30 @@ export const ProjectListPage = observer(function ProjectListPage({
 
             <Group gap="xs">
               <Text size="xs" fw={500} c="dimmed">
-                Tenants:
+                Environments:
               </Text>
-              {project.tenants.length === 0 && (
+              {project.environmentCount === 0 && (
                 <Text size="xs" c="dimmed" fs="italic">
-                  None discovered
+                  None discovered — sync to find them
                 </Text>
               )}
-              {project.tenants.map((t) => (
-                <Badge key={t.tenantId} variant="outline" size="xs">
-                  {t.name}
+              {project.environmentCount > 0 && (
+                <Badge variant="outline" size="xs">
+                  {project.deployedCount} of {project.environmentCount} deployed
                 </Badge>
-              ))}
+              )}
+              <Text size="xs" c="dimmed">
+                {project.lastSyncedAt
+                  ? `synced ${formatRelative(project.lastSyncedAt)}`
+                  : "never synced"}
+              </Text>
               <Button
                 variant="subtle"
                 size="compact-xs"
                 loading={project.isSyncing}
-                onClick={() => void presenter.pullTenants(project.id)}
+                onClick={() => void presenter.syncProject(project.id)}
               >
-                Pull Tenants
-              </Button>
-              <Button
-                variant="subtle"
-                size="compact-xs"
-                loading={project.isSyncingModels}
-                onClick={() => void presenter.pullModels(project.id)}
-              >
-                Pull Models
+                Sync
               </Button>
             </Group>
           </Stack>

@@ -11,8 +11,8 @@ function ProjectListRoute() {
     <ProjectListPage
       presenter={presenter}
       onOpenProject={(id) => navigate(AppRoutes.projectDetail(id))}
-      onSeedProject={(id) => navigate(AppRoutes.seedConfig(id))}
-      onViewHistory={(id) => navigate(AppRoutes.seedHistory(id))}
+      onSeedProject={(id) => navigate(AppRoutes.projectTab(id, "seed"))}
+      onViewHistory={(id) => navigate(AppRoutes.projectTab(id, "history"))}
     />
   );
 }

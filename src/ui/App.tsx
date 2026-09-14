@@ -26,7 +26,10 @@ import { SeedHistoryPresentationFeature } from "./presentation/Seeding/SeedHisto
 import { ProjectDetailPresentationFeature } from "./presentation/Projects/ProjectDetail/feature.js";
 import { FileManagerPresentationFeature } from "./presentation/FileManager/feature.js";
 import { projectListRoute } from "./presentation/Projects/ProjectList/route.js";
-import { projectDetailRoute } from "./presentation/Projects/ProjectDetail/route.js";
+import {
+  projectDetailRoute,
+  projectEnvironmentRoute,
+} from "./presentation/Projects/ProjectDetail/route.js";
 import { fileManagerRoute } from "./presentation/FileManager/route.js";
 import { AppLayout } from "./components/AppLayout.js";
 import { theme } from "./theme/theme.js";
@@ -56,6 +59,7 @@ function createAppContainer(): Container {
   FileManagerPresentationFeature.register(container);
 
   container.registerInstance(Route, projectListRoute);
+  container.registerInstance(Route, projectEnvironmentRoute);
   container.registerInstance(Route, projectDetailRoute);
   container.registerInstance(Route, fileManagerRoute);
 

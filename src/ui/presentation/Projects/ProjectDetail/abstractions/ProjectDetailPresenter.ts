@@ -112,10 +112,8 @@ export interface ISyncLogVM {
 
 export interface IEditProjectInput {
   name?: string;
-  apiUrl?: string;
-  apiToken?: string;
-  tenant?: string;
-  webinyVersion?: string;
+  rootPath?: string | null;
+  operationsVersion?: string;
 }
 
 export interface IProjectDetailVM {

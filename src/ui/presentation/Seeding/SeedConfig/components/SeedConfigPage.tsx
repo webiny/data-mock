@@ -19,21 +19,22 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import type { EnvironmentRef } from "~/shared/types.js";
 import type { SeedConfigPresenter } from "../abstractions/SeedConfigPresenter.js";
 import type { IModelConfigVM } from "../abstractions/SeedConfigPresenter.js";
 
 interface SeedConfigPageProps {
   presenter: SeedConfigPresenter.Interface;
-  projectId: string;
+  envRef: EnvironmentRef;
 }
 
 export const SeedConfigPage = observer(function SeedConfigPage({
   presenter,
-  projectId,
+  envRef,
 }: SeedConfigPageProps) {
   useEffect(() => {
-    void presenter.load(projectId);
-  }, [presenter, projectId]);
+    void presenter.load(envRef);
+  }, [presenter, envRef]);
 
   const { vm } = presenter;
 

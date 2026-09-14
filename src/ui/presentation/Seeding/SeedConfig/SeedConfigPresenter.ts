@@ -8,6 +8,7 @@ import type {
   IGroupConfigVM,
   IModelConfigVM,
 } from "./abstractions/SeedConfigPresenter.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 interface ModelState {
   model: ProjectModel;
@@ -38,6 +39,7 @@ function parseRevisions(value: string): Revisions {
 
 class SeedConfigPresenterImpl implements Abstraction.Interface {
   private _projectId: string | null = null;
+  private _ref: EnvironmentRef | null = null;
   private _projectName: string | null = null;
   private _tenants: ProjectTenant[] = [];
   private _modelStates: ModelState[] = [];
@@ -118,14 +120,15 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     };
   }
 
-  public load = async (projectId: string): Promise<void> => {
+  public load = async (ref: EnvironmentRef): Promise<void> => {
     this._isLoading = true;
     this._error = null;
     this._seedJobStarted = false;
-    this._projectId = projectId;
+    this._ref = ref;
+    this._projectId = ref.projectId;
 
     try {
-      const result = await this.loadSeedConfigUseCase.execute(projectId);
+      const result = await this.loadSeedConfigUseCase.execute(ref);
 
       runInAction(() => {
         if (result.isFail()) {
@@ -259,7 +262,8 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   private executeSeed = async (): Promise<void> => {
-    if (!this._projectId || !this._selectedTenant) {
+    const ref = this._ref;
+    if (!ref || !this._selectedTenant) {
       return;
     }
 
@@ -282,7 +286,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
 
     try {
       const result = await this.triggerSeedUseCase.execute({
-        projectId: this._projectId,
+        ref,
         tenant: this._selectedTenant,
         models: selectedModels,
         publishStrategy: this._publishStrategy,
