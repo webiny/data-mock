@@ -9,6 +9,7 @@ import { EncryptionFeature } from "~/shared/node/encryption/feature.js";
 import { GeneratorFeature } from "~/shared/node/generators/feature.js";
 import { OperationsFeature } from "~/shared/node/graphql/operations/feature.js";
 import { ProjectsFeature } from "~/shared/node/features/projects/feature.js";
+import { EnvironmentsFeature } from "~/shared/node/features/environments/feature.js";
 import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
 import { ModelsFeature } from "~/shared/node/features/models/feature.js";
 import { SeedingFeature } from "~/shared/node/features/seeding/feature.js";
@@ -52,6 +53,7 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   TenantsFeature.register(container);
   ModelsFeature.register(container);
   ProjectsFeature.register(container);
+  EnvironmentsFeature.register(container);
   SeedingFeature.register(container);
   TemplatesFeature.register(container);
   FilesFeature.register(container);

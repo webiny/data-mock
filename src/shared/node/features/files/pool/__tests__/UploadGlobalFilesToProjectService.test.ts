@@ -37,6 +37,7 @@ describe("UploadGlobalFilesToProjectService", () => {
       throw new Error("Failed to create project");
     }
     projectId = result.value.project.id;
+    environmentId = result.value.environment.id;
   });
 
   afterEach(() => {

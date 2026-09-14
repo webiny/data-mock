@@ -78,7 +78,6 @@ describe("ImportEntriesService", () => {
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.projectId,
         environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],
@@ -92,7 +91,6 @@ describe("ImportEntriesService", () => {
 
       const listSeedEntries = tc.container.resolve(ListSeedEntriesRepository);
       const entriesResult = await listSeedEntries.execute({
-        projectId: project.projectId,
         environmentId: project.environmentId,
         status: "imported",
       });
@@ -145,7 +143,6 @@ describe("ImportEntriesService", () => {
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.projectId,
         environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],
@@ -172,7 +169,7 @@ describe("ImportEntriesService", () => {
     try {
       const service = tc.container.resolve(ImportEntriesService);
       const result = await service.execute({
-        projectId: "non-existent",
+        environmentId: "non-existent",
         tenant: "root",
         models: ["article"],
       });
@@ -193,7 +190,6 @@ describe("ImportEntriesService", () => {
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.projectId,
         environmentId: project.environmentId,
         tenant: "root",
         models: ["non-existent-model"],
@@ -228,7 +224,6 @@ describe("ImportEntriesService", () => {
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.projectId,
         environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],
@@ -256,7 +251,6 @@ describe("ImportEntriesService", () => {
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
-        projectId: project.projectId,
         environmentId: project.environmentId,
         tenant: "root",
         models: ["article"],

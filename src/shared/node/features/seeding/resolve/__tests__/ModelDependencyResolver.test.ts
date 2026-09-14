@@ -25,6 +25,7 @@ function makeModel(modelId: string, fields: ApiCmsModelField[]): ProjectModel {
   return {
     id: modelId,
     projectId: "test-project",
+    environmentId: "test-environment",
     groupSlug: "test",
     modelId,
     name: modelId,

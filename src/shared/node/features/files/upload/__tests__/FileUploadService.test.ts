@@ -104,7 +104,7 @@ describe("FileUploadService", () => {
     const service = tc.container.resolve(FileUploadService);
 
     const result = await service.execute({
-      projectId: project.projectId,
+      environmentId: project.environment.id,
       tenant: "root",
       filePath,
     });
@@ -154,7 +154,7 @@ describe("FileUploadService", () => {
     const service = tc.container.resolve(FileUploadService);
 
     const result = await service.execute({
-      environmentId: project.environmentId,
+      environmentId: project.environment.id,
       tenant: "root",
       filePath,
     });
@@ -181,7 +181,7 @@ describe("FileUploadService", () => {
     const service = tc.container.resolve(FileUploadService);
 
     const result = await service.execute({
-      environmentId: project.environmentId,
+      environmentId: project.environment.id,
       tenant: "root",
       filePath,
     });
@@ -224,7 +224,7 @@ describe("FileUploadService", () => {
     const service = tc.container.resolve(FileUploadService);
 
     const result = await service.execute({
-      environmentId: project.environmentId,
+      environmentId: project.environment.id,
       tenant: "root",
       filePath,
     });

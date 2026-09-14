@@ -269,7 +269,6 @@ describe("Models Feature", () => {
 
         const getRepo = tc.container.resolve(GetProjectModelRepository);
         const result = await getRepo.execute({
-          projectId: project.projectId,
           environmentId: project.environmentId,
           modelId: "article",
         });
@@ -289,7 +288,6 @@ describe("Models Feature", () => {
         const project = await createTestProject(tc);
         const getRepo = tc.container.resolve(GetProjectModelRepository);
         const result = await getRepo.execute({
-          projectId: project.projectId,
           environmentId: project.environmentId,
           modelId: "non-existent",
         });

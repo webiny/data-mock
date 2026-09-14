@@ -64,7 +64,7 @@ describe("Seeding Feature", () => {
           expect(result.value.projectId).toBe(project.projectId);
           expect(["pending", "running"]).toContain(result.value.status);
           expect(result.value.config.models).toHaveLength(1);
-          expect(result.value.project.id).toBeDefined();
+          expect(result.value.id).toBeDefined();
         }
       } finally {
         tc.cleanup();
@@ -100,7 +100,7 @@ describe("Seeding Feature", () => {
 
         expect(updateResult.isOk()).toBe(true);
 
-        const listResult = await listRepo.execute({ projectId: project.projectId });
+        const listResult = await listRepo.execute({ environmentId: project.environmentId });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.seedJobs).toHaveLength(1);
@@ -133,7 +133,7 @@ describe("Seeding Feature", () => {
           config: { models: [{ modelId: "article", amount: 10 }] },
         });
 
-        const result = await listRepo.execute({ projectId: project.projectId });
+        const result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value.seedJobs).toHaveLength(2);
@@ -180,7 +180,6 @@ describe("Seeding Feature", () => {
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.projectId,
           environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 2 }],
@@ -211,7 +210,7 @@ describe("Seeding Feature", () => {
       try {
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: "non-existent",
+          environmentId: "non-existent",
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
           batchSize: 1,
@@ -238,7 +237,6 @@ describe("Seeding Feature", () => {
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.projectId,
           environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
@@ -263,7 +261,6 @@ describe("Seeding Feature", () => {
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.projectId,
           environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 3 }],
@@ -302,7 +299,6 @@ describe("Seeding Feature", () => {
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.projectId,
           environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],

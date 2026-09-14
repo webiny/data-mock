@@ -110,7 +110,7 @@ describe("Sync Files", () => {
 
         const syncService = tc.container.resolve(SyncFilesService);
         const result = await syncService.execute({
-          environmentId: project.environmentId,
+          environmentId: project.environment.id,
           tenant: "root",
         });
 
@@ -124,7 +124,7 @@ describe("Sync Files", () => {
         expect(mockHttpClient.post).toHaveBeenCalledTimes(1);
 
         const listRepo = tc.container.resolve(ListProjectFilesRepository);
-        const listResult = await listRepo.execute({ environmentId: project.environmentId });
+        const listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(2);
@@ -175,7 +175,7 @@ describe("Sync Files", () => {
 
         const syncService = tc.container.resolve(SyncFilesService);
         const result = await syncService.execute({
-          environmentId: project.environmentId,
+          environmentId: project.environment.id,
           tenant: "root",
         });
 
@@ -214,7 +214,7 @@ describe("Sync Files", () => {
 
         const syncService = tc.container.resolve(SyncFilesService);
         const result = await syncService.execute({
-          environmentId: project.environmentId,
+          environmentId: project.environment.id,
           tenant: "root",
         });
 
@@ -239,7 +239,7 @@ describe("Sync Files", () => {
 
         const syncService = tc.container.resolve(SyncFilesService);
         const result = await syncService.execute({
-          environmentId: project.environmentId,
+          environmentId: project.environment.id,
           tenant: "root",
         });
 
@@ -278,8 +278,8 @@ describe("Sync Files", () => {
         const syncRepo = tc.container.resolve(SyncProjectFilesRepository);
 
         await syncRepo.execute({
-          projectId: project.projectId,
-          environmentId: project.environmentId,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "root",
           files: [
             {
@@ -300,15 +300,15 @@ describe("Sync Files", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectFilesRepository);
-        let listResult = await listRepo.execute({ environmentId: project.environmentId });
+        let listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(2);
         }
 
         await syncRepo.execute({
-          projectId: project.projectId,
-          environmentId: project.environmentId,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "root",
           files: [
             {
@@ -321,7 +321,7 @@ describe("Sync Files", () => {
           ],
         });
 
-        listResult = await listRepo.execute({ environmentId: project.environmentId });
+        listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(1);
@@ -340,8 +340,8 @@ describe("Sync Files", () => {
         const syncRepo = tc.container.resolve(SyncProjectFilesRepository);
 
         await syncRepo.execute({
-          projectId: project.projectId,
-          environmentId: project.environmentId,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "root",
           files: [
             {
@@ -355,8 +355,8 @@ describe("Sync Files", () => {
         });
 
         await syncRepo.execute({
-          projectId: project.projectId,
-          environmentId: project.environmentId,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "tenant-2",
           files: [
             {
@@ -370,7 +370,7 @@ describe("Sync Files", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectFilesRepository);
-        const listResult = await listRepo.execute({ environmentId: project.environmentId });
+        const listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(2);

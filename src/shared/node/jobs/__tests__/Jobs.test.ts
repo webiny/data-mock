@@ -19,7 +19,7 @@ describe("Jobs System", () => {
 
   beforeEach(async () => {
     tc = createTestContainer();
-    projectId = await createTestProject(tc);
+    projectId = (await createTestProject(tc)).projectId;
   });
 
   afterEach(() => {
