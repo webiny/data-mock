@@ -9,6 +9,7 @@ export const cleanupEntries = routeFactory(
     const jobWorker = container.resolve(JobWorker);
     const input: JobWorker.CreateJobInput = {
       projectId: params.projectId,
+      environmentId: params.environmentId,
       type: "cleanup",
     };
     if (body?.jobId) {

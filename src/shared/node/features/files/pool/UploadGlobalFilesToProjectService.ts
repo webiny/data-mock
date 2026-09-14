@@ -30,7 +30,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     const beforeResult = await this.listProjectFilesRepository.execute({
-      projectId: input.projectId,
+      environmentId: input.environmentId,
       tenant: input.tenant,
       limit: ALL_FILES_LIMIT,
     });
@@ -40,7 +40,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const beforeCount = beforeResult.value.total;
 
     const poolResult = await this.loadFilePoolService.execute({
-      projectId: input.projectId,
+      environmentId: input.environmentId,
       tenant: input.tenant,
       onProgress: input.onProgress,
     });
@@ -60,7 +60,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const requestedNames = new Set(input.fileNames);
 
     const dbFilesResult = await this.listProjectFilesRepository.execute({
-      projectId: input.projectId,
+      environmentId: input.environmentId,
       tenant: input.tenant,
       limit: ALL_FILES_LIMIT,
     });
@@ -89,7 +89,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
 
       try {
         const result = await this.fileUploadService.execute({
-          projectId: input.projectId,
+          environmentId: input.environmentId,
           tenant: input.tenant,
           filePath: localFile.filePath,
         });

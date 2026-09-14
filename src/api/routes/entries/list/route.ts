@@ -10,7 +10,7 @@ export const listSeedEntries = routeFactory(
   async ({ params, query, container, send }) => {
     const { limit, offset } = parseListQuery(query);
 
-    const input: Abstraction.Input = { projectId: params.projectId, limit, offset };
+    const input: Abstraction.Input = { environmentId: params.environmentId, limit, offset };
     const jobId = getStringFilter(query, "jobId");
     const modelId = getStringFilter(query, "modelId");
     const tenant = getStringFilter(query, "tenant");

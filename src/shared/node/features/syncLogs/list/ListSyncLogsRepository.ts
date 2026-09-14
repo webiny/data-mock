@@ -62,6 +62,7 @@ class ListSyncLogsRepositoryImpl implements Abstraction.Interface {
       const logs: SyncLog[] = rows.map((row) => ({
         id: row.id,
         projectId: row.projectId,
+        environmentId: row.environmentId,
         type: row.type as SyncLogType,
         status: row.status as SyncLogStatus,
         message: row.message,

@@ -92,7 +92,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     });
     if (presignedResult.isFail()) {
       await this.logUpload(
-        input.projectId,
+        project.id,
+        environment.id,
         fileName,
         "error",
         presignedResult.error.message,
@@ -117,7 +118,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     });
     if (uploadResult.isFail()) {
       await this.logUpload(
-        input.projectId,
+        project.id,
+        environment.id,
         fileName,
         "error",
         uploadResult.error.message,
@@ -159,7 +161,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     });
     if (createFileResult.isFail()) {
       await this.logUpload(
-        input.projectId,
+        project.id,
+        environment.id,
         fileName,
         "error",
         createFileResult.error.message,
@@ -172,7 +175,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
 
     // Step 4: store the file reference locally.
     const storeResult = await this.uploadFileRepository.execute({
-      projectId: input.projectId,
+      projectId: project.id,
+      environmentId: environment.id,
       tenant: input.tenant,
       fileKey: createdFile.key,
       fileUrl: createdFile.src,
@@ -186,7 +190,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     }
 
     await this.logUpload(
-      input.projectId,
+      project.id,
+      environment.id,
       fileName,
       "success",
       `Uploaded "${fileName}" to File Manager`,
@@ -200,6 +205,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
 
   private async logUpload(
     projectId: string,
+    environmentId: string,
     fileName: string,
     status: "success" | "error",
     message: string,
@@ -208,6 +214,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
   ): Promise<void> {
     await this.createSyncLogRepository.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status,
       message,

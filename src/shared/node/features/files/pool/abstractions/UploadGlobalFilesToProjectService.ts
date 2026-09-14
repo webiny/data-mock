@@ -8,7 +8,7 @@ import type {
 } from "~/shared/errors.js";
 
 export interface IUploadGlobalFilesToProjectServiceInput {
-  projectId: string;
+  environmentId: string;
   tenant: string;
   fileNames?: string[] | undefined;
   onProgress?: ((percent: number, label: string) => void) | undefined;

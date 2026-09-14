@@ -58,6 +58,7 @@ class ListSeedJobsRepositoryImpl implements Abstraction.Interface {
       const seedJobsList: SeedJob[] = rows.map((row) => ({
         id: row.id,
         projectId: row.projectId,
+        environmentId: row.environmentId,
         status: row.status as SeedJobStatus,
         config: JSON.parse(row.config) as SeedJobConfig,
         result: row.result ? (JSON.parse(row.result) as SeedJobResult) : null,

@@ -146,7 +146,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       await this.preloadExistingRefs(environment.id, availableRefs);
 
       const filePoolResult = await this.loadFilePoolService.execute({
-        projectId: project.id,
+        environmentId: environment.id,
         tenant: input.tenant,
       });
       const filePool = filePoolResult.isOk() ? filePoolResult.value.filePool : [];

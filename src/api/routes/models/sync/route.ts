@@ -9,6 +9,7 @@ export const syncProjectModels = routeFactory(
     const jobWorker = container.resolve(JobWorker);
     const jobId = await jobWorker.enqueue({
       projectId: params.projectId,
+      environmentId: params.environmentId,
       type: "pull-models",
     });
     const job = await jobWorker.getJob(jobId);

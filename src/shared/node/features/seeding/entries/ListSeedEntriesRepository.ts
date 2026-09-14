@@ -55,6 +55,7 @@ class ListSeedEntriesRepositoryImpl implements Abstraction.Interface {
         id: row.id,
         jobId: row.jobId,
         projectId: row.projectId,
+        environmentId: row.environmentId,
         tenant: row.tenant,
         modelId: row.modelId,
         entryId: row.entryId,

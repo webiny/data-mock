@@ -23,7 +23,7 @@ class GetProjectModelRepositoryImpl implements Abstraction.Interface {
         .get();
 
       if (!row) {
-        return Result.fail(new ProjectNotFoundError(`${input.projectId}/${input.modelId}`));
+        return Result.fail(new ProjectNotFoundError(`${input.environmentId}/${input.modelId}`));
       }
 
       const model: ProjectModel = {

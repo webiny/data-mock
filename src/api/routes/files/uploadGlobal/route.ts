@@ -9,6 +9,7 @@ export const uploadGlobalFiles = routeFactory(
     const jobWorker = container.resolve(JobWorker);
     const jobId = await jobWorker.enqueue({
       projectId: params.projectId,
+      environmentId: params.environmentId,
       type: "upload-files",
       config: {
         tenant: body.tenant,

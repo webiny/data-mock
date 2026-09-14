@@ -20,7 +20,7 @@ export const listSeedJobs = routeFactory(
     const { limit, offset, sortField, sortDir } = parseListQuery(query);
 
     const input: ListSeedJobsRepository.Input = {
-      projectId: params.projectId,
+      environmentId: params.environmentId,
       limit,
       offset,
       sortDir,

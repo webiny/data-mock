@@ -30,6 +30,7 @@ class CreateSeedJobRepositoryImpl implements Abstraction.Interface {
       return Result.ok({
         id,
         projectId: input.projectId,
+        environmentId: input.environmentId,
         status: "running" as const,
         config: input.config,
         result: null,

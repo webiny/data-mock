@@ -3,7 +3,7 @@ import { Result, Logger } from "@webiny/stdlib";
 import { eq } from "drizzle-orm";
 import { KeyRotationService as Abstraction } from "./abstractions/KeyRotationService.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
-import { projects } from "~/shared/node/db/schema.js";
+import { projectEnvironments } from "~/shared/node/db/schema.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
 
 const ALGORITHM = "aes-256-gcm";
@@ -71,33 +71,41 @@ class KeyRotationServiceImpl implements Abstraction.Interface {
         );
       }
 
-      const allProjects = this.databaseClient.db
-        .select({ id: projects.id, apiToken: projects.apiToken })
-        .from(projects)
+      /**
+       * Tokens live on environments now, not projects. Rows with no token (an environment that is
+       * discovered but not yet connected) have nothing to rotate.
+       */
+      const allEnvironments = this.databaseClient.db
+        .select({ id: projectEnvironments.id, apiToken: projectEnvironments.apiToken })
+        .from(projectEnvironments)
         .all();
 
       let rotated = 0;
 
-      for (const project of allProjects) {
+      for (const environment of allEnvironments) {
+        if (environment.apiToken === null) {
+          continue;
+        }
+
         try {
-          const plaintext = decryptWithKey(project.apiToken, oldKey);
+          const plaintext = decryptWithKey(environment.apiToken, oldKey);
           const newCiphertext = encryptWithKey(plaintext, newKey);
 
           this.databaseClient.db
-            .update(projects)
+            .update(projectEnvironments)
             .set({ apiToken: newCiphertext, updatedAt: Date.now() })
-            .where(eq(projects.id, project.id))
+            .where(eq(projectEnvironments.id, environment.id))
             .run();
 
           rotated++;
         } catch (err) {
           this.logger.error(
-            `Failed to rotate key for project "${project.id}": ${err instanceof Error ? err.message : String(err)}`,
+            `Failed to rotate key for environment "${environment.id}": ${err instanceof Error ? err.message : String(err)}`,
           );
           return Result.fail(
             new ProjectPersistenceError(
               new Error(
-                `Key rotation failed at project "${project.id}". Some tokens may be in an inconsistent state.`,
+                `Key rotation failed at environment "${environment.id}". Some tokens may be in an inconsistent state.`,
               ),
             ),
           );
