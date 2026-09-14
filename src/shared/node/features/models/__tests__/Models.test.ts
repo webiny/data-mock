@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { createTestProject } from "~/shared/node/testing/createTestProject.js";
-import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { ListProjectGroupsRepository } from "../list/abstractions/ListProjectGroupsRepository.js";
 import { ListProjectModelsRepository } from "../list/abstractions/ListProjectModelsRepository.js";
 import { SyncProjectGroupsRepository } from "../sync/abstractions/SyncProjectGroupsRepository.js";

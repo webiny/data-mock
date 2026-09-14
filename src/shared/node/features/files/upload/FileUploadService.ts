@@ -50,8 +50,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       return Result.fail(contextResult.error);
     }
 
-    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
-      contextResult.value;
+    const { project, environment, apiUrl, apiToken } = contextResult.value;
     const fileName = basename(input.filePath);
     const stat = statSync(input.filePath);
     const fileSize = stat.size;

@@ -175,14 +175,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
 
   public get vm(): IProjectDetailVM {
     const environmentId = this._environmentId;
+    const project = this._projectId
+      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
+      : null;
     const environmentVMs = (
       this._projectId ? this.environmentsRepository.getEnvironmentsByProjectId(this._projectId) : []
     ).map((environment) => toEnvironmentVM(environment));
     const currentEnvironmentVM =
       environmentVMs.find((environment) => environment.id === environmentId) ?? null;
-    const project = this._projectId
-      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
-      : null;
 
     const tenants = environmentId
       ? this.tenantsRepository.getTenantsByEnvironmentId(environmentId)
@@ -595,7 +595,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!ref) {
       return;
     }
-    const projectId = this._projectId;
     const tenant = this.currentTenant();
     const failures: string[] = [];
 
@@ -850,7 +849,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!ref) {
       return;
     }
-    const projectId = this._projectId;
     const tenant = this.currentTenant();
     this._isPullingFiles = true;
     try {
@@ -914,7 +912,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!ref) {
       return;
     }
-    const projectId = this._projectId;
     const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
     runInAction(() => {
       if (result.isOk()) {
@@ -930,14 +927,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
     this._loadingDatasets.add(dataset);
-    const { projectId, environmentId } = ref;
 
     switch (dataset) {
       case "tenants": {
         const result = await this.tenantsGateway.listForProject(ref);
         runInAction(() => {
           if (result.isOk()) {
-            this.tenantsRepository.setTenants(projectId, result.value);
+            this.tenantsRepository.setTenants(ref.environmentId, result.value);
           }
           this._loadedDatasets.add(dataset);
         });
@@ -990,7 +986,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "templates": {
-        const result = await this.templatesGateway.listForProject(projectId);
+        const result = await this.templatesGateway.listForProject(ref.projectId);
         runInAction(() => {
           if (result.isOk()) {
             this.templatesRepository.setTemplates(result.value);
@@ -1010,7 +1006,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         break;
       }
       case "jobs": {
-        const result = await this.jobsGateway.list(projectId, this.buildJobsParams());
+        const result = await this.jobsGateway.list(ref.projectId, this.buildJobsParams());
         runInAction(() => {
           if (result.isOk()) {
             this.jobsRepository.setJobs(result.value.jobs, result.value.total);
@@ -1069,7 +1065,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!ref) {
       return;
     }
-    const projectId = this._projectId;
     const [filesResult, localFilesResult] = await Promise.all([
       this.filesGateway.list(ref),
       this.localFilesGateway.list(),
@@ -1086,9 +1081,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   private currentTenant = (): string => {
-    const project = this._projectId
-      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
-      : null;
     return this.currentEnvironment?.tenant ?? "root";
   };
 

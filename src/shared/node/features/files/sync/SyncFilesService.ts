@@ -77,8 +77,7 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
       return Result.fail(contextResult.error);
     }
 
-    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
-      contextResult.value;
+    const { project, environment, apiUrl, apiToken, tenant } = contextResult.value;
     const fileManagerUrl = apiUrl.replace(/\/cms\/manage.*$/, "");
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -92,7 +91,7 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
 
     while (hasMoreItems) {
       const response = await this.httpClient.post(
-        `${apiUrl}/graphql`,
+        `${fileManagerUrl}/graphql`,
         JSON.stringify({
           query: LIST_FILES_QUERY,
           variables: { limit: 100, after: cursor },

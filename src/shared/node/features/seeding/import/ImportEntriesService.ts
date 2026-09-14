@@ -13,7 +13,7 @@ import type {
   ApiGraphQLResultJson,
   GenericRecord,
 } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { Project, ProjectModel } from "~/shared/types.js";
+import type { ProjectModel } from "~/shared/types.js";
 
 const PAGE_SIZE = 100;
 
@@ -57,8 +57,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
       return Result.fail(contextResult.error);
     }
 
-    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
-      contextResult.value;
+    const { project, environment, apiUrl, apiToken, operationsVersion } = contextResult.value;
 
     const models: Array<{ modelId: string; count: number }> = [];
     let imported = 0;

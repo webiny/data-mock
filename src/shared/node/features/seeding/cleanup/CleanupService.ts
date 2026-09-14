@@ -46,8 +46,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
       return Result.fail(contextResult.error);
     }
 
-    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
-      contextResult.value;
+    const { environment, apiUrl, apiToken, operationsVersion } = contextResult.value;
 
     const entriesResult = await this.fetchCreatedEntries(environment.id, input.jobId);
     if (entriesResult.isFail()) {

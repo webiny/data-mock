@@ -9,8 +9,6 @@ import { DeleteProjectUseCase } from "./useCases/DeleteProject/abstractions/Dele
 import { ProjectListPresenter as Abstraction } from "./abstractions/ProjectListPresenter.js";
 import type { ProjectListVM } from "./abstractions/ProjectListPresenter.js";
 
-type HealthStatus = "unknown" | "checking" | "reachable" | "unreachable";
-
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _loaded = false;

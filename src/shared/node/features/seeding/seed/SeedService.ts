@@ -85,8 +85,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       return Result.fail(contextResult.error);
     }
 
-    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
-      contextResult.value;
+    const { project, environment, apiUrl, apiToken, operationsVersion } = contextResult.value;
 
     const jobResult = await this.createSeedJobRepository.execute({
       projectId: project.id,
@@ -138,7 +137,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     };
 
     try {
-      const contexts = await this.resolveModels(input, project.id, errors);
+      const contexts = await this.resolveModels(input, environment.id, errors);
       const orderedContexts = this.orderByDependencies(contexts);
 
       const availableRefs = new Map<string, string[]>();

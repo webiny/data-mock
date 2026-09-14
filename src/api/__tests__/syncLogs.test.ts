@@ -7,23 +7,6 @@ import { createServer } from "../server.js";
 import { registerApiRoutes } from "../routes/index.js";
 import type { FastifyInstance } from "fastify";
 
-/**
- * The create route returns the project only, so the first environment is fetched. That also
- * exercises the environments endpoint the rest of these tests depend on.
- */
-async function firstEnvironmentId(app: FastifyInstance, projectId: string): Promise<string> {
-  const response = await app.inject({
-    method: "GET",
-    url: `/api/projects/${projectId}/environments`,
-  });
-  const environments = response.json().environments.items as Array<{ id: string }>;
-  const first = environments[0];
-  if (!first) {
-    throw new Error(`Project ${projectId} has no environments`);
-  }
-  return first.id;
-}
-
 describe("Sync Logs API routes", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let app: FastifyInstance;

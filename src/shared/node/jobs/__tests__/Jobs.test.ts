@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { createTestProject } from "~/shared/node/testing/createTestProject.js";
-import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { JobWorker } from "../abstractions/JobWorker.js";
 import { JobExecutorRegistry } from "../abstractions/JobExecutorRegistry.js";
 import { JobRecoveryHelper } from "../JobRecoveryHelper.js";
@@ -358,7 +357,7 @@ describe("Jobs API routes", () => {
         url: `/api/projects/${projectId}/jobs`,
         payload: {
           type: "seed",
-          config: { tenant: "root", models: [{ modelId: "article", amount: 5 }] },
+          config: { environmentId, tenant: "root", models: [{ modelId: "article", amount: 5 }] },
         },
       });
 
@@ -399,7 +398,7 @@ describe("Jobs API routes", () => {
         await app.inject({
           method: "POST",
           url: `/api/projects/${projectId}/jobs`,
-          payload: { type },
+          payload: { type, config: { environmentId } },
         });
       }
 

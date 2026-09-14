@@ -156,31 +156,3 @@ export const ProjectListPage = observer(function ProjectListPage({
     </Stack>
   );
 });
-
-const HEALTH_COLORS: Record<string, string> = {
-  unknown: "gray",
-  checking: "blue",
-  reachable: "green",
-  unreachable: "red",
-};
-
-const HEALTH_LABELS: Record<string, string> = {
-  unknown: "Not checked",
-  checking: "Checking...",
-  reachable: "Online",
-  unreachable: "Unreachable",
-};
-
-function HealthDot({ status, onClick }: { status: string; onClick: () => void }) {
-  return (
-    <Badge
-      variant="dot"
-      color={HEALTH_COLORS[status] ?? "gray"}
-      size="sm"
-      style={{ cursor: "pointer" }}
-      onClick={onClick}
-    >
-      {HEALTH_LABELS[status] ?? status}
-    </Badge>
-  );
-}

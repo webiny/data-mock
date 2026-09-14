@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { createTestProject } from "~/shared/node/testing/createTestProject.js";
-import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { SyncProjectModelsRepository } from "~/shared/node/features/models/sync/abstractions/SyncProjectModelsRepository.js";
 import { CreateSeedJobRepository } from "../create/abstractions/CreateSeedJobRepository.js";
 import { UpdateSeedJobRepository } from "../update/abstractions/UpdateSeedJobRepository.js";
@@ -46,12 +45,39 @@ const numberField: ApiCmsModelField = {
   listValidation: [],
 };
 
+/**
+ * Creates a project plus the model these tests seed into. The model is environment-scoped, so it
+ * is synced against the environment createTestProject returns.
+ */
+async function setupSeedProject(tc: ReturnType<typeof createTestContainer>) {
+  const project = await createTestProject(tc, { name: "Seed Project" });
+
+  const syncModels = tc.container.resolve(SyncProjectModelsRepository);
+  await syncModels.execute({
+    projectId: project.projectId,
+    environmentId: project.environmentId,
+    models: [
+      {
+        groupSlug: "blog",
+        modelId: "article",
+        name: "Article",
+        singularApiName: "Article",
+        pluralApiName: "Articles",
+        fields: [textField, numberField],
+        remoteId: "m1",
+      },
+    ],
+  });
+
+  return project;
+}
+
 describe("Seeding Feature", () => {
   describe("CreateSeedJobRepository", () => {
     it("should create a seed job", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createTestProject(tc);
+        const project = await setupSeedProject(tc);
         const repo = tc.container.resolve(CreateSeedJobRepository);
         const result = await repo.execute({
           projectId: project.projectId,
@@ -76,7 +102,7 @@ describe("Seeding Feature", () => {
     it("should update seed job status and result", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createTestProject(tc);
+        const project = await setupSeedProject(tc);
         const createRepo = tc.container.resolve(CreateSeedJobRepository);
         const updateRepo = tc.container.resolve(UpdateSeedJobRepository);
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
@@ -117,7 +143,7 @@ describe("Seeding Feature", () => {
     it("should list seed jobs ordered by date desc", async () => {
       const tc = createTestContainer();
       try {
-        const project = await createTestProject(tc);
+        const project = await setupSeedProject(tc);
         const createRepo = tc.container.resolve(CreateSeedJobRepository);
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
 
@@ -176,7 +202,7 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await createTestProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
@@ -233,7 +259,7 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await createTestProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
@@ -257,7 +283,7 @@ describe("Seeding Feature", () => {
       const mockHttpClient = createMockHttpClient();
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await createTestProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
@@ -295,7 +321,7 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await createTestProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({

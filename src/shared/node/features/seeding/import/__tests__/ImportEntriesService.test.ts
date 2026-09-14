@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { createTestProject } from "~/shared/node/testing/createTestProject.js";
-import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { SyncProjectModelsRepository } from "~/shared/node/features/models/sync/abstractions/SyncProjectModelsRepository.js";
 import { ListSeedEntriesRepository } from "~/shared/node/features/seeding/entries/abstractions/ListSeedEntriesRepository.js";
 import { ImportEntriesService } from "../abstractions/ImportEntriesService.js";
@@ -224,7 +223,7 @@ describe("ImportEntriesService", () => {
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
-        expect(result.error.code).toBe("Environment/NotFound");
+        expect(result.error.code).toBe("Project/NotFound");
       }
     } finally {
       tc.cleanup();
