@@ -4,9 +4,12 @@ import { routeFactory } from "~/api/routing/routeFactory.js";
 
 export const listProjectEnvironments = routeFactory(
   listProjectEnvironmentsRoute,
-  async ({ params, container, send }) => {
+  async ({ params, query, container, send }) => {
     const repository = container.resolve(ListEnvironmentsRepository);
-    const result = await repository.execute({ projectId: params.projectId });
+    const result = await repository.execute({
+      projectId: params.projectId,
+      includeArchived: query.includeArchived === "true",
+    });
 
     if (result.isFail()) {
       return send.error(result.error);

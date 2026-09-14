@@ -1,5 +1,5 @@
 import { Result } from "@webiny/stdlib";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { projectEnvironments } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { EncryptionService } from "~/shared/node/encryption/abstractions/EncryptionService.js";
@@ -21,7 +21,14 @@ class ListEnvironmentsRepositoryImpl implements Abstraction.Interface {
       const rows = this.databaseClient.db
         .select()
         .from(projectEnvironments)
-        .where(eq(projectEnvironments.projectId, input.projectId))
+        .where(
+          input.includeArchived === true
+            ? eq(projectEnvironments.projectId, input.projectId)
+            : and(
+                eq(projectEnvironments.projectId, input.projectId),
+                isNull(projectEnvironments.archivedAt),
+              ),
+        )
         .orderBy(asc(projectEnvironments.env), asc(projectEnvironments.variant))
         .all();
 

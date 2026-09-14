@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { WebinyProjectDetector } from "../detect/abstractions/WebinyProjectDetector.js";
 import { PulumiCheckpointReader } from "../checkpoint/abstractions/PulumiCheckpointReader.js";
+import { SyncSystemService } from "../sync/abstractions/SyncSystemService.js";
+import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
+import { UpdateProjectRepository } from "~/shared/node/features/projects/update/abstractions/UpdateProjectRepository.js";
+import { ListEnvironmentsRepository } from "~/shared/node/features/environments/list/abstractions/ListEnvironmentsRepository.js";
+import { ArchiveEnvironmentRepository } from "~/shared/node/features/environments/archive/abstractions/ArchiveEnvironmentRepository.js";
 import { createFixtureProject, stackResource } from "./fixtures.js";
 
 function withContainer<T>(fn: (tc: ReturnType<typeof createTestContainer>) => Promise<T> | T) {
@@ -317,6 +322,65 @@ describe("PulumiCheckpointReader", () => {
           { env: "dev", variant: "blue" },
           { env: "prod", variant: "" },
         ]);
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+});
+
+describe("SyncSystemService", () => {
+  it("skips an archived environment instead of reviving or duplicating it", async () => {
+    const fixture = createFixtureProject({
+      marker: "webiny.config.tsx",
+      packageJson: { dependencies: { "@webiny/cli": "6.4.9" } },
+      stacks: [
+        { app: "core", stackName: "dev", resources: [stackResource({})] },
+        { app: "core", stackName: "prod", resources: [stackResource({})] },
+      ],
+    });
+
+    try {
+      await withContainer(async (tc) => {
+        const createProject = tc.container.resolve(CreateProjectUseCase);
+        const created = await createProject.execute({
+          name: "Sync Project",
+          rootPath: fixture.rootPath,
+          env: "dev",
+        });
+        if (created.isFail()) {
+          throw new Error("Failed to create project");
+        }
+
+        const projectId = created.value.project.id;
+
+        // CreateProjectUseCase records the path it was given; the detector needs it on the row.
+        await tc.container
+          .resolve(UpdateProjectRepository)
+          .execute({ id: projectId, rootPath: fixture.rootPath });
+
+        const list = tc.container.resolve(ListEnvironmentsRepository);
+        await tc.container
+          .resolve(ArchiveEnvironmentRepository)
+          .execute({ id: created.value.environment.id, archived: true });
+
+        const sync = tc.container.resolve(SyncSystemService);
+        const result = await sync.execute({ projectId });
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.messages).toContainEqual(
+            expect.stringContaining('Environment "dev" is archived'),
+          );
+          // Only prod is synced; dev stays archived and is not counted.
+          expect(result.value.environmentsFound).toBe(1);
+        }
+
+        const all = await list.execute({ projectId, includeArchived: true });
+        expect(all.isOk() && all.value).toHaveLength(2);
+
+        const active = await list.execute({ projectId });
+        expect(active.isOk() && active.value.map((e) => e.env)).toEqual(["prod"]);
       });
     } finally {
       fixture.cleanup();

@@ -1,11 +1,14 @@
 import { Result } from "@webiny/stdlib";
-import type { Project, EnvironmentRef } from "~/shared/types.js";
+import type { DeletionImpact, Project, EnvironmentRef } from "~/shared/types.js";
 import {
   listProjectsRoute,
   getProjectRoute,
   createProjectRoute,
   updateProjectRoute,
-  removeProjectRoute,
+  archiveProjectRoute,
+  restoreProjectRoute,
+  purgeProjectRoute,
+  projectDeletionImpactRoute,
 } from "~/shared/routes/projects.js";
 import { healthCheckEnvironmentRoute } from "~/shared/routes/environments.js";
 import type { HealthCheckResult } from "./abstractions/ProjectsGateway.js";
@@ -16,9 +19,10 @@ import { ProjectsGateway as Abstraction } from "./abstractions/ProjectsGateway.j
 class ProjectsGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
-  public async list(): Promise<Result<Project[], HTTPError>> {
+  public async list(includeArchived?: boolean): Promise<Result<Project[], HTTPError>> {
     const result = await this.httpClient.request(listProjectsRoute, {
       params: {},
+      query: includeArchived === true ? { includeArchived: "true" } : undefined,
     });
 
     if (result.isFail()) {
@@ -69,10 +73,46 @@ class ProjectsGatewayImpl implements Abstraction.Interface {
     return Result.ok(result.value.project);
   }
 
-  public async remove(id: string): Promise<Result<void, HTTPError>> {
-    return this.httpClient.request(removeProjectRoute, {
+  public async archive(id: string): Promise<Result<Project, HTTPError>> {
+    const result = await this.httpClient.request(archiveProjectRoute, {
       params: { id },
     });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.project);
+  }
+
+  public async restore(id: string): Promise<Result<Project, HTTPError>> {
+    const result = await this.httpClient.request(restoreProjectRoute, {
+      params: { id },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.project);
+  }
+
+  public async purge(id: string): Promise<Result<void, HTTPError>> {
+    return this.httpClient.request(purgeProjectRoute, {
+      params: { id },
+    });
+  }
+
+  public async deletionImpact(id: string): Promise<Result<DeletionImpact, HTTPError>> {
+    const result = await this.httpClient.request(projectDeletionImpactRoute, {
+      params: { id },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.impact);
   }
 
   public async healthCheck(

@@ -27,6 +27,7 @@ export function toProject(row: ProjectRow): Project {
     awsRegion: row.awsRegion,
     lastSyncedAt: row.lastSyncedAt,
     lastSyncStatus: lastSyncStatus.success ? lastSyncStatus.data : null,
+    archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

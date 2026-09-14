@@ -24,6 +24,7 @@ export function toEnvironment(row: EnvironmentRow, apiToken: string | null): Pro
     apiToken,
     tenant: row.tenant,
     lastSyncedAt: row.lastSyncedAt,
+    archivedAt: row.archivedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

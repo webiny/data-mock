@@ -3,7 +3,10 @@ export {
   getProjectRoute,
   createProjectRoute,
   updateProjectRoute,
-  removeProjectRoute,
+  archiveProjectRoute,
+  restoreProjectRoute,
+  purgeProjectRoute,
+  projectDeletionImpactRoute,
 } from "./projects.js";
 
 export {
@@ -11,7 +14,10 @@ export {
   getProjectEnvironmentRoute,
   createProjectEnvironmentRoute,
   updateProjectEnvironmentRoute,
-  removeProjectEnvironmentRoute,
+  archiveProjectEnvironmentRoute,
+  restoreProjectEnvironmentRoute,
+  purgeProjectEnvironmentRoute,
+  environmentDeletionImpactRoute,
   listEnvironmentStacksRoute,
   syncProjectRoute,
   healthCheckEnvironmentRoute,

@@ -1,7 +1,20 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
-import { Badge, Button, Card, Group, Loader, Modal, Stack, Text, Title } from "@mantine/core";
-import type { ProjectListPresenter } from "../abstractions/ProjectListPresenter.js";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Divider,
+  Group,
+  List,
+  Loader,
+  Modal,
+  Stack,
+  Text,
+  Title,
+} from "@mantine/core";
+import type { ProjectItemVM, ProjectListPresenter } from "../abstractions/ProjectListPresenter.js";
 
 interface ProjectListPageProps {
   presenter: ProjectListPresenter.Interface;
@@ -36,7 +49,7 @@ export const ProjectListPage = observer(function ProjectListPage({
     void presenter.load();
   }, [presenter]);
 
-  const { projects, isLoading, isEmpty, removeConfirmation } = presenter.vm;
+  const { projects, archivedProjects, isLoading, isEmpty, deleteConfirmation } = presenter.vm;
 
   if (isLoading) {
     return (
@@ -57,6 +70,8 @@ export const ProjectListPage = observer(function ProjectListPage({
       </Stack>
     );
   }
+
+  const isPurge = deleteConfirmation.mode === "purge";
 
   return (
     <Stack gap="md">
@@ -80,7 +95,7 @@ export const ProjectListPage = observer(function ProjectListPage({
                   </Badge>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  {project.rootPath ?? "remote only \u2014 no local checkout"}
+                  {project.rootPath ?? "remote only — no local checkout"}
                 </Text>
               </Stack>
               <Group gap="xs">
@@ -98,7 +113,7 @@ export const ProjectListPage = observer(function ProjectListPage({
                   variant="subtle"
                   color="red"
                   size="xs"
-                  onClick={() => void presenter.confirmRemove(project.id, project.name)}
+                  onClick={() => presenter.confirmDelete(project.id, project.name)}
                 >
                   Remove
                 </Button>
@@ -137,22 +152,166 @@ export const ProjectListPage = observer(function ProjectListPage({
         </Card>
       ))}
 
+      {archivedProjects.length > 0 && (
+        <>
+          <Divider my="sm" label={`Archived (${archivedProjects.length})`} labelPosition="left" />
+          {archivedProjects.map((project) => (
+            <ArchivedProjectCard key={project.id} project={project} presenter={presenter} />
+          ))}
+        </>
+      )}
+
       <Modal
-        opened={removeConfirmation.isOpen}
-        onClose={() => presenter.cancelRemove()}
-        title="Remove Project"
+        opened={deleteConfirmation.isOpen}
+        onClose={() => presenter.cancelDelete()}
+        title={isPurge ? "Delete permanently" : "Remove Project"}
         centered
       >
-        <Text>Remove &ldquo;{removeConfirmation.projectName}&rdquo;? This cannot be undone.</Text>
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={() => presenter.cancelRemove()}>
-            Cancel
-          </Button>
-          <Button color="red" onClick={() => void presenter.executeRemove()}>
-            Remove
-          </Button>
-        </Group>
+        <Stack gap="sm">
+          <Text>
+            {isPurge ? "Permanently delete" : "Archive"} &ldquo;
+            {deleteConfirmation.projectName}&rdquo;?
+          </Text>
+
+          {!isPurge && (
+            <Text size="sm" c="dimmed">
+              Archiving hides the project and keeps everything below. You can restore it at any
+              time.
+            </Text>
+          )}
+
+          <DeletionImpactPanel confirmation={deleteConfirmation} isPurge={isPurge} />
+
+          <Group justify="space-between" mt="md">
+            {isPurge ? (
+              <Button variant="default" onClick={() => presenter.cancelDelete()}>
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                variant="subtle"
+                color="red"
+                size="xs"
+                onClick={() => presenter.requestPurge()}
+              >
+                Delete permanently instead
+              </Button>
+            )}
+            <Group gap="xs">
+              {!isPurge && (
+                <Button variant="default" onClick={() => presenter.cancelDelete()}>
+                  Cancel
+                </Button>
+              )}
+              {isPurge ? (
+                <Button color="red" onClick={() => void presenter.purge()}>
+                  Delete everything
+                </Button>
+              ) : (
+                <Button color="orange" onClick={() => void presenter.archive()}>
+                  Archive
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Stack>
       </Modal>
     </Stack>
+  );
+});
+
+interface DeletionImpactPanelProps {
+  confirmation: ProjectListPresenter.ViewModel["deleteConfirmation"];
+  isPurge: boolean;
+}
+
+/**
+ * The counts are the whole point of the two-step confirmation, so a failed or pending count must
+ * never render as an empty list — that would read as "nothing will be lost".
+ */
+const DeletionImpactPanel = observer(function DeletionImpactPanel({
+  confirmation,
+  isPurge,
+}: DeletionImpactPanelProps) {
+  if (confirmation.isLoadingImpact) {
+    return (
+      <Group gap="xs">
+        <Loader size="xs" />
+        <Text size="sm" c="dimmed">
+          Counting what a permanent delete would destroy...
+        </Text>
+      </Group>
+    );
+  }
+
+  if (confirmation.impact.length === 0) {
+    return (
+      <Text size="sm" c="dimmed">
+        No stored data was found for this project.
+      </Text>
+    );
+  }
+
+  return (
+    <Alert color={isPurge ? "red" : "yellow"} variant="light">
+      <Text size="sm" fw={500}>
+        {isPurge
+          ? `${confirmation.impactTotal} rows will be destroyed:`
+          : `${confirmation.impactTotal} rows are kept by archiving:`}
+      </Text>
+      <List size="sm" mt="xs">
+        {confirmation.impact.map((line) => (
+          <List.Item key={line.label}>
+            {line.count} {line.label}
+          </List.Item>
+        ))}
+      </List>
+      {isPurge && (
+        <Text size="sm" fw={600} mt="xs">
+          This cannot be undone.
+        </Text>
+      )}
+    </Alert>
+  );
+});
+
+interface ArchivedProjectCardProps {
+  project: ProjectItemVM;
+  presenter: ProjectListPresenter.Interface;
+}
+
+const ArchivedProjectCard = observer(function ArchivedProjectCard({
+  project,
+  presenter,
+}: ArchivedProjectCardProps) {
+  return (
+    <Card withBorder padding="md" opacity={0.7}>
+      <Group justify="space-between" align="center">
+        <Stack gap={2}>
+          <Group gap="sm">
+            <Text fw={600}>{project.name}</Text>
+            <Badge variant="light" color="gray" size="sm">
+              archived
+            </Badge>
+          </Group>
+          <Text size="sm" c="dimmed">
+            {project.rootPath ?? "remote only — no local checkout"}
+          </Text>
+        </Stack>
+        <Group gap="xs">
+          <Button variant="light" size="xs" onClick={() => void presenter.restore(project.id)}>
+            Restore
+          </Button>
+          <Button
+            variant="subtle"
+            color="red"
+            size="xs"
+            onClick={() => presenter.confirmDelete(project.id, project.name)}
+          >
+            Delete
+          </Button>
+        </Group>
+      </Group>
+    </Card>
   );
 });

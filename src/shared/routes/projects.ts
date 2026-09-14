@@ -5,7 +5,9 @@ import {
   createProjectBodySchema,
   updateProjectBodySchema,
 } from "../responses/projects.js";
+import { deletionImpactSchema } from "../responses/deletion.js";
 
+/** Archived projects are omitted unless `?includeArchived=true`. */
 export const listProjectsRoute = defineListRoute("projects", {
   path: "/api/projects",
   description: "List all configured Webiny projects",
@@ -38,9 +40,38 @@ export const updateProjectRoute = defineOneRoute("project", {
   item: projectSchema,
 });
 
-export const removeProjectRoute = defineVoidRoute({
+/**
+ * DELETE archives. Every child table cascades from `projects`, so a real delete would destroy the
+ * project's seed entries, sync logs, job history, models, tenants and files — that is
+ * `purgeProjectRoute`, which is a separate, explicit request.
+ */
+export const archiveProjectRoute = defineOneRoute("project", {
   method: "DELETE",
   path: "/api/projects/:id",
-  description: "Remove a Webiny project connection",
+  description: "Archive a Webiny project connection, keeping all of its data",
   params: z.object({ id: z.string() }),
+  item: projectSchema,
+});
+
+export const restoreProjectRoute = defineOneRoute("project", {
+  method: "POST",
+  path: "/api/projects/:id/restore",
+  description: "Restore an archived Webiny project connection",
+  params: z.object({ id: z.string() }),
+  item: projectSchema,
+});
+
+/** Irreversible: deletes the project row and everything that cascades from it. */
+export const purgeProjectRoute = defineVoidRoute({
+  method: "DELETE",
+  path: "/api/projects/:id/purge",
+  description: "Permanently delete a project and every row that cascades from it",
+  params: z.object({ id: z.string() }),
+});
+
+export const projectDeletionImpactRoute = defineOneRoute("impact", {
+  path: "/api/projects/:id/deletion-impact",
+  description: "Count the rows a purge of this project would destroy",
+  params: z.object({ id: z.string() }),
+  item: deletionImpactSchema,
 });

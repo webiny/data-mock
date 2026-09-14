@@ -8,6 +8,13 @@
       "when": 1789388731574,
       "tag": "0000_big_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789419012917,
+      "tag": "0001_nice_thing",
+      "breakpoints": true
     }
   ]
 }

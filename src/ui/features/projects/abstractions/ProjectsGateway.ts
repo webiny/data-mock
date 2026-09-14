@@ -1,6 +1,6 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
-import type { Project, EnvironmentRef } from "~/shared/types.js";
+import type { DeletionImpact, Project, EnvironmentRef } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface IProjectCreateInput {
@@ -31,11 +31,18 @@ export interface HealthCheckResult {
 }
 
 export interface IProjectsGateway {
-  list(): Promise<Result<Project[], HTTPError>>;
+  /** Archived projects are omitted unless `includeArchived` is set. */
+  list(includeArchived?: boolean): Promise<Result<Project[], HTTPError>>;
   getById(id: string): Promise<Result<Project, HTTPError>>;
   create(input: IProjectCreateInput): Promise<Result<Project, HTTPError>>;
   update(id: string, input: IProjectUpdateInput): Promise<Result<Project, HTTPError>>;
-  remove(id: string): Promise<Result<void, HTTPError>>;
+  /** Soft delete — keeps every child row and can be undone with `restore`. */
+  archive(id: string): Promise<Result<Project, HTTPError>>;
+  restore(id: string): Promise<Result<Project, HTTPError>>;
+  /** Irreversible: deletes the project and every row that cascades from it. */
+  purge(id: string): Promise<Result<void, HTTPError>>;
+  /** Counts what `purge` would destroy. */
+  deletionImpact(id: string): Promise<Result<DeletionImpact, HTTPError>>;
   healthCheck(ref: EnvironmentRef, force?: boolean): Promise<Result<HealthCheckResult, HTTPError>>;
 }
 

@@ -27,6 +27,7 @@ export const projectEnvironmentSchema = z.object({
   apiToken: z.string().nullable(),
   tenant: z.string(),
   lastSyncedAt: z.number().nullable(),
+  archivedAt: z.number().nullable(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

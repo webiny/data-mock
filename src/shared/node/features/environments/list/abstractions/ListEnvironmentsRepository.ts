@@ -5,6 +5,12 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListEnvironmentsRepositoryInput {
   projectId: string;
+  /**
+   * Archived environments are hidden unless this is set. Sync sets it: an archived environment
+   * still occupies its (project, env, variant) slot, so discovery must see it or it will try to
+   * insert a duplicate and hit the unique index.
+   */
+  includeArchived?: boolean;
 }
 
 export interface IListEnvironmentsRepository {

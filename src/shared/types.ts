@@ -37,6 +37,7 @@ export interface Project {
   awsRegion: string | null;
   lastSyncedAt: number | null;
   lastSyncStatus: SyncStatus | null;
+  archivedAt: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -82,8 +83,31 @@ export interface ProjectEnvironment {
   apiToken: string | null;
   tenant: string;
   lastSyncedAt: number | null;
+  archivedAt: number | null;
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * What a hard delete would destroy. Every child table cascades from `projects` and from
+ * `project_environments`, so these counts are the rows that disappear with the parent — they are
+ * shown on the confirmation before a purge, and are the reason the default delete only archives.
+ *
+ * Environment scope reports `environments: 0` and `seedTemplates: 0`: an environment is not a
+ * parent of other environments, and seed templates are project-scoped and survive it.
+ */
+export interface DeletionImpact {
+  environments: number;
+  stacks: number;
+  tenants: number;
+  groups: number;
+  models: number;
+  files: number;
+  seedJobs: number;
+  seedEntries: number;
+  syncLogs: number;
+  jobs: number;
+  seedTemplates: number;
 }
 
 /** One app within an environment. `app` is free text — whatever was found on disk. */

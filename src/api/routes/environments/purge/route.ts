@@ -1,9 +1,14 @@
-import { removeProjectEnvironmentRoute } from "~/shared/routes/environments.js";
+import { purgeProjectEnvironmentRoute } from "~/shared/routes/environments.js";
 import { RemoveEnvironmentRepository } from "~/shared/node/features/environments/remove/abstractions/RemoveEnvironmentRepository.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
-export const removeProjectEnvironment = routeFactory(
-  removeProjectEnvironmentRoute,
+/**
+ * Hard delete. Everything scoped to this environment goes with it — seed entries, sync logs, job
+ * history, models, tenants, stacks and files. The UI must show
+ * `environmentDeletionImpactRoute` first.
+ */
+export const purgeProjectEnvironment = routeFactory(
+  purgeProjectEnvironmentRoute,
   async ({ params, container, send }) => {
     const repository = container.resolve(RemoveEnvironmentRepository);
     const result = await repository.execute({ id: params.environmentId });

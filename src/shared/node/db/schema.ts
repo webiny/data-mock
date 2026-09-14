@@ -8,6 +8,10 @@ import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core
  * `webinyVersion` is the DETECTED version and is display-only — it can legitimately be null for a
  * framework workspace root. `operationsVersion` is what drives the GraphQL operation registry and
  * must never be null (and never "0.0.0", which resolves to the lowest registered operation).
+ *
+ * `archivedAt` is the soft-delete marker. Every child table cascades from this row, so a hard
+ * delete destroys seed entries, sync logs, job history, models, tenants and files along with it.
+ * Archiving hides the project instead and keeps all of that recoverable.
  */
 export const projects = sqliteTable("projects", {
   id: text("id").primaryKey().notNull(),
@@ -22,6 +26,7 @@ export const projects = sqliteTable("projects", {
   awsRegion: text("aws_region"),
   lastSyncedAt: integer("last_synced_at"),
   lastSyncStatus: text("last_sync_status"),
+  archivedAt: integer("archived_at"),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -36,6 +41,11 @@ export const projects = sqliteTable("projects", {
  * `deployed` means ANY app is deployed. `apiUrl` / `adminUrl` are per-app facts and stay null when
  * their app is not deployed, so a partially deployed environment has `deployed = 1` with a null
  * `apiUrl` — that environment cannot be seeded.
+ *
+ * `archivedAt` soft-deletes the environment. It stays inside the unique index, so an archived
+ * (project, env, variant) still reserves its stack name and sync cannot insert a duplicate beside
+ * it. Sync skips archived rows rather than reviving them — archiving is a deliberate "stop showing
+ * me this stack", and a stranded environment keeps the history that belonged to it.
  */
 export const projectEnvironments = sqliteTable(
   "project_environments",
@@ -53,6 +63,7 @@ export const projectEnvironments = sqliteTable(
     apiToken: text("api_token"),
     tenant: text("tenant").default("root").notNull(),
     lastSyncedAt: integer("last_synced_at"),
+    archivedAt: integer("archived_at"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },

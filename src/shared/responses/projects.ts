@@ -31,6 +31,7 @@ export const projectSchema = z.object({
   awsRegion: z.string().nullable(),
   lastSyncedAt: z.number().nullable(),
   lastSyncStatus: syncStatusSchema.nullable(),
+  archivedAt: z.number().nullable(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

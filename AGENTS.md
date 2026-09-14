@@ -56,8 +56,9 @@ src/
 │       ├── testing/
 │       │   └── createTestContainer.ts  # Fully-wired DI container for tests
 │       └── features/
-│           ├── projects/               # CRUD (create/get/list/remove — 1 use case + 1 repo each)
-│           ├── environments/           # Environment CRUD + stacks + EnvironmentContextService
+│           ├── projects/               # CRUD + archive/restore (create/get/list/archive/remove)
+│           ├── environments/           # Environment CRUD + archive/restore + stacks + EnvironmentContextService
+│           ├── deletion/               # DeletionImpactService — counts what a purge would destroy
 │           ├── webinyCli/              # Project detection, Pulumi checkpoint reading, sync
 │           ├── tenants/                # Sync + list + verify access
 │           ├── models/                 # Sync + list + get + push + compare
@@ -76,7 +77,7 @@ src/
 │   ├── server.ts                       # createServer()
 │   ├── feature.ts                      # ApiFeature
 │   ├── routing/                        # routeFactory, sendTyped, sendError, createRequestContext
-│   └── routes/                         # 21 route handlers (see below)
+│   └── routes/                         # 29 route handlers (see below)
 │
 └── ui/                                  # React + Mantine + MobX (port 4001)
     ├── App.tsx, main.tsx               # Entry + DI container setup
@@ -113,8 +114,8 @@ belongs to a running Webiny instance hangs off the environment, not the project.
 
 | Table | Key columns | Purpose |
 |---|---|---|
-| `projects` | id, name, root_path, webiny_version, version_source, version_major, operations_version, pulumi_backend, aws_profile, aws_region, last_synced_at, last_sync_status | A Webiny system. `webiny_version` is detected and display-only (null for a framework workspace root); `operations_version` is NOT NULL and drives the GraphQL operation registry. |
-| `project_environments` | project_id FK, env, variant, region, deployed, api_url, admin_url, api_token (encrypted), tenant, last_synced_at | One Pulumi stack name. `variant` is `""` not NULL — SQLite treats NULLs as distinct in unique indexes. `deployed` means any app is deployed; `api_url` is null when the api app is not. |
+| `projects` | id, name, root_path, webiny_version, version_source, version_major, operations_version, pulumi_backend, aws_profile, aws_region, last_synced_at, last_sync_status, archived_at | A Webiny system. `webiny_version` is detected and display-only (null for a framework workspace root); `operations_version` is NOT NULL and drives the GraphQL operation registry. `archived_at` is the soft-delete marker — see Deletion below. |
+| `project_environments` | project_id FK, env, variant, region, deployed, api_url, admin_url, api_token (encrypted), tenant, last_synced_at, archived_at | One Pulumi stack name. `variant` is `""` not NULL — SQLite treats NULLs as distinct in unique indexes. `deployed` means any app is deployed; `api_url` is null when the api app is not. `archived_at` soft-deletes it while keeping its slot in the unique index. |
 | `project_stacks` | environment_id FK, app, deployed, resource_count, stack_output (JSON), read_state, synced_at | Per-app Pulumi state. `read_state` is `deployed` / `not-deployed` / `unknown`; an unknown read never overwrites a stored `stack_output`. |
 | `scan_roots` | path | Directories scanned for Webiny projects |
 | `project_tenants` | project_id FK, environment_id FK, tenant_id, name | Discovered tenants per environment |
@@ -132,10 +133,26 @@ but reads must narrow on `environment_id`: an un-narrowed `eq(x.projectId, …)`
 silently returns rows merged across every environment. Writes carry both — the project owns the
 row, the environment scopes it.
 
-> **Known risk:** every child table cascades from both `projects` and `project_environments`, so
-> deleting either destroys its seed entries, sync logs, job history, models, tenants and files.
-> See the handoff notes — this needs a soft-delete or detach strategy before deletion is exposed
-> in the UI.
+---
+
+## Deletion
+
+Every child table cascades from both `projects` and `project_environments`, so a real delete
+destroys that row's seed entries, sync logs, job history, models, tenants, stacks and files. Nothing
+in the product deletes by default:
+
+- **`DELETE` archives.** It sets `archived_at` and returns the row. Nothing is removed and
+  `POST .../restore` undoes it.
+- **Purging is a separate request** — `DELETE .../purge` — and is the only path that cascades.
+- **`GET .../deletion-impact`** counts what a purge would destroy. The UI and the CLI both show
+  those counts before offering the permanent delete, and report a failed count as unknown rather
+  than as "nothing stored".
+- **Lists hide archived rows** unless `?includeArchived=true`. `GET /api/projects/:id` still
+  returns an archived project, so it can be restored.
+- **Archiving is idempotent**: archiving twice keeps the original `archived_at`.
+- **Sync respects an archive.** `sync-system` lists environments with `includeArchived: true` so
+  discovery cannot insert a duplicate beside an archived stack name, skips archived environments,
+  and reports each one it skipped. Rediscovery never un-archives.
 
 ---
 
@@ -146,7 +163,7 @@ row, the environment scopes it.
 | `yarn cli init` | Generate .env with encryption key + port config |
 | `yarn cli add-project` | Add a Webiny project (prompts for name, URL, token, version, tenant) |
 | `yarn cli list-projects` | Show all configured projects |
-| `yarn cli remove-project` | Select + confirm + remove a project |
+| `yarn cli remove-project` | Archive, restore or permanently delete a project (shows the row counts a permanent delete would destroy) |
 | `yarn cli pull-models` | Pull models/groups from a Webiny project into local DB |
 | `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
 | `yarn cli rotate-key` | Rotate the API token encryption key |
@@ -154,7 +171,7 @@ row, the environment scopes it.
 
 ---
 
-## API Routes (43)
+## API Routes (51)
 
 Environment-scoped routes live under `/api/projects/:projectId/environments/:environmentId/*`.
 Project-scoped routes (jobs, templates, sync) and the four global file routes stay where they are.
@@ -169,7 +186,10 @@ sync-system) return a `Job` object with HTTP 202 — work runs in the background
 | POST | `/api/projects` | Create a project (Zod-validated) |
 | GET | `/api/projects/:id` | Get project by ID |
 | PUT | `/api/projects/:id` | Update project (partial, at least one field) |
-| DELETE | `/api/projects/:id` | Remove project |
+| DELETE | `/api/projects/:id` | Archive project (soft delete — keeps all data) |
+| POST | `/api/projects/:id/restore` | Restore an archived project |
+| DELETE | `/api/projects/:id/purge` | Permanently delete project + everything that cascades |
+| GET | `/api/projects/:id/deletion-impact` | Count the rows a purge would destroy |
 | POST | `/api/projects/:id/health` | Check if project's Webiny API is reachable |
 
 ### Environments
@@ -179,7 +199,10 @@ sync-system) return a `Job` object with HTTP 202 — work runs in the background
 | POST | `/api/projects/:projectId/environments` | Add one manually (for remote Pulumi backends) |
 | GET | `/api/projects/:projectId/environments/:environmentId` | Get one |
 | PUT | `/api/projects/:projectId/environments/:environmentId` | Update connection details |
-| DELETE | `/api/projects/:projectId/environments/:environmentId` | Remove |
+| DELETE | `/api/projects/:projectId/environments/:environmentId` | Archive (soft delete — keeps all data) |
+| POST | `/api/projects/:projectId/environments/:environmentId/restore` | Restore an archived environment |
+| DELETE | `/api/projects/:projectId/environments/:environmentId/purge` | Permanently delete + cascade |
+| GET | `/api/projects/:projectId/environments/:environmentId/deletion-impact` | Count the rows a purge would destroy |
 | GET | `/api/projects/:projectId/environments/:environmentId/stacks` | Per-app Pulumi state |
 | POST | `/api/projects/:projectId/environments/:environmentId/health` | Is this environment's API reachable |
 | POST | `/api/projects/:projectId/sync` | Sync version, environments and stack output from disk |

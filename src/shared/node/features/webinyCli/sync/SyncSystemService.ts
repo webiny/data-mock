@@ -92,8 +92,15 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
 
     const discovered = this.checkpointReader.listEnvironments(project.rootPath);
 
+    /**
+     * Archived environments are listed too. They still hold the (project, env, variant) slot in the
+     * unique index, so discovery has to see them or it will try to insert a duplicate beside one
+     * and fail. They are excluded from the sync itself: archiving is a deliberate "stop tracking
+     * this stack", and rediscovery must not undo it.
+     */
     const existingResult = await this.listEnvironmentsRepository.execute({
       projectId: project.id,
+      includeArchived: true,
     });
     if (existingResult.isFail()) {
       return Result.fail(existingResult.error);
@@ -102,13 +109,18 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
 
     // Manually added environments are preserved: a remote backend or a not-yet-deployed stack has
     // no checkpoint, and discovery must not delete what it cannot see.
-    const toSync = [...existing];
+    const toSync = existing.filter((environment) => environment.archivedAt === null);
     for (const candidate of discovered) {
-      const already = existing.some(
+      const already = existing.find(
         (environment) =>
           environment.env === candidate.env && environment.variant === candidate.variant,
       );
       if (already) {
+        if (already.archivedAt !== null) {
+          messages.push(
+            `Environment "${getStackName(candidate)}" is archived; skipped. Restore it to sync it again.`,
+          );
+        }
         continue;
       }
       const created = await this.createEnvironmentRepository.execute({

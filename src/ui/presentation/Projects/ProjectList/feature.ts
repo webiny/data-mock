@@ -5,7 +5,9 @@ import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
 import { ProjectListPresenter as ProjectListPresenterAbstraction } from "./abstractions/ProjectListPresenter.js";
 import { ProjectListPresenter } from "./ProjectListPresenter.js";
 import { LoadProjectsUseCase } from "./useCases/LoadProjects/LoadProjectsUseCase.js";
-import { DeleteProjectUseCase } from "./useCases/DeleteProject/DeleteProjectUseCase.js";
+import { ArchiveProjectUseCase } from "./useCases/ArchiveProject/ArchiveProjectUseCase.js";
+import { RestoreProjectUseCase } from "./useCases/RestoreProject/RestoreProjectUseCase.js";
+import { PurgeProjectUseCase } from "./useCases/PurgeProject/PurgeProjectUseCase.js";
 import { LoadTenantsUseCase } from "./useCases/LoadTenants/LoadTenantsUseCase.js";
 import { SyncTenantsUseCase } from "./useCases/SyncTenants/SyncTenantsUseCase.js";
 import { SyncModelsUseCase } from "./useCases/SyncModels/SyncModelsUseCase.js";
@@ -19,7 +21,9 @@ export const ProjectListPresentationFeature = createFeature<void, ProjectListExp
   dependencies: [ProjectsFeature, TenantsFeature, NotificationsFeature],
   register(container) {
     container.register(LoadProjectsUseCase);
-    container.register(DeleteProjectUseCase);
+    container.register(ArchiveProjectUseCase);
+    container.register(RestoreProjectUseCase);
+    container.register(PurgeProjectUseCase);
     container.register(LoadTenantsUseCase);
     container.register(SyncTenantsUseCase);
     container.register(SyncModelsUseCase);

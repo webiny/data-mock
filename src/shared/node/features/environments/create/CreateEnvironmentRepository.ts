@@ -32,6 +32,7 @@ class CreateEnvironmentRepositoryImpl implements Abstraction.Interface {
         apiToken: apiToken === null ? null : this.encryptionService.encrypt(apiToken),
         tenant: input.tenant ?? "root",
         lastSyncedAt: null,
+        archivedAt: null,
         createdAt: now,
         updatedAt: now,
       };

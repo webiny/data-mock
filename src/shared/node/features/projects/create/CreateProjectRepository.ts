@@ -27,6 +27,7 @@ class CreateProjectRepositoryImpl implements Abstraction.Interface {
         awsRegion: input.awsRegion ?? null,
         lastSyncedAt: null,
         lastSyncStatus: null,
+        archivedAt: null,
         createdAt: now,
         updatedAt: now,
       };

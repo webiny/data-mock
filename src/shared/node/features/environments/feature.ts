@@ -3,6 +3,7 @@ import { CreateEnvironmentRepository } from "./create/CreateEnvironmentRepositor
 import { GetEnvironmentRepository } from "./get/GetEnvironmentRepository.js";
 import { ListEnvironmentsRepository } from "./list/ListEnvironmentsRepository.js";
 import { UpdateEnvironmentRepository } from "./update/UpdateEnvironmentRepository.js";
+import { ArchiveEnvironmentRepository } from "./archive/ArchiveEnvironmentRepository.js";
 import { RemoveEnvironmentRepository } from "./remove/RemoveEnvironmentRepository.js";
 import { ListStacksRepository } from "./stacks/ListStacksRepository.js";
 import { UpsertStackRepository } from "./stacks/UpsertStackRepository.js";
@@ -15,6 +16,7 @@ export const EnvironmentsFeature = createFeature({
     container.register(GetEnvironmentRepository).inSingletonScope();
     container.register(ListEnvironmentsRepository).inSingletonScope();
     container.register(UpdateEnvironmentRepository).inSingletonScope();
+    container.register(ArchiveEnvironmentRepository).inSingletonScope();
     container.register(RemoveEnvironmentRepository).inSingletonScope();
     container.register(ListStacksRepository).inSingletonScope();
     container.register(UpsertStackRepository).inSingletonScope();
