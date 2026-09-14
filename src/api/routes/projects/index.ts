@@ -4,7 +4,6 @@ import { getProject } from "./get/route.js";
 import { createProject } from "./create/route.js";
 import { removeProject } from "./remove/route.js";
 import { updateProject } from "./update/route.js";
-import { healthCheckProject } from "./health/route.js";
 
 export async function registerProjectRoutes(app: FastifyInstance): Promise<void> {
   await listProjects(app);
@@ -12,5 +11,4 @@ export async function registerProjectRoutes(app: FastifyInstance): Promise<void>
   await createProject(app);
   await updateProject(app);
   await removeProject(app);
-  await healthCheckProject(app);
 }

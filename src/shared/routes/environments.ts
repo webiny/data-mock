@@ -65,3 +65,11 @@ export const syncProjectRoute = defineOneRoute("job", {
   params: z.object({ projectId: z.string() }),
   item: jobSchema,
 });
+
+export const healthCheckEnvironmentRoute = defineOneRoute("health", {
+  method: "POST",
+  path: "/api/projects/:projectId/environments/:environmentId/health",
+  description: "Check whether an environment's Webiny API is reachable",
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
+  item: z.object({ reachable: z.boolean(), error: z.string().nullable() }),
+});

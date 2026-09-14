@@ -4,7 +4,6 @@ export {
   createProjectRoute,
   updateProjectRoute,
   removeProjectRoute,
-  healthCheckProjectRoute,
 } from "./projects.js";
 
 export {
@@ -15,6 +14,7 @@ export {
   removeProjectEnvironmentRoute,
   listEnvironmentStacksRoute,
   syncProjectRoute,
+  healthCheckEnvironmentRoute,
 } from "./environments.js";
 
 export { listProjectTenantsRoute, syncProjectTenantsRoute } from "./tenants.js";
