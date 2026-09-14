@@ -38,7 +38,7 @@ class RemoveProjectCommandImpl implements Command.Interface {
       options: projects.map((p) => ({
         value: p,
         label: p.name,
-        hint: p.apiUrl,
+        hint: p.rootPath ?? "remote only",
       })),
     });
 

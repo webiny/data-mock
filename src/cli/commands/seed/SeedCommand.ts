@@ -1,4 +1,6 @@
 import { isCancelled } from "~/cli/abstractions/isCancelled.js";
+import { selectEnvironment } from "~/cli/abstractions/selectEnvironment.js";
+import { ListEnvironmentsRepository } from "~/shared/node/features/environments/list/abstractions/ListEnvironmentsRepository.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Command } from "~/cli/abstractions/Command.js";
@@ -18,6 +20,7 @@ class SeedCommandImpl implements Command.Interface {
     private readonly prompts: Prompts.Interface,
     private readonly ui: UI.Interface,
     private readonly listProjectsUseCase: ListProjectsUseCase.Interface,
+    private readonly listEnvironmentsRepository: ListEnvironmentsRepository.Interface,
     private readonly listTenantsRepository: ListProjectTenantsRepository.Interface,
     private readonly listModelsRepository: ListProjectModelsRepository.Interface,
     private readonly seedService: SeedService.Interface,
@@ -42,15 +45,40 @@ class SeedCommandImpl implements Command.Interface {
 
     const selectedProject = await this.prompts.select({
       message: "Select project",
-      options: projects.map((p) => ({ value: p, label: `${p.name} (${p.apiUrl})` })),
+      options: projects.map((p) => ({
+        value: p,
+        label: p.name,
+        hint: p.rootPath ?? "remote only",
+      })),
     });
     if (isCancelled(selectedProject)) {
       this.ui.cancel("Cancelled.");
       return;
     }
 
-    const tenantsResult = await this.listTenantsRepository.execute({
+    const environmentsResult = await this.listEnvironmentsRepository.execute({
       projectId: selectedProject.id,
+    });
+    if (environmentsResult.isFail()) {
+      this.ui.log.error(`Failed to list environments: ${environmentsResult.error.message}`);
+      return;
+    }
+
+    const { environment, cancelled } = await selectEnvironment(
+      this.prompts,
+      this.ui,
+      environmentsResult.value,
+    );
+    if (cancelled) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+    if (!environment) {
+      return;
+    }
+
+    const tenantsResult = await this.listTenantsRepository.execute({
+      environmentId: environment.id,
     });
     if (tenantsResult.isFail()) {
       this.ui.log.error(`Failed to list tenants: ${tenantsResult.error.message}`);
@@ -79,7 +107,7 @@ class SeedCommandImpl implements Command.Interface {
     }
 
     const modelsResult = await this.listModelsRepository.execute({
-      projectId: selectedProject.id,
+      environmentId: environment.id,
     });
     if (modelsResult.isFail()) {
       this.ui.log.error(`Failed to list models: ${modelsResult.error.message}`);
@@ -110,7 +138,7 @@ class SeedCommandImpl implements Command.Interface {
       spinner.start(`${dryRun ? "[DRY RUN] " : ""}Seeding tenant "${tenantId}"...`);
 
       const result = await this.seedService.execute({
-        projectId: selectedProject.id,
+        environmentId: environment.id,
         tenant: tenantId,
         models: modelConfigs,
         dryRun,
@@ -272,6 +300,7 @@ export const SeedCommand = Command.createImplementation({
     Prompts,
     UI,
     ListProjectsUseCase,
+    ListEnvironmentsRepository,
     ListProjectTenantsRepository,
     ListProjectModelsRepository,
     SeedService,

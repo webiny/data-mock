@@ -1,6 +1,8 @@
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { isCancelled } from "~/cli/abstractions/isCancelled.js";
+import { selectEnvironment } from "~/cli/abstractions/selectEnvironment.js";
+import { ListEnvironmentsRepository } from "~/shared/node/features/environments/list/abstractions/ListEnvironmentsRepository.js";
 import { Command } from "~/cli/abstractions/Command.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
@@ -17,6 +19,7 @@ class UploadFilesCommandImpl implements Command.Interface {
     private readonly prompts: Prompts.Interface,
     private readonly ui: UI.Interface,
     private readonly listProjectsUseCase: ListProjectsUseCase.Interface,
+    private readonly listEnvironmentsRepository: ListEnvironmentsRepository.Interface,
     private readonly listTenantsRepository: ListProjectTenantsRepository.Interface,
     private readonly fileUploadService: FileUploadService.Interface,
   ) {}
@@ -38,7 +41,11 @@ class UploadFilesCommandImpl implements Command.Interface {
 
     const selectedProject = await this.prompts.select<Project>({
       message: "Select project",
-      options: projects.map((p) => ({ value: p, label: p.name, hint: p.apiUrl })),
+      options: projects.map((p) => ({
+        value: p,
+        label: p.name,
+        hint: p.rootPath ?? "remote only",
+      })),
     });
     if (isCancelled(selectedProject)) {
       this.ui.cancel("Cancelled.");
@@ -46,15 +53,39 @@ class UploadFilesCommandImpl implements Command.Interface {
     }
     const project = selectedProject as Project;
 
-    const tenantsResult = await this.listTenantsRepository.execute({ projectId: project.id });
+    const environmentsResult = await this.listEnvironmentsRepository.execute({
+      projectId: project.id,
+    });
+    if (environmentsResult.isFail()) {
+      this.ui.log.error(`Failed to list environments: ${environmentsResult.error.message}`);
+      return;
+    }
+
+    const { environment, cancelled } = await selectEnvironment(
+      this.prompts,
+      this.ui,
+      environmentsResult.value,
+    );
+    if (cancelled) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+    if (!environment) {
+      return;
+    }
+
+    const tenantsResult = await this.listTenantsRepository.execute({
+      environmentId: environment.id,
+    });
     const tenants = tenantsResult.isOk() ? tenantsResult.value : [];
     const tenantOptions =
       tenants.length > 0
         ? tenants.map((t) => ({ value: t, label: t.name, hint: t.tenantId }))
         : [
             {
-              value: { tenantId: project.tenant, name: project.tenant } as ProjectTenant,
-              label: project.tenant,
+              // No tenants discovered yet: fall back to the environment's own tenant.
+              value: { tenantId: environment.tenant, name: environment.tenant } as ProjectTenant,
+              label: environment.tenant,
             },
           ];
 
@@ -118,7 +149,7 @@ class UploadFilesCommandImpl implements Command.Interface {
       spinner.message(`Uploading ${fileName} (${uploaded + failed + 1}/${files.length})...`);
 
       const result = await this.fileUploadService.execute({
-        projectId: project.id,
+        environmentId: environment.id,
         tenant,
         filePath,
       });
@@ -138,5 +169,12 @@ class UploadFilesCommandImpl implements Command.Interface {
 
 export const UploadFilesCommand = Command.createImplementation({
   implementation: UploadFilesCommandImpl,
-  dependencies: [Prompts, UI, ListProjectsUseCase, ListProjectTenantsRepository, FileUploadService],
+  dependencies: [
+    Prompts,
+    UI,
+    ListProjectsUseCase,
+    ListEnvironmentsRepository,
+    ListProjectTenantsRepository,
+    FileUploadService,
+  ],
 });

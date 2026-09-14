@@ -1,4 +1,6 @@
 import { isCancelled } from "~/cli/abstractions/isCancelled.js";
+import { selectEnvironment } from "~/cli/abstractions/selectEnvironment.js";
+import { ListEnvironmentsRepository } from "~/shared/node/features/environments/list/abstractions/ListEnvironmentsRepository.js";
 import { Command } from "~/cli/abstractions/Command.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
@@ -14,6 +16,7 @@ class SyncModelsCommandImpl implements Command.Interface {
     private readonly ui: UI.Interface,
     private readonly listProjectsUseCase: ListProjectsUseCase.Interface,
     private readonly syncModelsService: SyncModelsService.Interface,
+    private readonly listEnvironmentsRepository: ListEnvironmentsRepository.Interface,
   ) {}
 
   public async execute(): Promise<void> {
@@ -36,7 +39,7 @@ class SyncModelsCommandImpl implements Command.Interface {
       options: projects.map((p) => ({
         value: p,
         label: p.name,
-        hint: p.apiUrl,
+        hint: p.rootPath ?? "remote only",
       })),
     });
 
@@ -45,11 +48,33 @@ class SyncModelsCommandImpl implements Command.Interface {
       return;
     }
 
-    const project = selected as { id: string; name: string; apiUrl: string };
-    const spinner = this.ui.spinner();
-    spinner.start(`Syncing models from "${project.name}"...`);
+    const project = selected;
 
-    const result = await this.syncModelsService.execute({ projectId: project.id });
+    const environmentsResult = await this.listEnvironmentsRepository.execute({
+      projectId: project.id,
+    });
+    if (environmentsResult.isFail()) {
+      this.ui.log.error(`Could not load environments: ${environmentsResult.error.message}`);
+      return;
+    }
+
+    const { environment, cancelled } = await selectEnvironment(
+      this.prompts,
+      this.ui,
+      environmentsResult.value,
+    );
+    if (cancelled) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+    if (!environment) {
+      return;
+    }
+
+    const spinner = this.ui.spinner();
+    spinner.start(`Syncing models from "${project.name}" (${environment.env})...`);
+
+    const result = await this.syncModelsService.execute({ environmentId: environment.id });
 
     if (result.isFail()) {
       spinner.stop(`Failed: ${result.error.message}`);
@@ -66,5 +91,5 @@ class SyncModelsCommandImpl implements Command.Interface {
 
 export const SyncModelsCommand = Command.createImplementation({
   implementation: SyncModelsCommandImpl,
-  dependencies: [Prompts, UI, ListProjectsUseCase, SyncModelsService],
+  dependencies: [Prompts, UI, ListProjectsUseCase, SyncModelsService, ListEnvironmentsRepository],
 });

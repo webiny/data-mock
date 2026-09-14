@@ -79,7 +79,8 @@ class AddProjectCommandImpl implements Command.Interface {
       apiUrl,
       apiToken,
       tenant: tenant || "root",
-      webinyVersion: webinyVersion || "6.0.0",
+      // Drives the GraphQL operation registry; the prompt still calls it the Webiny version.
+      operationsVersion: webinyVersion || "6.0.0",
     });
 
     if (result.isFail()) {
@@ -87,7 +88,9 @@ class AddProjectCommandImpl implements Command.Interface {
       return;
     }
 
-    this.ui.outro(`Project "${result.value.name}" added successfully.`);
+    this.ui.outro(
+      `Project "${result.value.project.name}" added with environment "${result.value.environment.env}".`,
+    );
   }
 }
 

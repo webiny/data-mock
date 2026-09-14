@@ -16,7 +16,7 @@ class UploadFilesJobExecutorImpl implements Abstraction.Interface {
     }
     const environmentId = context.environmentId;
     const config = JSON.parse(context.configJson) as { tenant: string; fileNames?: string[] };
-    context.appendLog(`Uploading global images to project ${projectId}`);
+    context.appendLog(`Uploading global images to environment ${environmentId}`);
 
     const result = await this.uploadService.execute({
       environmentId,

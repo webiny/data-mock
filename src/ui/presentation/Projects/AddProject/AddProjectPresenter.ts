@@ -62,7 +62,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
       apiUrl: this._apiUrl.trim(),
       apiToken: this._apiToken.trim(),
       tenant: this._tenant.trim() || "root",
-      webinyVersion: this._webinyVersion.trim() || "6.0.0",
+      operationsVersion: this._webinyVersion.trim() || "6.0.0",
     });
 
     if (!parsed.success) {
