@@ -49,7 +49,15 @@ export const ProjectListPage = observer(function ProjectListPage({
     void presenter.load();
   }, [presenter]);
 
-  const { projects, archivedProjects, isLoading, isEmpty, deleteConfirmation } = presenter.vm;
+  const {
+    projects,
+    archivedProjects,
+    isLoading,
+    isEmpty,
+    deleteConfirmation,
+    isSyncingAll,
+    syncableCount,
+  } = presenter.vm;
 
   if (isLoading) {
     return (
@@ -75,6 +83,19 @@ export const ProjectListPage = observer(function ProjectListPage({
 
   return (
     <Stack gap="md">
+      {syncableCount > 0 && (
+        <Group justify="flex-end">
+          <Button
+            size="xs"
+            variant="light"
+            loading={isSyncingAll}
+            onClick={() => void presenter.syncAll()}
+          >
+            Sync all ({syncableCount})
+          </Button>
+        </Group>
+      )}
+
       {projects.map((project) => (
         <Card key={project.id} withBorder padding="md">
           <Stack gap="sm">
@@ -139,14 +160,16 @@ export const ProjectListPage = observer(function ProjectListPage({
                   ? `synced ${formatRelative(project.lastSyncedAt)}`
                   : "never synced"}
               </Text>
-              <Button
-                variant="subtle"
-                size="compact-xs"
-                loading={project.isSyncing}
-                onClick={() => void presenter.syncProject(project.id)}
-              >
-                Sync
-              </Button>
+              {project.syncable && (
+                <Button
+                  variant="subtle"
+                  size="compact-xs"
+                  loading={project.isSyncing}
+                  onClick={() => void presenter.syncProject(project.id)}
+                >
+                  Sync
+                </Button>
+              )}
             </Group>
           </Stack>
         </Card>

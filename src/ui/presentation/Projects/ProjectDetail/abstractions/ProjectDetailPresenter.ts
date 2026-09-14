@@ -15,6 +15,7 @@ export interface IProjectVM {
 
 /** One selectable environment. `stackName` is its URL identity. */
 export interface IEnvironmentVM {
+  archivedAt: number | null;
   id: string;
   stackName: string;
   env: string;
@@ -50,6 +51,21 @@ export interface ISystemInfoItemVM {
 export interface ISystemInfoSectionVM {
   title: string;
   items: ISystemInfoItemVM[];
+}
+
+/**
+ * Two-step confirmation for removing an environment, in the same shape as the project one:
+ * `mode` starts at "archive" — the reversible action — and only moves to "purge" once the user
+ * explicitly asks, with the impact counts on screen.
+ */
+export interface IEnvironmentDeleteConfirmationVM {
+  isOpen: boolean;
+  mode: "archive" | "purge";
+  environmentId: string | null;
+  stackName: string | null;
+  isLoadingImpact: boolean;
+  impact: Array<{ label: string; count: number }>;
+  impactTotal: number;
 }
 
 export interface ITenantVM {
@@ -144,8 +160,11 @@ export interface IEditProjectInput {
 export interface IProjectDetailVM {
   project: IProjectVM | null;
   environments: IEnvironmentVM[];
+  /** Soft-deleted environments, shown in the Environments tab with a Restore next to them. */
+  archivedEnvironments: IEnvironmentVM[];
   currentEnvironment: IEnvironmentVM | null;
   stacks: IStackVM[];
+  environmentDeleteConfirmation: IEnvironmentDeleteConfirmationVM;
   systemInfo: ISystemInfoSectionVM[];
   /** Why System Info is empty, when it is. Never left blank without a reason. */
   systemInfoNotice: string | null;
@@ -201,6 +220,14 @@ export interface IProjectDetailPresenter {
   checkHealth(): Promise<void>;
   /** Rediscovers this project's environments and stack output from the Pulumi state on disk. */
   syncProject(): Promise<void>;
+  /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
+  confirmRemoveEnvironment(environmentId: string, stackName: string): void;
+  cancelRemoveEnvironment(): void;
+  /** Moves the open confirmation to "purge" mode. Does not delete anything on its own. */
+  requestPurgeEnvironment(): void;
+  archiveEnvironment(): Promise<void>;
+  purgeEnvironment(): Promise<void>;
+  restoreEnvironment(environmentId: string): Promise<void>;
   loadTemplate(templateId: string): void;
   deleteTemplate(templateId: string): Promise<void>;
   pullTenants(): Promise<void>;

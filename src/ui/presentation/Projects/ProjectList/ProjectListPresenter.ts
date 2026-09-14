@@ -15,25 +15,13 @@ import type {
   ProjectListVM,
 } from "./abstractions/ProjectListPresenter.js";
 import type { DeletionImpact, Project } from "~/shared/types.js";
-
-const IMPACT_LABELS: Array<[keyof DeletionImpact, string]> = [
-  ["environments", "environments"],
-  ["stacks", "stack records"],
-  ["tenants", "tenants"],
-  ["groups", "model groups"],
-  ["models", "models"],
-  ["files", "uploaded files"],
-  ["seedJobs", "seed jobs"],
-  ["seedEntries", "seed entries"],
-  ["syncLogs", "sync logs"],
-  ["jobs", "job records"],
-  ["seedTemplates", "seed templates"],
-];
+import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/impactLines.js";
 
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _loaded = false;
   private _syncingProjectIds = new Set<string>();
+  private _isSyncingAll = false;
   private _syncingModelsProjectIds = new Set<string>();
   private _deleteProjectId: string | null = null;
   private _deleteProjectName: string | null = null;
@@ -62,6 +50,8 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
 
     return {
       projects,
+      isSyncingAll: this._isSyncingAll,
+      syncableCount: projects.filter((project) => project.syncable).length,
       archivedProjects,
       isLoading: this._isLoading,
       isEmpty: !this._isLoading && all.length === 0,
@@ -161,22 +151,43 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  private get impactLines(): DeletionImpactLineVM[] {
-    const impact = this._impact;
-    if (impact === null) {
-      return [];
-    }
+  /**
+   * Enqueues one sync per project rather than a single batch job: each is scoped to its own
+   * project, so one failing checkout cannot take the rest of the run down with it.
+   */
+  public syncAll = async (): Promise<void> => {
+    this._isSyncingAll = true;
+    try {
+      const syncable = this.projectsRepository.projects.filter(
+        (project) => project.rootPath !== null && project.archivedAt === null,
+      );
 
-    // Zero counts are dropped: the list is there to show what would be lost, and a row of noughts
-    // buries the numbers that matter.
-    return IMPACT_LABELS.filter(([key]) => impact[key] > 0).map(([key, label]) => ({
-      label,
-      count: impact[key],
-    }));
+      const results = await Promise.all(
+        syncable.map((project) => this.environmentsGateway.sync(project.id)),
+      );
+
+      const failed = results.filter((result) => result.isFail()).length;
+
+      if (failed === 0) {
+        this.notificationService.success(`Sync started for ${results.length} project(s).`);
+      } else {
+        this.notificationService.error(
+          `Sync started for ${results.length - failed} project(s); ${failed} could not be queued.`,
+        );
+      }
+    } finally {
+      runInAction(() => {
+        this._isSyncingAll = false;
+      });
+    }
+  };
+
+  private get impactLines(): DeletionImpactLineVM[] {
+    return this._impact === null ? [] : toDeletionImpactLines(this._impact);
   }
 
   private get impactTotal(): number {
-    return this.impactLines.reduce((total, line) => total + line.count, 0);
+    return totalDeletionImpact(this.impactLines);
   }
 
   private toItem = (project: Project): ProjectItemVM => {
@@ -191,6 +202,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       deployedCount: environments.filter((environment) => environment.deployed).length,
       lastSyncedAt: project.lastSyncedAt,
       archivedAt: project.archivedAt,
+      syncable: project.rootPath !== null,
       isSyncing: this._syncingProjectIds.has(project.id),
       isSyncingModels: this._syncingModelsProjectIds.has(project.id),
     };

@@ -181,6 +181,13 @@ in the product deletes by default:
 - **Lists hide archived rows** unless `?includeArchived=true`. `GET /api/projects/:id` still
   returns an archived project, so it can be restored.
 - **Archiving is idempotent**: archiving twice keeps the original `archived_at`.
+- **Both UIs run the same two steps.** The project list and the Environments tab each open a
+  confirmation whose default action is Archive, with the impact counts on screen, and only move to
+  the permanent delete when the user explicitly asks. Archived rows stay visible with a Restore
+  next to them. `toDeletionImpactLines` is shared, so the UI and the CLI never disagree on what a
+  delete would destroy.
+- **An archived environment is never auto-selected.** Archiving is "stop looking at this stack";
+  landing on one would undo that on every page load.
 - **Sync respects an archive.** `sync-system` lists environments with `includeArchived: true` so
   discovery cannot insert a duplicate beside an archived stack name, skips archived environments,
   and reports each one it skipped. Rediscovery never un-archives.

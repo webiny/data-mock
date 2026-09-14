@@ -12,6 +12,8 @@ export interface ProjectItemVM {
   webinyVersion: string | null;
   environmentCount: number;
   deployedCount: number;
+  /** False for a remote-only project, which has nothing on disk to sync. */
+  syncable: boolean;
   lastSyncedAt: number | null;
   archivedAt: number | null;
   isSyncing: boolean;
@@ -41,6 +43,10 @@ export interface DeleteConfirmationVM {
 
 export interface ProjectListVM {
   projects: ProjectItemVM[];
+  /** True while every syncable project is being enqueued. */
+  isSyncingAll: boolean;
+  /** Projects with a checkout on disk. Nothing else can be synced. */
+  syncableCount: number;
   archivedProjects: ProjectItemVM[];
   isLoading: boolean;
   isEmpty: boolean;
@@ -52,6 +58,8 @@ export interface IProjectListPresenter {
   load(): Promise<void>;
   /** Rediscovers this project's environments from the Pulumi state on disk. */
   syncProject(projectId: string): Promise<void>;
+  /** Enqueues a sync for every project that has a checkout. */
+  syncAll(): Promise<void>;
   /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
   confirmDelete(projectId: string, projectName: string): void;
   cancelDelete(): void;

@@ -25,11 +25,13 @@ import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFi
 import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
 import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
 import type {
+  DeletionImpact,
   EnvironmentRef,
   ProjectEnvironment,
   ProjectFile,
   ProjectStack,
 } from "~/shared/types.js";
+import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/impactLines.js";
 import {
   deriveCmsEndpoints,
   resolveAdminOutputs,
@@ -105,6 +107,7 @@ function toStackVM(stack: ProjectStack): IStackVM {
 
 function toEnvironmentVM(environment: ProjectEnvironment): IEnvironmentVM {
   return {
+    archivedAt: environment.archivedAt,
     id: environment.id,
     stackName: getStackName({ env: environment.env, variant: environment.variant }),
     env: environment.env,
@@ -128,6 +131,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _environmentError: string | null = null;
   private _isLoading = false;
   private _isSyncing = false;
+  private _removeEnvironmentId: string | null = null;
+  private _removeEnvironmentStackName: string | null = null;
+  private _removeEnvironmentMode: "archive" | "purge" = "archive";
+  private _environmentImpact: DeletionImpact | null = null;
+  private _isLoadingEnvironmentImpact = false;
   private _isSyncingTenants = false;
   private _isSyncingModels = false;
   private _isImporting = false;
@@ -215,9 +223,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     const project = this._projectId
       ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
       : null;
-    const environmentVMs = (
+    const allEnvironmentVMs = (
       this._projectId ? this.environmentsRepository.getEnvironmentsByProjectId(this._projectId) : []
     ).map((environment) => toEnvironmentVM(environment));
+    // The selector and every environment-scoped action see only the active ones; the Environments
+    // tab reads `archivedEnvironments` to offer Restore.
+    const environmentVMs = allEnvironmentVMs.filter((e) => e.archivedAt === null);
+    const archivedEnvironmentVMs = allEnvironmentVMs.filter((e) => e.archivedAt !== null);
     const currentEnvironmentVM =
       environmentVMs.find((environment) => environment.id === environmentId) ?? null;
 
@@ -278,8 +290,18 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
           }
         : null,
       environments: environmentVMs,
+      archivedEnvironments: archivedEnvironmentVMs,
       currentEnvironment: currentEnvironmentVM,
       stacks,
+      environmentDeleteConfirmation: {
+        isOpen: this._removeEnvironmentId !== null,
+        mode: this._removeEnvironmentMode,
+        environmentId: this._removeEnvironmentId,
+        stackName: this._removeEnvironmentStackName,
+        isLoadingImpact: this._isLoadingEnvironmentImpact,
+        impact: this.environmentImpactLines,
+        impactTotal: totalDeletionImpact(this.environmentImpactLines),
+      },
       systemInfo: this.buildSystemInfo(
         stackRows,
         currentEnvironmentVM,
@@ -430,7 +452,12 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
    * most projects have only `dev`.
    */
   private resolveEnvironment = async (projectId: string, envName: string | null): Promise<void> => {
-    const result = await this.environmentsGateway.listForProject(projectId);
+    /**
+     * Archived environments are listed so the Environments tab can offer Restore next to them.
+     * They are never auto-selected: archiving is "stop looking at this stack", and landing on one
+     * would undo that on every page load.
+     */
+    const result = await this.environmentsGateway.listForProject(projectId, true);
 
     if (result.isFail()) {
       runInAction(() => {
@@ -442,16 +469,18 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     const environments = result.value;
     this.environmentsRepository.setEnvironments(projectId, environments);
 
+    const active = environments.filter((environment) => environment.archivedAt === null);
+
     const selected =
       envName === null
-        ? (environments[0] ?? null)
+        ? (active[0] ?? null)
         : this.environmentsRepository.findByStackName(projectId, envName);
 
     runInAction(() => {
       if (selected === null) {
         this._environmentId = null;
         this._environmentError =
-          environments.length === 0
+          active.length === 0
             ? "This project has no environments yet. Sync it to discover them."
             : `Environment "${envName ?? ""}" not found in this project.`;
         return;
@@ -500,6 +529,87 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         this._isSyncing = false;
       });
     }
+  };
+
+  public confirmRemoveEnvironment = (environmentId: string, stackName: string): void => {
+    this._removeEnvironmentId = environmentId;
+    this._removeEnvironmentStackName = stackName;
+    this._removeEnvironmentMode = "archive";
+    this._environmentImpact = null;
+    void this.loadEnvironmentImpact(environmentId);
+  };
+
+  public cancelRemoveEnvironment = (): void => {
+    this._removeEnvironmentId = null;
+    this._removeEnvironmentStackName = null;
+    this._removeEnvironmentMode = "archive";
+    this._environmentImpact = null;
+  };
+
+  public requestPurgeEnvironment = (): void => {
+    this._removeEnvironmentMode = "purge";
+  };
+
+  public archiveEnvironment = async (): Promise<void> => {
+    const projectId = this._projectId;
+    const environmentId = this._removeEnvironmentId;
+    const stackName = this._removeEnvironmentStackName;
+    if (projectId === null || environmentId === null) {
+      return;
+    }
+    this.cancelRemoveEnvironment();
+
+    const result = await this.environmentsGateway.archive(projectId, environmentId);
+    if (result.isFail()) {
+      this.notifications.error(`Failed to archive environment: ${result.error.message}`);
+      return;
+    }
+
+    this.notifications.success(`Environment "${stackName}" archived. Its data is kept.`);
+    await this.reloadEnvironments();
+  };
+
+  public purgeEnvironment = async (): Promise<void> => {
+    const projectId = this._projectId;
+    const environmentId = this._removeEnvironmentId;
+    const stackName = this._removeEnvironmentStackName;
+    if (projectId === null || environmentId === null) {
+      return;
+    }
+    this.cancelRemoveEnvironment();
+
+    const result = await this.environmentsGateway.purge(projectId, environmentId);
+    if (result.isFail()) {
+      this.notifications.error(`Failed to delete environment: ${result.error.message}`);
+      return;
+    }
+
+    this.notifications.success(`Environment "${stackName}" and all of its data were deleted.`);
+
+    /**
+     * The purged environment may be the one the URL addresses. Reloading resolves the project's
+     * first remaining environment, rather than leaving the page pointed at a row that is gone.
+     */
+    if (environmentId === this._environmentId) {
+      this._environmentId = null;
+      this._envName = null;
+    }
+    await this.reloadEnvironments();
+  };
+
+  public restoreEnvironment = async (environmentId: string): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    const result = await this.environmentsGateway.restore(projectId, environmentId);
+    if (result.isFail()) {
+      this.notifications.error(`Failed to restore environment: ${result.error.message}`);
+      return;
+    }
+
+    await this.reloadEnvironments();
   };
 
   public activateView = async (view: string): Promise<void> => {
@@ -957,6 +1067,53 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this.disposeJobSubscription();
   };
 
+  private get environmentImpactLines(): Array<{ label: string; count: number }> {
+    return this._environmentImpact === null ? [] : toDeletionImpactLines(this._environmentImpact);
+  }
+
+  private loadEnvironmentImpact = async (environmentId: string): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    this._isLoadingEnvironmentImpact = true;
+    try {
+      const result = await this.environmentsGateway.deletionImpact(projectId, environmentId);
+      runInAction(() => {
+        // A failed count must not become a silent "nothing will be lost".
+        this._environmentImpact = result.isOk() ? result.value : null;
+      });
+    } finally {
+      runInAction(() => {
+        this._isLoadingEnvironmentImpact = false;
+      });
+    }
+  };
+
+  /**
+   * Archived environments are listed too, so the archived rows stay visible with a Restore next to
+   * them instead of vanishing from the tab that just archived them.
+   */
+  private reloadEnvironments = async (): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    const result = await this.environmentsGateway.listForProject(projectId, true);
+    if (result.isFail()) {
+      return;
+    }
+
+    runInAction(() => {
+      this.environmentsRepository.setEnvironments(projectId, result.value);
+      if (this._environmentId === null) {
+        this._environmentId = result.value.find((e) => e.archivedAt === null)?.id ?? null;
+      }
+    });
+  };
+
   /**
    * The infrastructure facts worth surfacing, resolved from the raw Pulumi output through the
    * per-major key map. Absent keys are omitted rather than rendered blank: a DynamoDB-only project
@@ -1156,7 +1313,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       case "environments": {
         // A sync can add, remove or redeploy environments, so the list itself is reloaded — not
         // just the stacks hanging off the one currently selected.
-        const result = await this.environmentsGateway.listForProject(ref.projectId);
+        const result = await this.environmentsGateway.listForProject(ref.projectId, true);
         runInAction(() => {
           if (result.isOk()) {
             this.environmentsRepository.setEnvironments(ref.projectId, result.value);

@@ -1,12 +1,26 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
-import type { Job, ProjectEnvironment, ProjectStack } from "~/shared/types.js";
+import type { DeletionImpact, Job, ProjectEnvironment, ProjectStack } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface IEnvironmentsGateway {
-  listForProject(projectId: string): Promise<Result<ProjectEnvironment[], HTTPError>>;
+  /** Archived environments are omitted unless `includeArchived` is set. */
+  listForProject(
+    projectId: string,
+    includeArchived?: boolean,
+  ): Promise<Result<ProjectEnvironment[], HTTPError>>;
   listStacks(projectId: string, environmentId: string): Promise<Result<ProjectStack[], HTTPError>>;
   sync(projectId: string): Promise<Result<Job, HTTPError>>;
+  /** Soft delete — keeps every child row and can be undone with `restore`. */
+  archive(projectId: string, environmentId: string): Promise<Result<ProjectEnvironment, HTTPError>>;
+  restore(projectId: string, environmentId: string): Promise<Result<ProjectEnvironment, HTTPError>>;
+  /** Irreversible: deletes the environment and every row that cascades from it. */
+  purge(projectId: string, environmentId: string): Promise<Result<void, HTTPError>>;
+  /** Counts what `purge` would destroy. */
+  deletionImpact(
+    projectId: string,
+    environmentId: string,
+  ): Promise<Result<DeletionImpact, HTTPError>>;
 }
 
 export const EnvironmentsGateway =

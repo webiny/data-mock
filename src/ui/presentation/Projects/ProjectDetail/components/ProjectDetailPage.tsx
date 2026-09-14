@@ -300,13 +300,23 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             {activeView === "environments" && (
               <EnvironmentsTab
                 environments={vm.environments}
+                archivedEnvironments={vm.archivedEnvironments}
                 currentEnvironment={vm.currentEnvironment}
                 stacks={vm.stacks}
                 isSyncing={vm.isSyncing}
+                confirmation={vm.environmentDeleteConfirmation}
                 onSync={() => void presenter.syncProject()}
                 onSelectEnvironment={(stackName) =>
                   navigate(AppRoutes.environmentTab(projectId, stackName, "environments"))
                 }
+                onConfirmRemove={(id, stackName) =>
+                  presenter.confirmRemoveEnvironment(id, stackName)
+                }
+                onCancelRemove={() => presenter.cancelRemoveEnvironment()}
+                onRequestPurge={() => presenter.requestPurgeEnvironment()}
+                onArchive={() => void presenter.archiveEnvironment()}
+                onPurge={() => void presenter.purgeEnvironment()}
+                onRestore={(id) => void presenter.restoreEnvironment(id)}
               />
             )}
             {activeView === "system" && (

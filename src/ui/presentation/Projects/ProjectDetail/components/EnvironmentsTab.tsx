@@ -1,16 +1,41 @@
 import { useState } from "react";
 import { observer } from "mobx-react-lite";
-import { Badge, Button, Group, Stack, Table, Text, Tooltip } from "@mantine/core";
+import {
+  Alert,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  List,
+  Loader,
+  Modal,
+  Stack,
+  Table,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
-import type { IEnvironmentVM, IStackVM } from "../abstractions/ProjectDetailPresenter.js";
+import type {
+  IEnvironmentDeleteConfirmationVM,
+  IEnvironmentVM,
+  IStackVM,
+} from "../abstractions/ProjectDetailPresenter.js";
 
 interface EnvironmentsTabProps {
   environments: IEnvironmentVM[];
+  archivedEnvironments: IEnvironmentVM[];
   currentEnvironment: IEnvironmentVM | null;
   stacks: IStackVM[];
   isSyncing: boolean;
+  confirmation: IEnvironmentDeleteConfirmationVM;
   onSync: () => void;
   onSelectEnvironment: (stackName: string) => void;
+  onConfirmRemove: (environmentId: string, stackName: string) => void;
+  onCancelRemove: () => void;
+  onRequestPurge: () => void;
+  onArchive: () => void;
+  onPurge: () => void;
+  onRestore: (environmentId: string) => void;
 }
 
 function formatRelative(timestamp: number | null): string {
@@ -51,13 +76,22 @@ const STACK_COLORS: Record<string, string> = {
 
 export const EnvironmentsTab = observer(function EnvironmentsTab({
   environments,
+  archivedEnvironments,
   currentEnvironment,
   stacks,
   isSyncing,
+  confirmation,
   onSync,
   onSelectEnvironment,
+  onConfirmRemove,
+  onCancelRemove,
+  onRequestPurge,
+  onArchive,
+  onPurge,
+  onRestore,
 }: EnvironmentsTabProps) {
   const [rawOutput, setRawOutput] = useState<{ app: string; value: string } | null>(null);
+  const isPurge = confirmation.mode === "purge";
 
   return (
     <Stack gap="md">
@@ -129,21 +163,64 @@ export const EnvironmentsTab = observer(function EnvironmentsTab({
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    {environment.id !== currentEnvironment?.id && (
+                    <Group gap={4} justify="flex-end" wrap="nowrap">
+                      {environment.id !== currentEnvironment?.id && (
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          onClick={() => onSelectEnvironment(environment.stackName)}
+                        >
+                          Select
+                        </Button>
+                      )}
                       <Button
                         size="compact-xs"
                         variant="subtle"
-                        onClick={() => onSelectEnvironment(environment.stackName)}
+                        color="red"
+                        onClick={() => onConfirmRemove(environment.id, environment.stackName)}
                       >
-                        Select
+                        Remove
                       </Button>
-                    )}
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               );
             })}
           </Table.Tbody>
         </Table>
+      )}
+
+      {archivedEnvironments.length > 0 && (
+        <>
+          <Divider
+            my="xs"
+            label={`Archived (${archivedEnvironments.length})`}
+            labelPosition="left"
+          />
+          {archivedEnvironments.map((environment) => (
+            <Group key={environment.id} justify="space-between">
+              <Group gap="xs">
+                <Text size="sm">{environment.stackName}</Text>
+                <Badge size="xs" variant="light" color="gray">
+                  archived
+                </Badge>
+              </Group>
+              <Group gap="xs">
+                <Button size="compact-xs" variant="light" onClick={() => onRestore(environment.id)}>
+                  Restore
+                </Button>
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="red"
+                  onClick={() => onConfirmRemove(environment.id, environment.stackName)}
+                >
+                  Delete
+                </Button>
+              </Group>
+            </Group>
+          ))}
+        </>
       )}
 
       <Text fw={600} mt="sm">
@@ -207,6 +284,91 @@ export const EnvironmentsTab = observer(function EnvironmentsTab({
           </Table.Tbody>
         </Table>
       )}
+
+      <Modal
+        opened={confirmation.isOpen}
+        onClose={onCancelRemove}
+        title={isPurge ? "Delete environment permanently" : "Remove environment"}
+        centered
+      >
+        <Stack gap="sm">
+          <Text>
+            {isPurge ? "Permanently delete" : "Archive"} &ldquo;{confirmation.stackName}&rdquo;?
+          </Text>
+
+          {!isPurge && (
+            <Text size="sm" c="dimmed">
+              Archiving hides the environment and keeps everything below. Sync will skip it rather
+              than rediscovering it, and you can restore it at any time.
+            </Text>
+          )}
+
+          {confirmation.isLoadingImpact && (
+            <Group gap="xs">
+              <Loader size="xs" />
+              <Text size="sm" c="dimmed">
+                Counting what a permanent delete would destroy...
+              </Text>
+            </Group>
+          )}
+
+          {!confirmation.isLoadingImpact && confirmation.impact.length === 0 && (
+            <Text size="sm" c="dimmed">
+              No stored data was found for this environment.
+            </Text>
+          )}
+
+          {!confirmation.isLoadingImpact && confirmation.impact.length > 0 && (
+            <Alert color={isPurge ? "red" : "yellow"} variant="light">
+              <Text size="sm" fw={500}>
+                {isPurge
+                  ? `${confirmation.impactTotal} rows will be destroyed:`
+                  : `${confirmation.impactTotal} rows are kept by archiving:`}
+              </Text>
+              <List size="sm" mt="xs">
+                {confirmation.impact.map((line) => (
+                  <List.Item key={line.label}>
+                    {line.count} {line.label}
+                  </List.Item>
+                ))}
+              </List>
+              {isPurge && (
+                <Text size="sm" fw={600} mt="xs">
+                  This cannot be undone.
+                </Text>
+              )}
+            </Alert>
+          )}
+
+          <Group justify="space-between" mt="md">
+            {isPurge ? (
+              <Button variant="default" onClick={onCancelRemove}>
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="subtle" color="red" size="xs" onClick={onRequestPurge}>
+                Delete permanently instead
+              </Button>
+            )}
+            <Group gap="xs">
+              {!isPurge && (
+                <Button variant="default" onClick={onCancelRemove}>
+                  Cancel
+                </Button>
+              )}
+              {isPurge ? (
+                <Button color="red" onClick={onPurge}>
+                  Delete everything
+                </Button>
+              ) : (
+                <Button color="orange" onClick={onArchive}>
+                  Archive
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Stack>
+      </Modal>
 
       <CodeViewerModal
         opened={rawOutput !== null}

@@ -6,21 +6,8 @@ import { ArchiveProjectRepository } from "~/shared/node/features/projects/archiv
 import { RemoveProjectUseCase } from "~/shared/node/features/projects/remove/abstractions/RemoveProjectUseCase.js";
 import { DeletionImpactService } from "~/shared/node/features/deletion/impact/abstractions/DeletionImpactService.js";
 import { Command } from "~/cli/abstractions/Command.js";
+import { toDeletionImpactLines } from "~/shared/deletion/impactLines.js";
 import type { DeletionImpact, Project } from "~/shared/types.js";
-
-const IMPACT_LABELS: Array<[keyof DeletionImpact, string]> = [
-  ["environments", "environments"],
-  ["stacks", "stack records"],
-  ["tenants", "tenants"],
-  ["groups", "model groups"],
-  ["models", "models"],
-  ["files", "uploaded files"],
-  ["seedJobs", "seed jobs"],
-  ["seedEntries", "seed entries"],
-  ["syncLogs", "sync logs"],
-  ["jobs", "job records"],
-  ["seedTemplates", "seed templates"],
-];
 
 type Action = "archive" | "restore" | "purge";
 
@@ -163,9 +150,7 @@ class RemoveProjectCommandImpl implements Command.Interface {
       return;
     }
 
-    const lines = IMPACT_LABELS.filter(([key]) => impact[key] > 0).map(
-      ([key, label]) => `  ${impact[key]} ${label}`,
-    );
+    const lines = toDeletionImpactLines(impact).map((line) => `  ${line.count} ${line.label}`);
 
     if (lines.length === 0) {
       this.ui.log.info("No stored data was found for this project.");

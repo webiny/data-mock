@@ -1,9 +1,13 @@
 import { Result } from "@webiny/stdlib";
-import type { Job, ProjectEnvironment, ProjectStack } from "~/shared/types.js";
+import type { DeletionImpact, Job, ProjectEnvironment, ProjectStack } from "~/shared/types.js";
 import {
   listProjectEnvironmentsRoute,
   listEnvironmentStacksRoute,
   syncProjectRoute,
+  archiveProjectEnvironmentRoute,
+  restoreProjectEnvironmentRoute,
+  purgeProjectEnvironmentRoute,
+  environmentDeletionImpactRoute,
 } from "~/shared/routes/environments.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
@@ -12,9 +16,13 @@ import { EnvironmentsGateway as Abstraction } from "./abstractions/EnvironmentsG
 class EnvironmentsGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
-  public async listForProject(projectId: string): Promise<Result<ProjectEnvironment[], HTTPError>> {
+  public async listForProject(
+    projectId: string,
+    includeArchived?: boolean,
+  ): Promise<Result<ProjectEnvironment[], HTTPError>> {
     const result = await this.httpClient.request(listProjectEnvironmentsRoute, {
       params: { projectId },
+      query: includeArchived === true ? { includeArchived: "true" } : undefined,
     });
 
     if (result.isFail()) {
@@ -49,6 +57,57 @@ class EnvironmentsGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(result.value.job);
+  }
+
+  public async archive(
+    projectId: string,
+    environmentId: string,
+  ): Promise<Result<ProjectEnvironment, HTTPError>> {
+    const result = await this.httpClient.request(archiveProjectEnvironmentRoute, {
+      params: { projectId, environmentId },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.environment);
+  }
+
+  public async restore(
+    projectId: string,
+    environmentId: string,
+  ): Promise<Result<ProjectEnvironment, HTTPError>> {
+    const result = await this.httpClient.request(restoreProjectEnvironmentRoute, {
+      params: { projectId, environmentId },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.environment);
+  }
+
+  public async purge(projectId: string, environmentId: string): Promise<Result<void, HTTPError>> {
+    return this.httpClient.request(purgeProjectEnvironmentRoute, {
+      params: { projectId, environmentId },
+    });
+  }
+
+  public async deletionImpact(
+    projectId: string,
+    environmentId: string,
+  ): Promise<Result<DeletionImpact, HTTPError>> {
+    const result = await this.httpClient.request(environmentDeletionImpactRoute, {
+      params: { projectId, environmentId },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.impact);
   }
 }
 
