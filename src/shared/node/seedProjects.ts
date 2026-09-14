@@ -14,14 +14,25 @@ const SEED_FILE_PATH = ".projects.json";
  * `apiUrl` is a BASE url — operations append their own path (every operation declares
  * path: "/cms/manage"). Store the Pulumi `api.apiUrl` value, not a CMS endpoint.
  */
-const projectSchema = z.object({
-  name: z.string(),
-  apiUrl: z.string(),
-  apiToken: z.string(),
-  tenant: z.string().default("root"),
-  env: z.string().default("dev"),
-  operationsVersion: z.string().default("6.0.0"),
-});
+const projectSchema = z
+  .object({
+    name: z.string(),
+    apiUrl: z.string(),
+    apiToken: z.string(),
+    tenant: z.string().default("root"),
+    env: z.string().default("dev"),
+    operationsVersion: z.string().optional(),
+    /**
+     * Former name for operationsVersion. Kept as an alias so existing .projects.json files keep
+     * working — without it the key is ignored and the version silently falls back to the default,
+     * quietly selecting a different GraphQL operation set.
+     */
+    webinyVersion: z.string().optional(),
+  })
+  .transform((project) => ({
+    ...project,
+    operationsVersion: project.operationsVersion ?? project.webinyVersion ?? "6.0.0",
+  }));
 
 const seedFileSchema = z.array(projectSchema);
 
