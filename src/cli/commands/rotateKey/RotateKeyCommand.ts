@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { KeyRotationService } from "~/shared/node/encryption/abstractions/KeyRotationService.js";
@@ -32,7 +32,7 @@ class RotateKeyCommandImpl implements Command.Interface {
       message: "Generate a new random key? (No = enter manually)",
     });
 
-    if (isCancel(generateNew)) {
+    if (isCancelled(generateNew)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -55,7 +55,7 @@ class RotateKeyCommandImpl implements Command.Interface {
         },
       });
 
-      if (isCancel(entered)) {
+      if (isCancelled(entered)) {
         this.ui.cancel("Cancelled.");
         return;
       }
@@ -67,7 +67,7 @@ class RotateKeyCommandImpl implements Command.Interface {
       message: "This will re-encrypt all stored API tokens. Continue?",
     });
 
-    if (isCancel(confirmed) || !confirmed) {
+    if (isCancelled(confirmed) || !confirmed) {
       this.ui.cancel("Cancelled.");
       return;
     }

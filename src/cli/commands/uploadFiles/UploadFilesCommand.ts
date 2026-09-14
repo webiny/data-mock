@@ -1,6 +1,6 @@
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { Command } from "~/cli/abstractions/Command.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
@@ -40,7 +40,7 @@ class UploadFilesCommandImpl implements Command.Interface {
       message: "Select project",
       options: projects.map((p) => ({ value: p, label: p.name, hint: p.apiUrl })),
     });
-    if (isCancel(selectedProject)) {
+    if (isCancelled(selectedProject)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -62,7 +62,7 @@ class UploadFilesCommandImpl implements Command.Interface {
       message: "Select tenant",
       options: tenantOptions,
     });
-    if (isCancel(selectedTenant)) {
+    if (isCancelled(selectedTenant)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -86,7 +86,7 @@ class UploadFilesCommandImpl implements Command.Interface {
         return undefined;
       },
     });
-    if (isCancel(dirPath)) {
+    if (isCancelled(dirPath)) {
       this.ui.cancel("Cancelled.");
       return;
     }

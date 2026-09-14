@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { InitCommand as Abstraction } from "./abstractions/InitCommand.js";
 
 const ENV_PATH = join(process.cwd(), ".env");
@@ -25,7 +25,7 @@ class InitCommandImpl implements Abstraction.Interface {
         message: ".env file already exists. Overwrite?",
       });
 
-      if (isCancel(overwrite) || !overwrite) {
+      if (isCancelled(overwrite) || !overwrite) {
         this.ui.cancel("Cancelled — existing .env kept.");
         return;
       }
@@ -36,7 +36,7 @@ class InitCommandImpl implements Abstraction.Interface {
       defaultValue: "4000",
       placeholder: "4000",
     });
-    if (isCancel(apiPort)) {
+    if (isCancelled(apiPort)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -46,7 +46,7 @@ class InitCommandImpl implements Abstraction.Interface {
       defaultValue: "4001",
       placeholder: "4001",
     });
-    if (isCancel(uiPort)) {
+    if (isCancelled(uiPort)) {
       this.ui.cancel("Cancelled.");
       return;
     }

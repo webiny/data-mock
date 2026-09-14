@@ -1,4 +1,4 @@
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { Command } from "~/cli/abstractions/Command.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
@@ -40,7 +40,7 @@ class SyncModelsCommandImpl implements Command.Interface {
       })),
     });
 
-    if (isCancel(selected)) {
+    if (isCancelled(selected)) {
       this.ui.cancel("Cancelled.");
       return;
     }

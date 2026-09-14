@@ -1,4 +1,4 @@
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
@@ -22,7 +22,7 @@ class AddProjectCommandImpl implements Command.Interface {
       placeholder: "my-webiny-project",
       validate: (value) => (!value || value.trim().length === 0 ? "Name is required" : undefined),
     });
-    if (isCancel(name)) {
+    if (isCancelled(name)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -40,7 +40,7 @@ class AddProjectCommandImpl implements Command.Interface {
         return undefined;
       },
     });
-    if (isCancel(apiUrl)) {
+    if (isCancelled(apiUrl)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -50,7 +50,7 @@ class AddProjectCommandImpl implements Command.Interface {
       placeholder: "your-api-token",
       validate: (value) => (!value || value.trim().length === 0 ? "Token is required" : undefined),
     });
-    if (isCancel(apiToken)) {
+    if (isCancelled(apiToken)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -59,7 +59,7 @@ class AddProjectCommandImpl implements Command.Interface {
       message: "Default tenant",
       defaultValue: "root",
     });
-    if (isCancel(tenant)) {
+    if (isCancelled(tenant)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -69,7 +69,7 @@ class AddProjectCommandImpl implements Command.Interface {
       defaultValue: "6.0.0",
       placeholder: "6.4.9",
     });
-    if (isCancel(webinyVersion)) {
+    if (isCancelled(webinyVersion)) {
       this.ui.cancel("Cancelled.");
       return;
     }

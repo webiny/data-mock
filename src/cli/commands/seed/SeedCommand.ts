@@ -1,4 +1,4 @@
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Command } from "~/cli/abstractions/Command.js";
@@ -44,7 +44,7 @@ class SeedCommandImpl implements Command.Interface {
       message: "Select project",
       options: projects.map((p) => ({ value: p, label: `${p.name} (${p.apiUrl})` })),
     });
-    if (isCancel(selectedProject)) {
+    if (isCancelled(selectedProject)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -73,7 +73,7 @@ class SeedCommandImpl implements Command.Interface {
       message: "Select tenant",
       options: tenantOptions,
     });
-    if (isCancel(selectedTenant)) {
+    if (isCancelled(selectedTenant)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -146,13 +146,13 @@ class SeedCommandImpl implements Command.Interface {
         message: "Save this configuration as a template?",
       });
 
-      if (!isCancel(saveTemplate) && saveTemplate) {
+      if (!isCancelled(saveTemplate) && saveTemplate) {
         const nameInput = await this.prompts.text({
           message: "Template name",
           validate: (v) => (!v || v.trim().length === 0 ? "Name is required" : undefined),
         });
 
-        if (!isCancel(nameInput)) {
+        if (!isCancelled(nameInput)) {
           const config: SeedTemplateConfig = {
             tenant: selectedTenant as string,
             models: modelConfigs,
@@ -191,7 +191,7 @@ class SeedCommandImpl implements Command.Interface {
         ],
       });
 
-      if (isCancel(source)) {
+      if (isCancelled(source)) {
         this.ui.cancel("Cancelled.");
         return null;
       }
@@ -217,7 +217,7 @@ class SeedCommandImpl implements Command.Interface {
       })),
       required: true,
     });
-    if (isCancel(selectedModels)) {
+    if (isCancelled(selectedModels)) {
       this.ui.cancel("Cancelled.");
       return null;
     }
@@ -236,7 +236,7 @@ class SeedCommandImpl implements Command.Interface {
         return undefined;
       },
     });
-    if (isCancel(amountInput)) {
+    if (isCancelled(amountInput)) {
       this.ui.cancel("Cancelled.");
       return null;
     }
@@ -258,7 +258,7 @@ class SeedCommandImpl implements Command.Interface {
       active: "Yes",
       inactive: "No",
     });
-    if (isCancel(dryRunChoice)) {
+    if (isCancelled(dryRunChoice)) {
       this.ui.cancel("Cancelled.");
       return null;
     }

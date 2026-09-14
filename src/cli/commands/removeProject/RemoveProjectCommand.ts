@@ -1,4 +1,4 @@
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { ListProjectsUseCase } from "~/shared/node/features/projects/list/abstractions/ListProjectsUseCase.js";
@@ -42,7 +42,7 @@ class RemoveProjectCommandImpl implements Command.Interface {
       })),
     });
 
-    if (isCancel(selected)) {
+    if (isCancelled(selected)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -53,7 +53,7 @@ class RemoveProjectCommandImpl implements Command.Interface {
       message: `Remove "${project.name}"? This cannot be undone.`,
     });
 
-    if (isCancel(confirmed) || !confirmed) {
+    if (isCancelled(confirmed) || !confirmed) {
       this.ui.cancel("Cancelled.");
       return;
     }

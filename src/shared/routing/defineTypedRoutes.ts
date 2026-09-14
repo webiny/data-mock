@@ -55,6 +55,21 @@ interface VoidRouteConfig<TPath extends string, TParams, TBody> {
   body?: z.ZodType<TBody>;
 }
 
+/**
+ * Builds a single-key envelope schema whose key type survives into the inferred type.
+ *
+ * TypeScript widens a computed key to an index signature — `{ [key]: item }` with `key: TKey`
+ * infers `{ [x: string]: … }`, not `Record<TKey, …>` — and under `exactOptionalPropertyTypes` that
+ * is not assignable to the declared response type. There is no way to express the narrowing
+ * without an assertion, so it is contained here rather than repeated at each call site.
+ */
+function envelopeSchema<TKey extends string, TValue>(
+  key: TKey,
+  value: z.ZodType<TValue>,
+): z.ZodType<Record<TKey, TValue>> {
+  return z.object({ [key]: value }) as unknown as z.ZodType<Record<TKey, TValue>>;
+}
+
 export function defineListRoute<
   TKey extends string,
   TPath extends string,
@@ -77,9 +92,7 @@ export function defineListRoute<
     total: z.number(),
   });
 
-  type ListResponse = Record<TKey, { items: TItem[]; total: number }>;
-
-  const response = z.object({ [key]: listEnvelope });
+  const response = envelopeSchema(key, listEnvelope);
 
   return {
     description: config.description ?? `List ${key}`,
@@ -87,7 +100,7 @@ export function defineListRoute<
     path: config.path,
     params: config.params,
     querystring: config.querystring,
-    response: response as unknown as z.ZodType<ListResponse>,
+    response,
     responseType: "list",
     responseKey: key,
   };
@@ -104,7 +117,7 @@ export function defineOneRoute<
   key: TKey,
   config: OneRouteConfig<TPath, TParams, TBody, TQuerystring, TItem>,
 ): TypedRouteDefinition<TPath, TParams, TBody, Record<TKey, TItem>, HTTPMethod, TQuerystring> {
-  const response = z.object({ [key]: config.item });
+  const response = envelopeSchema(key, config.item);
 
   return {
     description: config.description ?? `Get ${key}`,
