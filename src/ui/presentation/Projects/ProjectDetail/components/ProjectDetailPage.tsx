@@ -20,6 +20,8 @@ import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresen
 import { useFeature } from "~/ui/di/useFeature.js";
 import { SeedConfigPresentationFeature } from "~/ui/presentation/Seeding/SeedConfig/feature.js";
 import { SeedConfigPage } from "~/ui/presentation/Seeding/SeedConfig/components/SeedConfigPage.js";
+import { EnvironmentsTab } from "./EnvironmentsTab.js";
+import { SystemInfoTab } from "./SystemInfoTab.js";
 import { TenantsTab } from "./TenantsTab.js";
 import { ModelsTab } from "./ModelsTab.js";
 import { SeedHistoryTab } from "./SeedHistoryTab.js";
@@ -189,6 +191,22 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           >
             <Stack gap={2}>
               <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pt="xs" pb={4}>
+                System
+              </Text>
+              <NavLink
+                label="Environments"
+                active={activeView === "environments"}
+                onClick={() => goTo("environments")}
+              />
+              <NavLink
+                label="System Info"
+                active={activeView === "system"}
+                onClick={() => goTo("system")}
+              />
+
+              <Divider my="xs" />
+
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pb={4}>
                 Data
               </Text>
               <NavLink
@@ -266,6 +284,12 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 description={isCleaningUp ? "Cleaning..." : undefined}
                 onClick={() => presenter.openCleanupDialog()}
               />
+              <NavLink
+                label="Sync from disk"
+                description={vm.isSyncing ? "Starting..." : undefined}
+                disabled={vm.isSyncing || project.rootPath === null}
+                onClick={() => void presenter.syncProject()}
+              />
               <NavLink label="Edit Project" onClick={() => presenter.openEditDialog()} />
             </Stack>
           </Paper>
@@ -273,6 +297,21 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           <Divider orientation="vertical" mx="md" />
 
           <Box style={{ flex: 1, minWidth: 0 }}>
+            {activeView === "environments" && (
+              <EnvironmentsTab
+                environments={vm.environments}
+                currentEnvironment={vm.currentEnvironment}
+                stacks={vm.stacks}
+                isSyncing={vm.isSyncing}
+                onSync={() => void presenter.syncProject()}
+                onSelectEnvironment={(stackName) =>
+                  navigate(AppRoutes.environmentTab(projectId, stackName, "environments"))
+                }
+              />
+            )}
+            {activeView === "system" && (
+              <SystemInfoTab sections={vm.systemInfo} notice={vm.systemInfoNotice} />
+            )}
             {activeView === "tenants" && <TenantsTab tenants={tenants} />}
             {activeView === "models" && <ModelsTab groups={groups} models={models} />}
             {activeView === "files" && (

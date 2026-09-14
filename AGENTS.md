@@ -59,7 +59,9 @@ src/
 │           ├── projects/               # CRUD + archive/restore (create/get/list/archive/remove)
 │           ├── environments/           # Environment CRUD + archive/restore + stacks + EnvironmentContextService
 │           ├── deletion/               # DeletionImpactService — counts what a purge would destroy
-│           ├── webinyCli/              # Project detection, Pulumi checkpoint reading, sync
+│           ├── scanRoots/              # CRUD for the directories scanned for checkouts
+│           ├── filesystem/             # DirectoryBrowser + ProjectScanner
+│           ├── webinyCli/              # Project detection, Pulumi checkpoint reading, sync, scheduler
 │           ├── tenants/                # Sync + list + verify access
 │           ├── models/                 # Sync + list + get + push + compare
 │           ├── seeding/                # Seed service + job CRUD + entry audit log + dependency resolver
@@ -77,7 +79,7 @@ src/
 │   ├── server.ts                       # createServer()
 │   ├── feature.ts                      # ApiFeature
 │   ├── routing/                        # routeFactory, sendTyped, sendError, createRequestContext
-│   └── routes/                         # 29 route handlers (see below)
+│   └── routes/                         # 34 route handlers (see below)
 │
 └── ui/                                  # React + Mantine + MobX (port 4001)
     ├── App.tsx, main.tsx               # Entry + DI container setup
@@ -85,6 +87,7 @@ src/
     ├── features/
     │   ├── router/                     # Route registry, RouterView, defineRoute, navigate()
     │   ├── notifications/              # Mantine notifications service
+    │   ├── filesystem/                 # Gateway (browse, scan, scan roots)
     │   ├── projects/                   # Gateway + Repository
     │   ├── tenants/                    # Gateway + Repository
     │   ├── models/                     # Gateway + Repository
@@ -95,8 +98,8 @@ src/
     ├── presentation/
     │   ├── Projects/
     │   │   ├── ProjectList/            # List page + use cases (load, delete, sync tenants/models)
-    │   │   ├── ProjectDetail/          # Detail page (sidebar: tenants, models, history, templates)
-    │   │   └── AddProject/             # Modal form + use case
+    │   │   ├── ProjectDetail/          # Detail page (sidebar: environments, system info, tenants, models, history)
+    │   │   └── AddProject/             # Scan / Browse / Path / Remote tabs + use case
     │   └── Seeding/
     │       ├── SeedConfig/             # Seed configuration page
     │       └── SeedHistory/            # Seed history page
@@ -132,6 +135,34 @@ Env-scoped tables keep `project_id` alongside `environment_id`. It is derivable 
 but reads must narrow on `environment_id`: an un-narrowed `eq(x.projectId, …)` compiles cleanly and
 silently returns rows merged across every environment. Writes carry both — the project owns the
 row, the environment scopes it.
+
+---
+
+## Registering and syncing projects
+
+A project is registered from a folder on disk. Three ways to name that folder, all in the Add
+Project modal: **Scan** (the saved scan roots), **Browse** (a directory picker), **Path** (typed).
+A fourth tab, **Remote**, creates a project with no checkout — seedable, but not deployable,
+destroyable or syncable.
+
+- **Scanning stops at the first marker.** A checkout's own `apps/` holds nothing that is a separate
+  project, and the framework monorepo carries dozens of `webiny.config.tsx` files below its root
+  that are fixtures, not systems. `node_modules` is never entered — every checkout has one holding
+  packages that carry a marker of their own.
+- **Already-registered checkouts stay in the scan result**, flagged and unselectable. The list is a
+  picture of the disk, not a queue that empties as you use it.
+- **Unreadable roots are reported**, never dropped. A scan that silently skipped half the tree
+  would read as "nothing is there".
+- **Browsing returns directory names only** and resolves the path through `realpathSync` first, so
+  what comes back is the real location rather than the link that pointed at it. The API binds to
+  127.0.0.1 (ADR 006), which is what keeps this off the network.
+- **Adding a project with a checkout enqueues a sync immediately** — until it runs, the project has
+  no version, environments or stack output.
+
+`SyncScheduler` runs at boot (5 s in) and daily, and **only ever enqueues**. Running a sync directly
+would let a tick read a checkpoint a deploy is halfway through rewriting: a valid file with partial
+`resources` and stale outputs, which makes `resource_count` flap. A project that already has a
+`sync-system` job pending or running is skipped. Archived projects are excluded.
 
 ---
 
@@ -171,7 +202,7 @@ in the product deletes by default:
 
 ---
 
-## API Routes (51)
+## API Routes (56)
 
 Environment-scoped routes live under `/api/projects/:projectId/environments/:environmentId/*`.
 Project-scoped routes (jobs, templates, sync) and the four global file routes stay where they are.
@@ -206,6 +237,15 @@ sync-system) return a `Job` object with HTTP 202 — work runs in the background
 | GET | `/api/projects/:projectId/environments/:environmentId/stacks` | Per-app Pulumi state |
 | POST | `/api/projects/:projectId/environments/:environmentId/health` | Is this environment's API reachable |
 | POST | `/api/projects/:projectId/sync` | Sync version, environments and stack output from disk |
+
+### Filesystem
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/fs/browse?path=` | List a directory's subdirectories, flagging Webiny checkouts. Directory names only — never files or file contents. Defaults to `$HOME`. |
+| POST | `/api/fs/scan` | Scan the saved roots (or `paths` in the body) for checkouts |
+| GET | `/api/scan-roots` | List the directories scanned |
+| POST | `/api/scan-roots` | Add one |
+| DELETE | `/api/scan-roots/:id` | Remove one — projects added from it are kept |
 
 ### Tenants
 | Method | Path | Purpose |

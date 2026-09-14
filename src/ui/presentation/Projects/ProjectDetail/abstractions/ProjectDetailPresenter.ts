@@ -1,5 +1,5 @@
 import { createAbstraction } from "@webiny/stdlib";
-import type { SeedTemplateConfig, SeedEntryStatus, Job } from "~/shared/types.js";
+import type { SeedTemplateConfig, SeedEntryStatus, Job, StackReadState } from "~/shared/types.js";
 
 export interface IProjectVM {
   id: string;
@@ -7,6 +7,8 @@ export interface IProjectVM {
   rootPath: string | null;
   /** Detected version, null for a framework workspace root built from source. */
   webinyVersion: string | null;
+  /** 5 or 6. Selects which raw Pulumi output keys the System Info panel reads. */
+  versionMajor: number | null;
   operationsVersion: string;
   createdAt: number;
 }
@@ -25,6 +27,29 @@ export interface IEnvironmentVM {
   adminUrl: string | null;
   tenant: string;
   lastSyncedAt: number | null;
+}
+
+/** One app's Pulumi stack within the selected environment. */
+export interface IStackVM {
+  app: string;
+  deployed: boolean;
+  resourceCount: number | null;
+  readState: StackReadState;
+  /** "Deployed", "Not deployed" or "Could not read" — an unknown read is never shown as zero. */
+  stateLabel: string;
+  syncedAt: number | null;
+  /** Pretty-printed raw stack output, or null when the stack has none stored. */
+  rawOutput: string | null;
+}
+
+export interface ISystemInfoItemVM {
+  label: string;
+  value: string;
+}
+
+export interface ISystemInfoSectionVM {
+  title: string;
+  items: ISystemInfoItemVM[];
 }
 
 export interface ITenantVM {
@@ -120,6 +145,10 @@ export interface IProjectDetailVM {
   project: IProjectVM | null;
   environments: IEnvironmentVM[];
   currentEnvironment: IEnvironmentVM | null;
+  stacks: IStackVM[];
+  systemInfo: ISystemInfoSectionVM[];
+  /** Why System Info is empty, when it is. Never left blank without a reason. */
+  systemInfoNotice: string | null;
   /** Hidden when a project has a single environment, which is the common case. */
   showEnvironmentSelector: boolean;
   environmentError: string | null;
@@ -153,6 +182,7 @@ export interface IProjectDetailVM {
   projectHealth: "unknown" | "checking" | "reachable" | "unreachable";
   projectHealthError: string | null;
   isLoading: boolean;
+  isSyncing: boolean;
   isSyncingTenants: boolean;
   isSyncingModels: boolean;
   isImporting: boolean;
@@ -169,6 +199,8 @@ export interface IProjectDetailPresenter {
   load(projectId: string, envName: string | null): Promise<void>;
   activateView(view: string): Promise<void>;
   checkHealth(): Promise<void>;
+  /** Rediscovers this project's environments and stack output from the Pulumi state on disk. */
+  syncProject(): Promise<void>;
   loadTemplate(templateId: string): void;
   deleteTemplate(templateId: string): Promise<void>;
   pullTenants(): Promise<void>;

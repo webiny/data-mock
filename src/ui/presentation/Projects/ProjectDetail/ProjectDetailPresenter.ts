@@ -5,6 +5,8 @@ import type {
   IProjectDetailVM,
   IEditProjectInput,
   IMergedFileVM,
+  IStackVM,
+  ISystemInfoSectionVM,
 } from "./abstractions/ProjectDetailPresenter.js";
 import { LoadProjectDetailUseCase } from "./useCases/LoadProjectDetail/abstractions/LoadProjectDetailUseCase.js";
 import { DeleteTemplateUseCase } from "./useCases/DeleteTemplate/abstractions/DeleteTemplateUseCase.js";
@@ -22,7 +24,18 @@ import { FilesRepository } from "~/ui/features/files/abstractions/FilesRepositor
 import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
 import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
 import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
-import type { EnvironmentRef, ProjectEnvironment, ProjectFile } from "~/shared/types.js";
+import type {
+  EnvironmentRef,
+  ProjectEnvironment,
+  ProjectFile,
+  ProjectStack,
+} from "~/shared/types.js";
+import {
+  deriveCmsEndpoints,
+  resolveAdminOutputs,
+  resolveApiOutputs,
+  resolveCoreOutputs,
+} from "~/shared/stackOutput/stackOutputKeyMap.js";
 import { getStackName } from "~/shared/environments/index.js";
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
 import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
@@ -43,6 +56,8 @@ import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import { JobsRepository } from "~/ui/features/jobs/abstractions/JobsRepository.js";
 
 const VIEW_DATASETS: Record<string, string[]> = {
+  environments: ["stacks"],
+  system: ["stacks"],
   tenants: ["tenants"],
   models: ["models"],
   files: ["files"],
@@ -65,7 +80,28 @@ const JOB_TYPE_DATASETS: Record<string, string[]> = {
   cleanup: ["entries", "jobs"],
   import: ["entries", "jobs"],
   "upload-files": ["files", "syncLogs", "jobs"],
+  // A sync rewrites the environment list itself, not just the stacks hanging off it.
+  "sync-system": ["environments", "stacks", "jobs"],
 };
+
+const STACK_STATE_LABELS: Record<string, string> = {
+  deployed: "Deployed",
+  "not-deployed": "Not deployed",
+  unknown: "Could not read",
+};
+
+function toStackVM(stack: ProjectStack): IStackVM {
+  return {
+    app: stack.app,
+    deployed: stack.deployed,
+    // An unreadable stack has no count. Showing 0 would claim it is empty.
+    resourceCount: stack.readState === "unknown" ? null : stack.resourceCount,
+    readState: stack.readState,
+    stateLabel: STACK_STATE_LABELS[stack.readState] ?? stack.readState,
+    syncedAt: stack.syncedAt,
+    rawOutput: stack.stackOutput === null ? null : JSON.stringify(stack.stackOutput, null, 2),
+  };
+}
 
 function toEnvironmentVM(environment: ProjectEnvironment): IEnvironmentVM {
   return {
@@ -91,6 +127,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _envName: string | null = null;
   private _environmentError: string | null = null;
   private _isLoading = false;
+  private _isSyncing = false;
   private _isSyncingTenants = false;
   private _isSyncingModels = false;
   private _isImporting = false;
@@ -225,6 +262,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       ? this.syncLogsRepository.getLogsByEnvironmentId(environmentId)
       : [];
 
+    const stackRows = environmentId ? this.environmentsRepository.getStacks(environmentId) : [];
+    const stacks = stackRows.map(toStackVM);
+
     return {
       project: project
         ? {
@@ -232,12 +272,20 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
             name: project.name,
             rootPath: project.rootPath,
             webinyVersion: project.webinyVersion,
+            versionMajor: project.versionMajor,
             operationsVersion: project.operationsVersion,
             createdAt: project.createdAt,
           }
         : null,
       environments: environmentVMs,
       currentEnvironment: currentEnvironmentVM,
+      stacks,
+      systemInfo: this.buildSystemInfo(
+        stackRows,
+        currentEnvironmentVM,
+        project?.versionMajor ?? null,
+      ),
+      systemInfoNotice: this.systemInfoNotice(stackRows, currentEnvironmentVM),
       showEnvironmentSelector: environmentVMs.length > 1,
       environmentError: this._environmentError,
       tenants: tenants.map((t) => ({
@@ -318,6 +366,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       projectHealth: this._projectHealth,
       projectHealthError: this._projectHealthError,
       isLoading: this._isLoading,
+      isSyncing: this._isSyncing,
       isSyncingTenants: this._isSyncingTenants,
       isSyncingModels: this._isSyncingModels,
       isImporting: this._isImporting,
@@ -430,6 +479,27 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       this._projectHealth = result.value.reachable ? "reachable" : "unreachable";
       this._projectHealthError = result.value.error;
     });
+  };
+
+  public syncProject = async (): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    this._isSyncing = true;
+    try {
+      const result = await this.environmentsGateway.sync(projectId);
+      if (result.isOk()) {
+        this.notifications.success("Sync started.");
+      } else {
+        this.notifications.error(`Failed to start sync: ${result.error.message}`);
+      }
+    } finally {
+      runInAction(() => {
+        this._isSyncing = false;
+      });
+    }
   };
 
   public activateView = async (view: string): Promise<void> => {
@@ -887,6 +957,74 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this.disposeJobSubscription();
   };
 
+  /**
+   * The infrastructure facts worth surfacing, resolved from the raw Pulumi output through the
+   * per-major key map. Absent keys are omitted rather than rendered blank: a DynamoDB-only project
+   * has no search keys at all, and VPC keys appear only when VPC is enabled.
+   */
+  private buildSystemInfo(
+    stacks: ProjectStack[],
+    environment: IEnvironmentVM | null,
+    versionMajor: number | null,
+  ): ISystemInfoSectionVM[] {
+    if (environment === null || versionMajor === null) {
+      return [];
+    }
+
+    const sections: ISystemInfoSectionVM[] = [];
+
+    const core = this.rawOutput(stacks, "core");
+    const api = this.rawOutput(stacks, "api");
+    const admin = this.rawOutput(stacks, "admin");
+
+    const apiItems = resolveApiOutputs(api, versionMajor);
+    if (environment.apiUrl !== null) {
+      // CMS endpoints are derived from the base URL, never stored — operations append their own
+      // path, so persisting them would duplicate the base and drift from it.
+      apiItems.push(...deriveCmsEndpoints(environment.apiUrl));
+    }
+
+    if (apiItems.length > 0) {
+      sections.push({ title: "API", items: apiItems });
+    }
+
+    const adminItems = resolveAdminOutputs(admin, versionMajor);
+    if (adminItems.length > 0) {
+      sections.push({ title: "Admin", items: adminItems });
+    }
+
+    const coreItems = resolveCoreOutputs(core, versionMajor);
+    if (coreItems.length > 0) {
+      sections.push({ title: "Core", items: coreItems });
+    }
+
+    return sections;
+  }
+
+  /** Says why the panel is empty. An empty panel with no explanation reads as a broken page. */
+  private systemInfoNotice(
+    stacks: ProjectStack[],
+    environment: IEnvironmentVM | null,
+  ): string | null {
+    if (environment === null) {
+      return "No environment selected.";
+    }
+    if (stacks.length === 0) {
+      return "This environment has never been synced. Run a sync to read its stack output.";
+    }
+    if (stacks.every((stack) => stack.readState === "unknown")) {
+      return "None of this environment's stacks could be read. Their last known output is kept.";
+    }
+    if (!environment.deployed) {
+      return "This environment is not deployed, so it has no infrastructure to report.";
+    }
+    return null;
+  }
+
+  private rawOutput(stacks: ProjectStack[], app: string): Record<string, unknown> | null {
+    return stacks.find((candidate) => candidate.app === app)?.stackOutput ?? null;
+  }
+
   private handleJobStatus = (event: WSJobStatus): void => {
     if (!this._projectId || event.projectId !== this._projectId) {
       return;
@@ -1000,6 +1138,28 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         runInAction(() => {
           if (result.isOk()) {
             this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "stacks": {
+        const result = await this.environmentsGateway.listStacks(ref.projectId, ref.environmentId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.environmentsRepository.setStacks(ref.environmentId, result.value);
+          }
+          this._loadedDatasets.add(dataset);
+        });
+        break;
+      }
+      case "environments": {
+        // A sync can add, remove or redeploy environments, so the list itself is reloaded — not
+        // just the stacks hanging off the one currently selected.
+        const result = await this.environmentsGateway.listForProject(ref.projectId);
+        runInAction(() => {
+          if (result.isOk()) {
+            this.environmentsRepository.setEnvironments(ref.projectId, result.value);
           }
           this._loadedDatasets.add(dataset);
         });

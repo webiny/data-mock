@@ -8,7 +8,7 @@ import { UpsertStackRepository } from "~/shared/node/features/environments/stack
 import { WebinyProjectDetector } from "../detect/abstractions/WebinyProjectDetector.js";
 import { PulumiCheckpointReader } from "../checkpoint/abstractions/PulumiCheckpointReader.js";
 import { SyncSystemService as Abstraction } from "./abstractions/SyncSystemService.js";
-import { readAdminUrl, readApiUrl, readRegion } from "../stackOutput/stackOutputKeyMap.js";
+import { readAdminUrl, readApiUrl, readRegion } from "~/shared/stackOutput/stackOutputKeyMap.js";
 import { ValidationError } from "~/shared/errors.js";
 import { getStackName } from "~/shared/environments/index.js";
 import type { ProjectEnvironment, SyncStatus } from "~/shared/types.js";
