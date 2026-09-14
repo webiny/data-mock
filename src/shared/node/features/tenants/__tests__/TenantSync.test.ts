@@ -96,7 +96,7 @@ describe("Tenant Sync", () => {
       }
     });
 
-    it("should return error for non-existent project", async () => {
+    it("should return error for a non-existent environment", async () => {
       const tc = createTestContainer();
 
       try {
@@ -105,7 +105,7 @@ describe("Tenant Sync", () => {
 
         expect(result.isFail()).toBe(true);
         if (result.isFail()) {
-          expect(result.error.code).toBe("Project/NotFound");
+          expect(result.error.code).toBe("Environment/NotFound");
         }
       } finally {
         tc.cleanup();

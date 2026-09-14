@@ -52,13 +52,40 @@ function listArticlesResponse(input: {
   };
 }
 
+/**
+ * Creates a project plus the one model these tests import into. The model is environment-scoped,
+ * so it is synced against the environment createTestProject returns.
+ */
+async function setupImportProject(tc: ReturnType<typeof createTestContainer>) {
+  const project = await createTestProject(tc, { name: "Import Project" });
+
+  const syncModels = tc.container.resolve(SyncProjectModelsRepository);
+  await syncModels.execute({
+    projectId: project.projectId,
+    environmentId: project.environmentId,
+    models: [
+      {
+        groupSlug: "blog",
+        modelId: "article",
+        name: "Article",
+        singularApiName: "Article",
+        pluralApiName: "Articles",
+        fields: [textField],
+        remoteId: "m1",
+      },
+    ],
+  });
+
+  return project;
+}
+
 describe("ImportEntriesService", () => {
   it("should import entries for a single page and store them as imported seed entries", async () => {
     const mockHttpClient = createMockHttpClient();
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await createTestProject(tc);
+      const project = await setupImportProject(tc);
 
       vi.mocked(mockHttpClient.post).mockReset();
       vi.mocked(mockHttpClient.post).mockResolvedValue(
@@ -115,7 +142,7 @@ describe("ImportEntriesService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await createTestProject(tc);
+      const project = await setupImportProject(tc);
 
       vi.mocked(mockHttpClient.post).mockReset();
       vi.mocked(mockHttpClient.post)
@@ -164,7 +191,7 @@ describe("ImportEntriesService", () => {
     }
   });
 
-  it("should return ProjectNotFoundError for a non-existent project", async () => {
+  it("should return EnvironmentNotFoundError for a non-existent environment", async () => {
     const tc = createTestContainer();
     try {
       const service = tc.container.resolve(ImportEntriesService);
@@ -176,7 +203,7 @@ describe("ImportEntriesService", () => {
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
-        expect(result.error.code).toBe("Project/NotFound");
+        expect(result.error.code).toBe("Environment/NotFound");
       }
     } finally {
       tc.cleanup();
@@ -186,7 +213,7 @@ describe("ImportEntriesService", () => {
   it("should return an error when a model is not found locally", async () => {
     const tc = createTestContainer();
     try {
-      const project = await createTestProject(tc);
+      const project = await setupImportProject(tc);
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
@@ -197,7 +224,7 @@ describe("ImportEntriesService", () => {
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
-        expect(result.error.code).toBe("Project/NotFound");
+        expect(result.error.code).toBe("Environment/NotFound");
       }
     } finally {
       tc.cleanup();
@@ -220,7 +247,7 @@ describe("ImportEntriesService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await createTestProject(tc);
+      const project = await setupImportProject(tc);
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({
@@ -247,7 +274,7 @@ describe("ImportEntriesService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await createTestProject(tc);
+      const project = await setupImportProject(tc);
       const service = tc.container.resolve(ImportEntriesService);
 
       const result = await service.execute({

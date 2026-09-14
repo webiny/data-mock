@@ -301,6 +301,7 @@ describe("Jobs API routes", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let app: FastifyInstance;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -317,7 +318,13 @@ describe("Jobs API routes", () => {
         tenant: "root",
       },
     });
-    projectId = createResponse.json().project.projectId;
+    projectId = createResponse.json().project.id;
+
+    const environmentsResponse = await app.inject({
+      method: "GET",
+      url: `/api/projects/${projectId}/environments`,
+    });
+    environmentId = environmentsResponse.json().environments.items[0].id;
   });
 
   afterEach(async () => {
@@ -332,6 +339,7 @@ describe("Jobs API routes", () => {
         url: `/api/projects/${projectId}/jobs`,
         payload: {
           type: "pull-tenants",
+          config: { environmentId },
         },
       });
 
@@ -417,12 +425,12 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "seed" },
+        payload: { type: "seed", config: { environmentId } },
       });
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "cleanup" },
+        payload: { type: "cleanup", config: { environmentId } },
       });
 
       const response = await app.inject({
@@ -439,7 +447,7 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "seed" },
+        payload: { type: "seed", config: { environmentId } },
       });
 
       const response = await app.inject({
@@ -461,12 +469,12 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "pull-tenants" },
+        payload: { type: "pull-tenants", config: { environmentId } },
       });
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "pull-models" },
+        payload: { type: "pull-models", config: { environmentId } },
       });
 
       const response = await app.inject({
@@ -486,7 +494,7 @@ describe("Jobs API routes", () => {
       const createResponse = await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "cleanup" },
+        payload: { type: "cleanup", config: { environmentId } },
       });
       const jobId = createResponse.json().job.id;
 
@@ -516,7 +524,7 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "seed" },
+        payload: { type: "seed", config: { environmentId } },
       });
 
       const worker = tc.container.resolve(JobWorker);

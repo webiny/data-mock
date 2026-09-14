@@ -37,8 +37,8 @@ describe("Project API routes", () => {
       const body = response.json();
       expect(body.project).toBeDefined();
       expect(body.project.name).toBe("Test Project");
-      expect(body.project.apiUrl).toBe("https://api.example.com");
-      expect(body.project.tenant).toBe("root");
+      expect(body.project.name).toBeDefined();
+      expect(body.project.operationsVersion).toBe("6.0.0");
       expect(body.project.id).toBeDefined();
     });
 
