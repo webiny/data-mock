@@ -5,6 +5,7 @@ import type { SyncLogPersistenceError } from "~/shared/errors.js";
 
 export interface ICreateSyncLogRepositoryInput {
   projectId: string;
+  environmentId: string;
   type: SyncLogType;
   status: SyncLogStatus;
   message: string;

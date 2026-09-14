@@ -24,6 +24,7 @@ function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
   return {
     id: row.id,
     projectId: row.projectId,
+    environmentId: row.environmentId,
     type: row.type as JobType,
     status: row.status as JobStatus,
     config: row.config,
@@ -47,6 +48,9 @@ export class JobQueryHelper {
 
   public async listJobs(input: JobWorker.ListJobsInput): Promise<JobWorker.ListJobsOutput> {
     const conditions: SQL[] = [];
+    if (input.environmentId !== undefined) {
+      conditions.push(eq(jobs.environmentId, input.environmentId));
+    }
     if (input.projectId !== undefined) {
       conditions.push(eq(jobs.projectId, input.projectId));
     }

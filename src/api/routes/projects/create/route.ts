@@ -10,5 +10,5 @@ export const createProject = routeFactory(createProjectRoute, async ({ body, con
     return send.error(result.error);
   }
 
-  return send.one("project", result.value, 201);
+  return send.one("project", result.value.project, 201);
 });

@@ -11,19 +11,19 @@ class SeedJobExecutorImpl implements Abstraction.Interface {
     if (!context.configJson) {
       throw new Error("Seed job requires config");
     }
-    if (!context.projectId) {
-      throw new Error("Seed job requires a projectId");
+    if (!context.environmentId) {
+      throw new Error("Seed job requires an environmentId");
     }
-    const projectId = context.projectId;
+    const environmentId = context.environmentId;
     const config = JSON.parse(context.configJson) as SeedService.Input;
-    context.appendLog(`Starting seed for project ${projectId}`);
+    context.appendLog(`Starting seed for project ${environmentId}`);
     context.appendLog(
       `Models: ${config.models.map((m) => `${m.modelId}(${m.amount})`).join(", ")}`,
     );
 
     const result = await this.seedService.execute({
       ...config,
-      projectId,
+      environmentId,
       signal: context.signal,
       onProgress: (percent, label) => context.setProgress({ percent, label }),
     });

@@ -4,6 +4,7 @@ import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
 export interface IJob {
   id: string;
   projectId: string | null;
+  environmentId: string | null;
   type: JobType;
   status: JobStatus;
   config: string | null;
@@ -18,6 +19,11 @@ export interface IJob {
 
 export interface ICreateJobInput {
   projectId: string | null;
+  /**
+   * Jobs have three scopes: global (neither id), project (projectId only, e.g. sync-system) and
+   * environment (both, e.g. seed/deploy/destroy).
+   */
+  environmentId?: string;
   type: JobType;
   config?: Record<string, unknown>;
   parentJobId?: string;
@@ -25,6 +31,7 @@ export interface ICreateJobInput {
 
 export interface IListJobsInput {
   projectId?: string;
+  environmentId?: string;
   status?: string;
   type?: string;
   limit?: number;

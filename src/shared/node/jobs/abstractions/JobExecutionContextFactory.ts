@@ -12,6 +12,7 @@ export interface IJobExecutionContext {
 export interface IJobExecutionContextFactoryInput {
   jobId: string;
   projectId: string | null;
+  environmentId: string | null;
 }
 
 export interface IJobExecutionContextFactory {

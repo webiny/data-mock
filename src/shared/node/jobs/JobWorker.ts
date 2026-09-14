@@ -39,6 +39,7 @@ class JobWorkerImpl implements Abstraction.Interface {
       .values({
         id,
         projectId: input.projectId,
+        environmentId: input.environmentId ?? null,
         type: input.type,
         status: "pending",
         config: input.config ? JSON.stringify(input.config) : null,
@@ -115,6 +116,7 @@ class JobWorkerImpl implements Abstraction.Interface {
     const context = this.executionContextFactory.create({
       jobId: job.id,
       projectId: job.projectId,
+      environmentId: job.environmentId,
     });
 
     try {
@@ -122,6 +124,7 @@ class JobWorkerImpl implements Abstraction.Interface {
       await executor.execute({
         jobId: job.id,
         projectId: job.projectId,
+        environmentId: job.environmentId,
         configJson: job.config,
         appendLog: context.appendLog,
         setProgress: context.setProgress,
