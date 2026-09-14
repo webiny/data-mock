@@ -57,6 +57,8 @@ src/
 │       │   └── createTestContainer.ts  # Fully-wired DI container for tests
 │       └── features/
 │           ├── projects/               # CRUD (create/get/list/remove — 1 use case + 1 repo each)
+│           ├── environments/           # Environment CRUD + stacks + EnvironmentContextService
+│           ├── webinyCli/              # Project detection, Pulumi checkpoint reading, sync
 │           ├── tenants/                # Sync + list + verify access
 │           ├── models/                 # Sync + list + get + push + compare
 │           ├── seeding/                # Seed service + job CRUD + entry audit log + dependency resolver
@@ -103,20 +105,37 @@ src/
 
 ---
 
-## Database Schema (10 tables)
+## Database Schema (13 tables)
+
+A **project** is a Webiny system — a checkout on disk (`root_path`), or a remote-only connection.
+An **environment** is one Pulumi stack name (`dev`, `dev___blue`) within it. Everything that
+belongs to a running Webiny instance hangs off the environment, not the project.
 
 | Table | Key columns | Purpose |
 |---|---|---|
-| `projects` | id, name, api_url, api_token (encrypted), tenant, webiny_version | Project connections |
-| `project_tenants` | project_id FK, tenant_id, name | Discovered tenants per project |
-| `project_groups` | project_id FK, slug, name, remote_id | CMS content model groups |
-| `project_models` | project_id FK, model_id, singular_api_name, plural_api_name, group_slug, plugin, fields (JSON) | CMS models + field definitions + API names + plugin flag from Webiny |
-| `jobs` | project_id FK (nullable), type, status, config (JSON), logs, progress, progress_label, parent_job_id | Background job execution (seed, pull-tenants, pull-models, cleanup, import, pull-picsum). project_id is nullable for global jobs (e.g. picsum pull). |
-| `seed_jobs` | project_id FK, status, config (JSON), result (JSON) | Legacy seeding job tracking |
-| `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations |
-| `seed_entries` | job_id FK (nullable), project_id FK, tenant, model_id, entry_data (JSON), request_data (JSON), response_data (raw), status | Per-entry audit log with full request/response |
-| `project_files` | project_id FK, tenant, file_key, file_url, file_type | Uploaded file references |
-| `sync_logs` | project_id FK, type, status, message, request (JSON), response (JSON) | Sync operation logs with GraphQL request + response stored separately |
+| `projects` | id, name, root_path, webiny_version, version_source, version_major, operations_version, pulumi_backend, aws_profile, aws_region, last_synced_at, last_sync_status | A Webiny system. `webiny_version` is detected and display-only (null for a framework workspace root); `operations_version` is NOT NULL and drives the GraphQL operation registry. |
+| `project_environments` | project_id FK, env, variant, region, deployed, api_url, admin_url, api_token (encrypted), tenant, last_synced_at | One Pulumi stack name. `variant` is `""` not NULL — SQLite treats NULLs as distinct in unique indexes. `deployed` means any app is deployed; `api_url` is null when the api app is not. |
+| `project_stacks` | environment_id FK, app, deployed, resource_count, stack_output (JSON), read_state, synced_at | Per-app Pulumi state. `read_state` is `deployed` / `not-deployed` / `unknown`; an unknown read never overwrites a stored `stack_output`. |
+| `scan_roots` | path | Directories scanned for Webiny projects |
+| `project_tenants` | project_id FK, environment_id FK, tenant_id, name | Discovered tenants per environment |
+| `project_groups` | project_id FK, environment_id FK, slug, name, remote_id | CMS content model groups |
+| `project_models` | project_id FK, environment_id FK, model_id, singular_api_name, plural_api_name, group_slug, plugin, fields (JSON) | CMS models + field definitions |
+| `jobs` | project_id FK (nullable), environment_id FK (nullable), type, status, config (JSON), logs, progress, progress_label, parent_job_id | Background jobs in three scopes: global (neither id, e.g. pull-picsum), project (project only, e.g. sync-system) and environment (both, e.g. seed). |
+| `seed_jobs` | project_id FK, environment_id FK, status, config (JSON), result (JSON) | Legacy seeding job tracking |
+| `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations — project-scoped on purpose, so one config is reusable across environments |
+| `seed_entries` | job_id FK (nullable), project_id FK, environment_id FK, tenant, model_id, entry_data (JSON), request_data (JSON), response_data (raw), status | Per-entry audit log with full request/response |
+| `project_files` | project_id FK, environment_id FK, tenant, file_key, file_url, file_type | Uploaded file references |
+| `sync_logs` | project_id FK, environment_id FK, type, status, message, request (JSON), response (JSON) | Sync operation logs |
+
+Env-scoped tables keep `project_id` alongside `environment_id`. It is derivable through the join,
+but reads must narrow on `environment_id`: an un-narrowed `eq(x.projectId, …)` compiles cleanly and
+silently returns rows merged across every environment. Writes carry both — the project owns the
+row, the environment scopes it.
+
+> **Known risk:** every child table cascades from both `projects` and `project_environments`, so
+> deleting either destroys its seed entries, sync logs, job history, models, tenants and files.
+> See the handoff notes — this needs a soft-delete or detach strategy before deletion is exposed
+> in the UI.
 
 ---
 
@@ -135,9 +154,13 @@ src/
 
 ---
 
-## API Routes (36)
+## API Routes (43)
 
-All long-running operations (seed, pull-tenants, pull-models, import, cleanup, pull-picsum) return a `Job` object with HTTP 202 — work runs in the background. Progress is pushed via WebSocket. All list endpoints support server-side pagination (`page`, `limit`), ordering (`sortField`, `sortDir`), and endpoint-specific filtering via query params.
+Environment-scoped routes live under `/api/projects/:projectId/environments/:environmentId/*`.
+Project-scoped routes (jobs, templates, sync) and the four global file routes stay where they are.
+
+All long-running operations (seed, pull-tenants, pull-models, import, cleanup, pull-picsum,
+sync-system) return a `Job` object with HTTP 202 — work runs in the background. Progress is pushed via WebSocket. All list endpoints support server-side pagination (`page`, `limit`), ordering (`sortField`, `sortDir`), and endpoint-specific filtering via query params.
 
 ### Projects
 | Method | Path | Purpose |
@@ -148,6 +171,18 @@ All long-running operations (seed, pull-tenants, pull-models, import, cleanup, p
 | PUT | `/api/projects/:id` | Update project (partial, at least one field) |
 | DELETE | `/api/projects/:id` | Remove project |
 | POST | `/api/projects/:id/health` | Check if project's Webiny API is reachable |
+
+### Environments
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/projects/:projectId/environments` | List environments |
+| POST | `/api/projects/:projectId/environments` | Add one manually (for remote Pulumi backends) |
+| GET | `/api/projects/:projectId/environments/:environmentId` | Get one |
+| PUT | `/api/projects/:projectId/environments/:environmentId` | Update connection details |
+| DELETE | `/api/projects/:projectId/environments/:environmentId` | Remove |
+| GET | `/api/projects/:projectId/environments/:environmentId/stacks` | Per-app Pulumi state |
+| POST | `/api/projects/:projectId/environments/:environmentId/health` | Is this environment's API reachable |
+| POST | `/api/projects/:projectId/sync` | Sync version, environments and stack output from disk |
 
 ### Tenants
 | Method | Path | Purpose |
@@ -225,9 +260,15 @@ All long-running operations (seed, pull-tenants, pull-models, import, cleanup, p
 |---|---|---|
 | `/` | Project list | Contained |
 | `/files` | Global file manager (drag-drop, picsum, thumbnails) | Contained |
-| `/projects/:projectId/*` | Project detail shell (sidebar + content) | Full width |
+| `/projects/:projectId/env/:envName/*` | Project detail shell, explicit environment | Full width |
+| `/projects/:projectId/*` | Same shell, resolves to the first environment | Full width |
 
-The project detail route uses a `/*` wildcard — `subPath` determines the active view:
+`envName` is the Pulumi **stack name** (`dev`, `dev___blue`), not an id — generated ids break every
+bookmark when the database is recreated. The environment route is registered **first**, because
+`RouteRegistry` is first-match-wins and `/projects/:projectId/*` would otherwise swallow
+`env/dev/models` as a subPath.
+
+The detail route uses a `/*` wildcard — `subPath` determines the active view:
 
 | Sub-path | View |
 |---|---|
@@ -245,7 +286,8 @@ The project detail route uses a `/*` wildcard — `subPath` determines the activ
 | `seed` | Seed Config (embedded, group accordion) |
 | `import` | Import Entries |
 
-URL is the source of truth for tab selection — no presenter state for active tab.
+URL is the source of truth for tab selection and for the selected environment — no presenter state
+for either. The environment selector renders only when a project has more than one environment.
 
 Sidebar sections: **Data** (7 tabs, Templates hidden), **Pull** (3 tabs), **Actions** (Seed Data, Import, Cleanup, Edit Project).
 
@@ -337,6 +379,9 @@ export const ProjectsFeature = createFeature({
 
 ## Seeding Behavior
 
+- **Environment-scoped**: seeding targets one environment. An environment whose `api` app is not
+  deployed has no `api_url` and cannot be seeded — `EnvironmentContextService` fails it with
+  `EnvironmentNotConnectedError` (409) rather than dereferencing null
 - **Ref field shape**: `{ modelId, id }` only — never send `entryId` in mutation input variables
 - **Dependency ordering**: models are topologically sorted by ref dependencies before seeding — referenced models seed first
 - **Available refs**: before seeding, all existing entries (both `created` and `imported`) are preloaded into the `availableRefs` map so ref generators can pick from them
@@ -421,7 +466,7 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **356 tests** across 32 files (vitest)
+- **369 tests** across 33 files (vitest)
 - **Coverage**: v8 provider, ~53% statements, ~37% branches, ~56% functions. Thresholds enforced via `vitest.config.ts`.
 - **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.
@@ -431,7 +476,7 @@ export const ProjectsFeature = createFeature({
 
 ---
 
-## Architecture Decision Records (19)
+## Architecture Decision Records (21)
 
 | # | Title | Status |
 |---|---|---|
@@ -454,6 +499,8 @@ export const ProjectsFeature = createFeature({
 | 017 | Project Detail Page | Implemented |
 | 018 | File Uploads | Implemented |
 | 019 | Seed Data Audit Log | Implemented |
+| 020 | Environments as First-Class Scope | Implemented |
+| 021 | Read Pulumi State, Not the CLI | Implemented |
 
 ---
 
