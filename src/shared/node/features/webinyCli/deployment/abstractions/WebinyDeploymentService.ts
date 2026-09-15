@@ -20,6 +20,8 @@ export interface IWebinyDeploymentInput {
   preview?: boolean | undefined;
   onLine?: ((line: string) => void) | undefined;
   signal?: AbortSignal | undefined;
+  /** The job this run belongs to. Recorded alongside the child process, for diagnostics. */
+  jobId?: string | null | undefined;
 }
 
 export interface IWebinyDeploymentOutput {

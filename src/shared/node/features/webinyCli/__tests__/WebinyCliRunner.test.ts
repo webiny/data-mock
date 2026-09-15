@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
+import { childProcesses } from "~/shared/node/db/schema.js";
+import { isAlive } from "~/shared/node/features/childProcesses/processGroup.js";
 import { WebinyCliRunner } from "../runner/abstractions/WebinyCliRunner.js";
 import { buildChildEnv } from "../runner/buildChildEnv.js";
 import { parseJsonOutput } from "../runner/parseJsonOutput.js";
@@ -455,6 +457,48 @@ describe("WebinyCliRunner", () => {
     }
   });
 
+  it("kills the child's whole process group, not only the child", async () => {
+    // The webiny binary is a launcher. What holds the stack is pulumi, spawned underneath it, so a
+    // cancel that signals only the recorded pid lets the deploy carry on unwatched.
+    installFakeBinary(`
+      const { spawn } = require("node:child_process");
+      const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+      console.log("grandchild " + child.pid);
+      setInterval(() => {}, 1000);
+    `);
+
+    const controller = new AbortController();
+    const runner = tc.container.resolve(WebinyCliRunner);
+
+    let grandchildPid = 0;
+    const promise = runner.execute({
+      rootPath: tmp,
+      args: ["deploy", "api"],
+      signal: controller.signal,
+      onLine: (line) => {
+        if (line.startsWith("grandchild ")) {
+          grandchildPid = Number(line.slice("grandchild ".length));
+          controller.abort();
+        }
+      },
+    });
+
+    await promise;
+
+    expect(grandchildPid).toBeGreaterThan(0);
+    expect(await hasExited(grandchildPid)).toBe(true);
+  });
+
+  it("records the child while it runs and forgets it when it exits", async () => {
+    installFakeBinary(`console.log("done");`);
+
+    const runner = tc.container.resolve(WebinyCliRunner);
+    await runner.execute({ rootPath: tmp, args: ["output", "api"], jobId: "job-1" });
+
+    // Left behind, the row would make the next boot hunt for a process that is long gone.
+    expect(tc.databaseClient.db.select().from(childProcesses).all()).toEqual([]);
+  });
+
   it("fails cleanly when the checkout is not a directory", async () => {
     const runner = tc.container.resolve(WebinyCliRunner);
     const result = await runner.execute({ rootPath: path.join(tmp, "missing"), args: ["deploy"] });
@@ -462,3 +506,14 @@ describe("WebinyCliRunner", () => {
     expect(result.isFail()).toBe(true);
   });
 });
+
+async function hasExited(pid: number, timeoutMs = 5000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!isAlive(pid)) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return false;
+}

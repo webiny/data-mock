@@ -15,6 +15,13 @@
       "when": 1789419012917,
       "tag": "0001_nice_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789454261744,
+      "tag": "0002_youthful_purple_man",
+      "breakpoints": true
     }
   ]
 }

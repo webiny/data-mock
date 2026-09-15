@@ -4,6 +4,8 @@ import path from "node:path";
 import { Result, Logger } from "@webiny/stdlib";
 import { WebinyCliRunner as Abstraction } from "./abstractions/WebinyCliRunner.js";
 import { ValidationError, WebinyCliError } from "~/shared/errors.js";
+import { ChildProcessTracker } from "~/shared/node/features/childProcesses/abstractions/ChildProcessTracker.js";
+import { signalProcessGroup } from "~/shared/node/features/childProcesses/processGroup.js";
 import { buildChildEnv } from "./buildChildEnv.js";
 import { stripAnsi } from "./stripAnsi.js";
 
@@ -20,7 +22,10 @@ const ERROR_TAIL_LINES = 40;
  * surface differs between majors, so the only correct binary is the one already installed there.
  */
 class WebinyCliRunnerImpl implements Abstraction.Interface {
-  public constructor(private readonly logger: Logger.Interface) {}
+  public constructor(
+    private readonly logger: Logger.Interface,
+    private readonly childProcessTracker: ChildProcessTracker.Interface,
+  ) {}
 
   public async execute(
     input: Abstraction.Input,
@@ -64,7 +69,28 @@ class WebinyCliRunnerImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     return new Promise((resolve) => {
-      const child = spawn(command.file, command.args, { cwd, env });
+      /**
+       * `detached` gives the child its own process group, which is what makes it killable.
+       * `webiny` is a launcher: the run that holds the stack is pulumi, several processes below
+       * it. Signalling the pid alone leaves those running, so cancel looks like it worked while
+       * the deploy carries on. Owning the group means one signal reaches all of them.
+       *
+       * The cost is that the child no longer dies with the server, which is why it is recorded in
+       * the tracker: whatever this process cannot clean up on the way out, the next boot reaps.
+       */
+      const child = spawn(command.file, command.args, { cwd, env, detached: true });
+
+      const pid = child.pid;
+      const trackerHandle =
+        pid === undefined
+          ? null
+          : this.childProcessTracker.register({
+              pid,
+              jobId: input.jobId,
+              file: command.file,
+              args: command.args,
+              cwd,
+            });
 
       const stdoutChunks: string[] = [];
       const stderrChunks: string[] = [];
@@ -99,8 +125,14 @@ class WebinyCliRunnerImpl implements Abstraction.Interface {
        * its stack lock behind, which blocks the next deploy of that stack.
        */
       const onAbort = (): void => {
-        child.kill("SIGTERM");
-        killTimer = setTimeout(() => child.kill("SIGKILL"), KILL_GRACE_MS);
+        if (pid === undefined) {
+          child.kill("SIGTERM");
+          killTimer = setTimeout(() => child.kill("SIGKILL"), KILL_GRACE_MS);
+          return;
+        }
+
+        signalProcessGroup(pid, "SIGTERM");
+        killTimer = setTimeout(() => signalProcessGroup(pid, "SIGKILL"), KILL_GRACE_MS);
       };
 
       if (input.signal) {
@@ -116,6 +148,9 @@ class WebinyCliRunnerImpl implements Abstraction.Interface {
           clearTimeout(killTimer);
         }
         input.signal?.removeEventListener("abort", onAbort);
+        if (trackerHandle !== null) {
+          this.childProcessTracker.unregister(trackerHandle);
+        }
       };
 
       const settle = (result: Result<Abstraction.Output, Abstraction.Error>): void => {
@@ -202,5 +237,5 @@ function createLineReader(onLine: (line: string) => void): {
 
 export const WebinyCliRunner = Abstraction.createImplementation({
   implementation: WebinyCliRunnerImpl,
-  dependencies: [Logger],
+  dependencies: [Logger, ChildProcessTracker],
 });

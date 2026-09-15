@@ -9,6 +9,7 @@ import { createServer } from "./server.js";
 import { registerApiRoutes } from "./routes/index.js";
 import { JobWorker } from "~/shared/node/jobs/abstractions/JobWorker.js";
 import { SyncScheduler } from "~/shared/node/features/webinyCli/schedule/abstractions/SyncScheduler.js";
+import { ChildProcessTracker } from "~/shared/node/features/childProcesses/abstractions/ChildProcessTracker.js";
 
 const PORT = Number(process.env.API_PORT ?? 4000);
 const HOST = "127.0.0.1";
@@ -36,6 +37,19 @@ await app.register(websocketRoutes, { container });
 
 const jobWorker = container.resolve(JobWorker);
 const logger = container.resolve(Logger);
+
+/**
+ * Kill before marking. A `webiny deploy` outlives the server that started it — the child has its
+ * own process group — so a restart mid-deploy leaves pulumi running against the stack while the
+ * job row says nothing is happening. Reaping first means the row is accurate by the time it is
+ * written, and no unowned process is still writing to a stack this server is about to report on.
+ */
+const childProcessTracker = container.resolve(ChildProcessTracker);
+const reaped = await childProcessTracker.reapOrphans();
+if (reaped.killed > 0) {
+  logger.warn(`Killed ${reaped.killed} orphaned child process(es) left by a previous run.`);
+}
+
 await jobWorker.recoverStaleJobs();
 
 const pollTimer = setInterval(() => {
@@ -69,6 +83,11 @@ const shutdown = async (): Promise<void> => {
   clearInterval(pollTimer);
   clearTimeout(bootSyncTimer);
   clearInterval(syncTimer);
+  /**
+   * Terminate before draining. The children are detached, so they no longer die with this process,
+   * and a running deploy would hold `drain()` for the tens of minutes it takes to finish.
+   */
+  await childProcessTracker.terminateAll();
   await jobWorker.drain();
   await app.close();
   process.exit(0);

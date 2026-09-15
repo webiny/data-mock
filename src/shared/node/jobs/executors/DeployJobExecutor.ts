@@ -33,6 +33,7 @@ class DeployJobExecutorImpl implements Abstraction.Interface {
       // Forwarded so cancelling the job kills the child rather than orphaning a 20-minute pulumi
       // run that keeps writing to the stack.
       signal: context.signal,
+      jobId: context.jobId,
     });
 
     if (result.isFail()) {

@@ -284,3 +284,32 @@ export const seedEntries = sqliteTable("seed_entries", {
   error: text("error"),
   createdAt: integer("created_at").notNull(),
 });
+
+/**
+ * Child processes this server has spawned, one row per live child, written at spawn and deleted
+ * when the child exits.
+ *
+ * The table exists so that a child outlives the server that owns it only until the next boot. A
+ * `webiny deploy` runs for tens of minutes; if the server is killed in the middle, the in-memory
+ * `AbortController` goes with it and nothing is left to stop a pulumi run that keeps writing to
+ * the stack. The row is the handle that survives.
+ *
+ * `command`, `cwd` and `startedAt` are recorded so the reaper can tell our child from an unrelated
+ * process that has since been given the same pid. No foreign key on `jobId`: deleting a project
+ * cascades its jobs away, and losing the row would leave the process unkillable.
+ *
+ * `ownerPid` is the process that spawned the child — an API server, or a CLI invocation. It is what
+ * makes a row an orphan or not: a server booting while a CLI deploy is still running in another
+ * terminal must leave that child alone, and the owner still being alive is the only reliable way to
+ * tell the two apart.
+ */
+export const childProcesses = sqliteTable("child_processes", {
+  id: text("id").primaryKey().notNull(),
+  pid: integer("pid").notNull(),
+  ownerPid: integer("owner_pid").notNull(),
+  jobId: text("job_id"),
+  /** The spawned binary and its arguments, joined by spaces. Used as a kill-time sanity check. */
+  command: text("command").notNull(),
+  cwd: text("cwd").notNull(),
+  startedAt: integer("started_at").notNull(),
+});

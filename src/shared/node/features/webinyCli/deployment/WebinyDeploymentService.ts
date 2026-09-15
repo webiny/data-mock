@@ -121,6 +121,7 @@ class WebinyDeploymentServiceImpl implements Abstraction.Interface {
         awsRegion: region,
         onLine: input.onLine,
         signal: input.signal,
+        jobId: input.jobId,
       });
 
       if (runResult.isFail()) {

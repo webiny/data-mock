@@ -13,6 +13,7 @@ import { EnvironmentsFeature } from "~/shared/node/features/environments/feature
 import { DeletionFeature } from "~/shared/node/features/deletion/feature.js";
 import { ScanRootsFeature } from "~/shared/node/features/scanRoots/feature.js";
 import { FileSystemFeature } from "~/shared/node/features/filesystem/feature.js";
+import { ChildProcessesFeature } from "~/shared/node/features/childProcesses/feature.js";
 import { WebinyCliFeature } from "~/shared/node/features/webinyCli/feature.js";
 import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
 import { ModelsFeature } from "~/shared/node/features/models/feature.js";
@@ -61,6 +62,7 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   DeletionFeature.register(container);
   ScanRootsFeature.register(container);
   FileSystemFeature.register(container);
+  ChildProcessesFeature.register(container);
   WebinyCliFeature.register(container);
   SeedingFeature.register(container);
   TemplatesFeature.register(container);

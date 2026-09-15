@@ -29,6 +29,7 @@ class DestroyJobExecutorImpl implements Abstraction.Interface {
       region: config.region,
       onLine: context.appendLog,
       signal: context.signal,
+      jobId: context.jobId,
     });
 
     if (result.isFail()) {

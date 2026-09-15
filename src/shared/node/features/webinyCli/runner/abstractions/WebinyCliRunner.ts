@@ -12,8 +12,10 @@ export interface IWebinyCliRunInput {
   awsRegion?: string | null | undefined;
   /** Called once per output line, stdout and stderr merged in arrival order, ANSI stripped. */
   onLine?: ((line: string) => void) | undefined;
-  /** Aborting sends SIGTERM, then SIGKILL after a grace period. */
+  /** Aborting sends SIGTERM to the child's process group, then SIGKILL after a grace period. */
   signal?: AbortSignal | undefined;
+  /** The job this run belongs to. Recorded alongside the child process, for diagnostics. */
+  jobId?: string | null | undefined;
 }
 
 export interface IWebinyCliRunOutput {

@@ -16,6 +16,7 @@ import { EnvironmentsFeature } from "./features/environments/feature.js";
 import { DeletionFeature } from "./features/deletion/feature.js";
 import { ScanRootsFeature } from "./features/scanRoots/feature.js";
 import { FileSystemFeature } from "./features/filesystem/feature.js";
+import { ChildProcessesFeature } from "./features/childProcesses/feature.js";
 import { WebinyCliFeature } from "./features/webinyCli/feature.js";
 import { TenantsFeature } from "./features/tenants/feature.js";
 import { ModelsFeature } from "./features/models/feature.js";
@@ -51,6 +52,7 @@ export const AppFeature = createFeature({
     DeletionFeature.register(container);
     ScanRootsFeature.register(container);
     FileSystemFeature.register(container);
+    ChildProcessesFeature.register(container);
     WebinyCliFeature.register(container);
     TenantsFeature.register(container);
     ModelsFeature.register(container);
