@@ -19,4 +19,7 @@ export const AppRoutes = {
     `/projects/${projectId}/env/${envName}/history`,
 
   fileManager: () => "/files",
+
+  /** Every job, including the ones that belong to no project. */
+  activity: () => "/activity",
 } as const;

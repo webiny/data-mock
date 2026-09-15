@@ -1,6 +1,7 @@
 import { Result } from "@webiny/stdlib";
 import type { Job } from "~/shared/types.js";
 import {
+  listGlobalJobsRoute,
   getGlobalJobRoute,
   getJobRoute,
   cancelGlobalJobRoute,
@@ -64,6 +65,25 @@ class JobsGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(result.value.job);
+  }
+
+  /** Every job, including the ones that belong to no project. */
+  public async listAll(params?: JobsListParams): Promise<Result<JobsListResult, HTTPError>> {
+    const result = await this.httpClient.request(listGlobalJobsRoute, {
+      params: {},
+      query: {
+        page: String(params?.page ?? 1),
+        limit: String(params?.limit ?? 25),
+        ...(params?.type ? { type: params.type } : {}),
+        ...(params?.status ? { status: params.status } : {}),
+      },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok({ jobs: result.value.jobs.items, total: result.value.jobs.total });
   }
 
   public async getGlobal(jobId: string): Promise<Result<Job, HTTPError>> {

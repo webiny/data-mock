@@ -49,6 +49,13 @@ export function AppLayout() {
             >
               File Manager
             </Button>
+            <Button
+              variant={isActive(AppRoutes.activity()) ? "light" : "subtle"}
+              size="compact-sm"
+              onClick={() => navigate(AppRoutes.activity())}
+            >
+              Activity
+            </Button>
           </Group>
           <Button variant="light" size="compact-sm" onClick={handleOpenAdd}>
             Add Project
