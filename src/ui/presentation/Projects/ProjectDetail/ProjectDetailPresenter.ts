@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import type { Result } from "@webiny/stdlib";
 import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { SyncPreviewState } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
@@ -1568,6 +1569,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     });
   };
 
+  /**
+   * Loads one tab's data, once.
+   *
+   * A dataset is marked loaded only when it actually loaded. Marking a failed read as done left
+   * the tab empty with no explanation for the rest of the session, because nothing would ask for
+   * it again — an outage of a second turned into a blank Models tab until the page was reloaded.
+   */
   private loadDataset = async (dataset: string): Promise<void> => {
     const ref = this.ref;
     if (!ref || this._loadedDatasets.has(dataset) || this._loadingDatasets.has(dataset)) {
@@ -1575,118 +1583,150 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
     this._loadingDatasets.add(dataset);
 
-    switch (dataset) {
-      case "tenants": {
-        const result = await this.tenantsGateway.listForProject(ref);
-        runInAction(() => {
-          if (result.isOk()) {
+    try {
+      switch (dataset) {
+        case "tenants": {
+          const result = await this.tenantsGateway.listForProject(ref);
+          if (this.failedDataset(dataset, result)) {
+            return;
+          }
+          runInAction(() => {
             this.tenantsRepository.setTenants(ref.environmentId, result.value);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "models": {
+          const result = await this.modelsGateway.listModels(ref);
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "models": {
-        const result = await this.modelsGateway.listModels(ref);
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.modelsRepository.setModels(result.value);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "files": {
+          const [filesResult, localFilesResult] = await Promise.all([
+            this.filesGateway.list(ref),
+            this.localFilesGateway.list(),
+          ]);
+          if (
+            this.failedDataset(dataset, filesResult) ||
+            this.failedDataset(dataset, localFilesResult)
+          ) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "files": {
-        const [filesResult, localFilesResult] = await Promise.all([
-          this.filesGateway.list(ref),
-          this.localFilesGateway.list(),
-        ]);
-        runInAction(() => {
-          if (filesResult.isOk()) {
+          runInAction(() => {
             this.filesRepository.setFiles(filesResult.value);
-          }
-          if (localFilesResult.isOk()) {
             this.localFilesRepository.setFiles(localFilesResult.value);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "entries": {
+          const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "entries": {
-        const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.entriesRepository.setEntries(result.value.entries, result.value.total);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "seedJobs": {
+          const result = await this.seedingGateway.listSeedJobs(ref, this.buildSeedJobsParams());
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "seedJobs": {
-        const result = await this.seedingGateway.listSeedJobs(ref, this.buildSeedJobsParams());
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "templates": {
+          const result = await this.templatesGateway.listForProject(ref.projectId);
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "templates": {
-        const result = await this.templatesGateway.listForProject(ref.projectId);
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.templatesRepository.setTemplates(result.value);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "syncLogs": {
+          const result = await this.syncLogsGateway.list(ref, this.buildSyncLogsParams());
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "syncLogs": {
-        const result = await this.syncLogsGateway.list(ref, this.buildSyncLogsParams());
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "stacks": {
+          const result = await this.environmentsGateway.listStacks(
+            ref.projectId,
+            ref.environmentId,
+          );
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "stacks": {
-        const result = await this.environmentsGateway.listStacks(ref.projectId, ref.environmentId);
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.environmentsRepository.setStacks(ref.environmentId, result.value);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "environments": {
+          // A sync can add, remove or redeploy environments, so the list itself is reloaded — not
+          // just the stacks hanging off the one currently selected.
+          const result = await this.environmentsGateway.listForProject(ref.projectId, true);
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "environments": {
-        // A sync can add, remove or redeploy environments, so the list itself is reloaded — not
-        // just the stacks hanging off the one currently selected.
-        const result = await this.environmentsGateway.listForProject(ref.projectId, true);
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.environmentsRepository.setEnvironments(ref.projectId, result.value);
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
+        case "jobs": {
+          const result = await this.jobsGateway.list(ref.projectId, this.buildJobsParams());
+          if (this.failedDataset(dataset, result)) {
+            return;
           }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "jobs": {
-        const result = await this.jobsGateway.list(ref.projectId, this.buildJobsParams());
-        runInAction(() => {
-          if (result.isOk()) {
+          runInAction(() => {
             this.jobsRepository.setJobs(result.value.jobs, result.value.total);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
+            this._loadedDatasets.add(dataset);
+          });
+          break;
+        }
       }
+    } finally {
+      this._loadingDatasets.delete(dataset);
     }
-    this._loadingDatasets.delete(dataset);
   };
+
+  /**
+   * Reports a dataset that could not be read, and says whether that happened. The dataset stays
+   * unloaded, so opening the tab again tries once more.
+   */
+  private failedDataset<TValue, TError extends { message: string }>(
+    dataset: string,
+    result: Result<TValue, TError>,
+  ): boolean {
+    if (!result.isFail()) {
+      return false;
+    }
+    this.notifications.error(`Could not load ${dataset}: ${result.error.message}`);
+    return true;
+  }
 
   private reloadSeedJobs = async (): Promise<void> => {
     const ref = this.ref;

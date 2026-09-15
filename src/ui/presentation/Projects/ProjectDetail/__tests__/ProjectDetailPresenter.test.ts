@@ -69,6 +69,7 @@ function makeStack(overrides: Partial<ProjectStack> = {}): ProjectStack {
 
 const ENVIRONMENTS_PATH = "/api/projects/:projectId/environments";
 const STACKS_PATH = "/api/projects/:projectId/environments/:environmentId/stacks";
+const MODELS_PATH = "/api/projects/:projectId/environments/:environmentId/models";
 const DEPLOYABLE_PATH = "/api/projects/:projectId/deployable-apps";
 const DEPLOY_PATH = "/api/projects/:projectId/environments/:environmentId/deploy";
 const DESTROY_PATH = "/api/projects/:projectId/environments/:environmentId/destroy";
@@ -368,6 +369,51 @@ describe("ProjectDetailPresenter", () => {
       await p.activateView("system");
 
       expect(p.vm.stacks[0]?.stateLabel).toBe("Could not read");
+    });
+  });
+
+  describe("loading a tab", () => {
+    it("tries again after a read that failed", async () => {
+      http.failures.set(MODELS_PATH, "gateway timeout");
+
+      const p = await loaded();
+      await p.activateView("models");
+
+      expect(http.callsTo(MODELS_PATH)).toHaveLength(1);
+
+      // Marking a failed read as loaded left the tab empty for the rest of the session.
+      http.failures.delete(MODELS_PATH);
+      http.data.set(MODELS_PATH, [
+        {
+          id: "m1",
+          projectId: PROJECT_ID,
+          environmentId: ENVIRONMENT_ID,
+          modelId: "article",
+          name: "Article",
+          groupSlug: "content",
+          singularApiName: "Article",
+          pluralApiName: "Articles",
+          description: null,
+          fields: [],
+          plugin: false,
+          remoteId: null,
+          syncedAt: null,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]);
+      await p.activateView("models");
+
+      expect(http.callsTo(MODELS_PATH)).toHaveLength(2);
+      expect(p.vm.models).toHaveLength(1);
+    });
+
+    it("reads a tab only once when it succeeds", async () => {
+      const p = await loaded();
+      await p.activateView("system");
+      await p.activateView("system");
+
+      expect(http.callsTo(STACKS_PATH)).toHaveLength(1);
     });
   });
 
