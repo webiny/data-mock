@@ -92,22 +92,74 @@ export class StubHttpClient {
   }
 }
 
-/** The real one reads `window.location`, which a node test does not have. */
+/**
+ * The real one reads `window.location`, which a node test does not have.
+ *
+ * It keeps the values in memory and still calls `onChange`, because that callback is what makes a
+ * filter or a page change reload anything at all.
+ */
 export function stubListStateFactory(): URLListStateFactory.Interface {
   return {
-    create: (): URLListState.Interface =>
-      ({
-        page: 1,
-        sort: undefined,
-        get: () => "",
-        getMultiple: () => [],
-        getDateTime: () => null,
-        set: () => {},
-        setMultiple: () => {},
-        setDateTime: () => {},
-        setPage: () => {},
-        setSort: () => {},
-        clear: () => {},
-      }) as unknown as URLListState.Interface,
+    create: (config: URLListState.Config): URLListState.Interface => {
+      const values = new Map<string, string>();
+      const multiValues = new Map<string, string[]>();
+      const dateValues = new Map<string, Date | null>();
+      let page = 1;
+      let sort: URLListState.Sort | undefined = undefined;
+
+      return {
+        get page() {
+          return page;
+        },
+        get sort() {
+          return sort;
+        },
+        get: (name: string) => values.get(name) ?? "",
+        getMultiple: (name: string) => multiValues.get(name) ?? [],
+        getDateTime: (name: string) => dateValues.get(name) ?? null,
+        set: (name: string, value: string) => {
+          if (value === "") {
+            values.delete(name);
+          } else {
+            values.set(name, value);
+          }
+          page = 1;
+          config.onChange();
+        },
+        setMultiple: (name: string, next: string[]) => {
+          multiValues.set(name, next);
+          page = 1;
+          config.onChange();
+        },
+        setDateTime: (name: string, value: Date | null) => {
+          dateValues.set(name, value);
+          page = 1;
+          config.onChange();
+        },
+        setBatch: (updates: Record<string, string | null>) => {
+          for (const [name, value] of Object.entries(updates)) {
+            if (value === null || value === "") {
+              values.delete(name);
+            } else {
+              values.set(name, value);
+            }
+          }
+          page = 1;
+          config.onChange();
+        },
+        setPage: (next: number) => {
+          page = next;
+          config.onChange();
+        },
+        setSort: (field: string, direction: "asc" | "desc") => {
+          sort = { field, direction };
+          config.onChange();
+        },
+        clearSort: () => {
+          sort = undefined;
+          config.onChange();
+        },
+      };
+    },
   };
 }

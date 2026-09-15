@@ -1433,7 +1433,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
 
     const result = await this.environmentsGateway.listForProject(projectId, true);
-    if (result.isFail()) {
+    if (this.failedDataset("environments", result)) {
       return;
     }
 
@@ -1561,10 +1561,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
     const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
+    if (this.failedDataset("entries", result)) {
+      return;
+    }
     runInAction(() => {
-      if (result.isOk()) {
-        this.entriesRepository.setEntries(result.value.entries, result.value.total);
-      }
+      this.entriesRepository.setEntries(result.value.entries, result.value.total);
       this._loadedDatasets.add("entries");
     });
   };
@@ -1734,10 +1735,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
     const result = await this.seedingGateway.listSeedJobs(ref, this.buildSeedJobsParams());
+    if (this.failedDataset("seedJobs", result)) {
+      return;
+    }
     runInAction(() => {
-      if (result.isOk()) {
-        this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
-      }
+      this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
       this._loadedDatasets.add("seedJobs");
     });
   };
@@ -1748,10 +1750,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
     const result = await this.jobsGateway.list(ref.projectId, this.buildJobsParams());
+    if (this.failedDataset("jobs", result)) {
+      return;
+    }
     runInAction(() => {
-      if (result.isOk()) {
-        this.jobsRepository.setJobs(result.value.jobs, result.value.total);
-      }
+      this.jobsRepository.setJobs(result.value.jobs, result.value.total);
       this._loadedDatasets.add("jobs");
     });
   };
@@ -1762,10 +1765,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
     const result = await this.syncLogsGateway.list(ref, this.buildSyncLogsParams());
+    if (this.failedDataset("syncLogs", result)) {
+      return;
+    }
     runInAction(() => {
-      if (result.isOk()) {
-        this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
-      }
+      this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
     });
   };
 
@@ -1778,13 +1782,12 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       this.filesGateway.list(ref),
       this.localFilesGateway.list(),
     ]);
+    if (this.failedDataset("files", filesResult) || this.failedDataset("files", localFilesResult)) {
+      return;
+    }
     runInAction(() => {
-      if (filesResult.isOk()) {
-        this.filesRepository.setFiles(filesResult.value);
-      }
-      if (localFilesResult.isOk()) {
-        this.localFilesRepository.setFiles(localFilesResult.value);
-      }
+      this.filesRepository.setFiles(filesResult.value);
+      this.localFilesRepository.setFiles(localFilesResult.value);
       this._loadedDatasets.add("files");
     });
   };

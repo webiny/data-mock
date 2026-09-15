@@ -69,6 +69,8 @@ function makeStack(overrides: Partial<ProjectStack> = {}): ProjectStack {
 
 const ENVIRONMENTS_PATH = "/api/projects/:projectId/environments";
 const STACKS_PATH = "/api/projects/:projectId/environments/:environmentId/stacks";
+// The jobs gateway builds this URL itself, query string and all.
+const JOBS_PATH = `/api/projects/${PROJECT_ID}/jobs`;
 const MODELS_PATH = "/api/projects/:projectId/environments/:environmentId/models";
 const DEPLOYABLE_PATH = "/api/projects/:projectId/deployable-apps";
 const DEPLOY_PATH = "/api/projects/:projectId/environments/:environmentId/deploy";
@@ -114,6 +116,7 @@ describe("ProjectDetailPresenter", () => {
     http.data.set(DEPLOYABLE_PATH, { apps: ["core", "api", "admin"], versionMajor: 6 });
     http.data.set(HEALTH_PATH, { reachable: true, error: null });
     http.data.set(IMPACT_PATH, EMPTY_IMPACT);
+    http.urlData.set(JOBS_PATH, { jobs: { items: [], total: 0 } });
     http.data.set(ARCHIVE_PATH, makeEnvironment({ archivedAt: 999 }));
     http.data.set(RESTORE_PATH, makeEnvironment());
   });
@@ -406,6 +409,23 @@ describe("ProjectDetailPresenter", () => {
 
       expect(http.callsTo(MODELS_PATH)).toHaveLength(2);
       expect(p.vm.models).toHaveLength(1);
+    });
+
+    it("keeps what is on screen when a filtered reload fails", async () => {
+      const p = await loaded();
+      await p.activateView("jobs");
+      expect(http.callsTo(JOBS_PATH)).toHaveLength(1);
+
+      http.failures.set(JOBS_PATH, "gateway timeout");
+      p.setJobsFilter("jobStatus", "failed");
+      await flush();
+
+      // The dataset must not be left marked as loaded, or the tab never asks again.
+      http.failures.delete(JOBS_PATH);
+      p.setJobsFilter("jobStatus", null);
+      await flush();
+
+      expect(http.callsTo(JOBS_PATH).length).toBeGreaterThan(1);
     });
 
     it("reads a tab only once when it succeeds", async () => {
