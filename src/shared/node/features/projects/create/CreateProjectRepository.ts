@@ -3,6 +3,7 @@ import { projects } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { CreateProjectRepository as Abstraction } from "./abstractions/CreateProjectRepository.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
+import { checkProjectIsUnique } from "../projectUniqueness.js";
 import { DEFAULT_OPERATIONS_VERSION } from "~/shared/responses/projects.js";
 import { toProject, toProjectError } from "../toProject.js";
 import type { Project } from "~/shared/types.js";
@@ -12,6 +13,14 @@ class CreateProjectRepositoryImpl implements Abstraction.Interface {
 
   public async execute(input: Abstraction.Input): Promise<Result<Project, Abstraction.Error>> {
     try {
+      const clash = checkProjectIsUnique(this.databaseClient, {
+        name: input.name,
+        rootPath: input.rootPath,
+      });
+      if (clash !== null) {
+        return Result.fail(clash);
+      }
+
       const now = Date.now();
 
       const row = {

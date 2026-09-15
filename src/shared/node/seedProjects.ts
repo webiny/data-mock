@@ -8,6 +8,7 @@ import { and } from "drizzle-orm";
 import type { DatabaseClient } from "./db/abstractions/DatabaseClient.js";
 import type { EncryptionService } from "./encryption/abstractions/EncryptionService.js";
 import { toProjectName } from "~/shared/projects/projectName.js";
+import { checkProjectIsUnique } from "./features/projects/projectUniqueness.js";
 
 const SEED_FILE_PATH = ".projects.json";
 
@@ -81,6 +82,23 @@ export function seedProjectsFromFile(
     const existing =
       db.select().from(projects).where(eq(projects.name, project.name)).get() ??
       db.select().from(projects).where(eq(projects.name, name)).get();
+
+    /**
+     * A checkout already claimed by another project is left alone. Two projects pointing at one
+     * folder means two inventories of the same stacks, each overwriting the other on sync.
+     */
+    const clash =
+      project.rootPath === undefined
+        ? null
+        : checkProjectIsUnique(databaseClient, {
+            rootPath: project.rootPath,
+            ...(existing ? { excludeId: existing.id } : {}),
+          });
+
+    if (clash !== null) {
+      console.warn(`Skipping "${name}" from ${seedFilePath}: ${clash.message}`);
+      continue;
+    }
 
     const encryptedToken = encryptionService.encrypt(project.apiToken);
 

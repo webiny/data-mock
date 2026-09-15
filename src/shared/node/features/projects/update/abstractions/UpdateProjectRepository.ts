@@ -1,7 +1,11 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { Project, SyncStatus, VersionSource } from "~/shared/types.js";
-import type { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/errors.js";
+import type {
+  ProjectNotFoundError,
+  ProjectPersistenceError,
+  ValidationError,
+} from "~/shared/errors.js";
 
 export interface IUpdateProjectRepositoryInput {
   id: string;
@@ -31,5 +35,5 @@ export const UpdateProjectRepository = createAbstraction<IUpdateProjectRepositor
 export namespace UpdateProjectRepository {
   export type Interface = IUpdateProjectRepository;
   export type Input = IUpdateProjectRepositoryInput;
-  export type Error = ProjectNotFoundError | ProjectPersistenceError;
+  export type Error = ProjectNotFoundError | ProjectPersistenceError | ValidationError;
 }

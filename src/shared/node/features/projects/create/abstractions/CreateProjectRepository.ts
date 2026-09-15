@@ -1,7 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { Project } from "~/shared/types.js";
-import type { ProjectPersistenceError } from "~/shared/errors.js";
+import type { ProjectPersistenceError, ValidationError } from "~/shared/errors.js";
 
 export interface ICreateProjectRepositoryInput {
   name: string;
@@ -31,5 +31,5 @@ export const CreateProjectRepository = createAbstraction<ICreateProjectRepositor
 export namespace CreateProjectRepository {
   export type Interface = ICreateProjectRepository;
   export type Input = ICreateProjectRepositoryInput;
-  export type Error = ProjectPersistenceError;
+  export type Error = ProjectPersistenceError | ValidationError;
 }

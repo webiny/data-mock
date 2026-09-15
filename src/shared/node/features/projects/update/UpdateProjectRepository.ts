@@ -4,6 +4,7 @@ import { projects } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { UpdateProjectRepository as Abstraction } from "./abstractions/UpdateProjectRepository.js";
 import { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/errors.js";
+import { checkProjectIsUnique } from "../projectUniqueness.js";
 import { toProject, toProjectError } from "../toProject.js";
 import type { Project } from "~/shared/types.js";
 
@@ -22,6 +23,15 @@ class UpdateProjectRepositoryImpl implements Abstraction.Interface {
 
       if (!existing) {
         return Result.fail(new ProjectNotFoundError(input.id));
+      }
+
+      const clash = checkProjectIsUnique(this.databaseClient, {
+        name: input.name,
+        rootPath: input.rootPath,
+        excludeId: input.id,
+      });
+      if (clash !== null) {
+        return Result.fail(clash);
       }
 
       const updates: ProjectUpdate = { updatedAt: Date.now() };
