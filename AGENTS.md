@@ -42,7 +42,7 @@ src/
 │       ├── feature.ts                   # AppFeature — root bootstrap
 │       ├── FetchHttpClient.ts           # fetch()-based HttpClient
 │       ├── db/                          # SQLite (better-sqlite3 + drizzle-orm)
-│       │   ├── schema.ts               # 8 tables
+│       │   ├── schema.ts               # 14 tables
 │       │   ├── client.ts               # createDatabaseClient()
 │       │   ├── migrate.ts              # runMigrations()
 │       │   └── migrations/             # SQL migrations (drizzle-kit)
@@ -65,7 +65,8 @@ src/
 │           ├── deletion/               # DeletionImpactService — counts what a purge would destroy
 │           ├── scanRoots/              # CRUD for the directories scanned for checkouts
 │           ├── filesystem/             # DirectoryBrowser + ProjectScanner
-│           ├── webinyCli/              # Detection, checkpoint reading, sync, scheduler, CLI runner, deploy/destroy
+│           ├── webinyCli/              # Detection, checkpoint reading, sync, sync preview, CLI runner, deploy/destroy
+│           ├── childProcesses/         # ChildProcessTracker — the orphan reaper's record of live children
 │           ├── tenants/                # Sync + list + verify access
 │           ├── models/                 # Sync + list + get + push + compare
 │           ├── seeding/                # Seed service + job CRUD + entry audit log + dependency resolver
@@ -82,8 +83,8 @@ src/
 │   ├── entry.ts                        # Bootstrap + listen
 │   ├── server.ts                       # createServer()
 │   ├── feature.ts                      # ApiFeature
-│   ├── routing/                        # routeFactory, sendTyped, sendError, createRequestContext
-│   └── routes/                         # 37 route handlers (see below)
+│   ├── routing/                        # routeFactory, environmentOwnership, sendTyped, sendError, createRequestContext
+│   └── routes/                         # Route handlers (see below)
 │
 └── ui/                                  # React + Mantine + MobX (port 4001)
     ├── App.tsx, main.tsx               # Entry + DI container setup
@@ -113,7 +114,7 @@ src/
 
 ---
 
-## Database Schema (13 tables)
+## Database Schema (14 tables)
 
 A **project** is a Webiny system — a checkout on disk (`root_path`), or a remote-only connection.
 An **environment** is one Pulumi stack name (`dev`, `dev___blue`) within it. Everything that
@@ -128,7 +129,8 @@ belongs to a running Webiny instance hangs off the environment, not the project.
 | `project_tenants` | project_id FK, environment_id FK, tenant_id, name | Discovered tenants per environment |
 | `project_groups` | project_id FK, environment_id FK, slug, name, remote_id | CMS content model groups |
 | `project_models` | project_id FK, environment_id FK, model_id, singular_api_name, plural_api_name, group_slug, plugin, fields (JSON) | CMS models + field definitions |
-| `jobs` | project_id FK (nullable), environment_id FK (nullable), type, status, config (JSON), logs, progress, progress_label, parent_job_id | Background jobs in three scopes: global (neither id, e.g. pull-picsum), project (project only, e.g. sync-system) and environment (both, e.g. seed). |
+| `jobs` | project_id FK (nullable), environment_id FK (nullable), type, status, config (JSON), logs, **result (JSON)**, progress, progress_label, parent_job_id | Background jobs in three scopes: global (neither id, e.g. pull-picsum, sync-preview), project (project only, e.g. sync-system) and environment (both, e.g. seed). `result` is the job's own answer, written through `context.setResult` — for jobs whose point is what they return rather than what they write. |
+| `child_processes` | pid, owner_pid, job_id, command, cwd, started_at | One row per live child this server spawned. The handle that survives the server, so the next boot can kill a `webiny deploy` that outlived it. |
 | `seed_jobs` | project_id FK, environment_id FK, status, config (JSON), result (JSON) | Legacy seeding job tracking |
 | `seed_templates` | project_id FK, name, config (JSON) | Saved seed configurations — project-scoped on purpose, so one config is reusable across environments |
 | `seed_entries` | job_id FK (nullable), project_id FK, environment_id FK, tenant, model_id, entry_data (JSON), request_data (JSON), response_data (raw), status | Per-entry audit log with full request/response |
@@ -155,6 +157,17 @@ destroyable or syncable.
   packages that carry a marker of their own.
 - **Already-registered checkouts stay in the scan result**, flagged and unselectable. The list is a
   picture of the disk, not a queue that empties as you use it.
+- **A checkout whose name matches a project that has none is offered as "attach to existing"**, not
+  as new. A project seeded from `.projects.json` never had a `rootPath`, so the scan saw its folder
+  as unknown and would have created a second row for one system. Picking it points the existing
+  project at the checkout instead. Offered, not applied — a remote-only project can legitimately
+  share a name with an unrelated folder.
+- **Several checkouts are added in one go.** Each takes its folder's name; one request per project,
+  so a single failure does not stop the rest.
+- **A project name and a checkout are both unique.** Two rows for one checkout means two
+  inventories of the same stacks, each overwriting the other on sync; two rows with one name makes
+  every list, badge and destroy confirmation ambiguous. Enforced on create and on update, seeing
+  through a path spelled differently and counting archived projects.
 - **Unreadable roots are reported**, never dropped. A scan that silently skipped half the tree
   would read as "nothing is there".
 - **Browsing returns directory names only** and resolves the path through `realpathSync` first, so
@@ -164,8 +177,28 @@ destroyable or syncable.
   no version, environments or stack output.
 
 **Nothing syncs on its own.** A sync rewrites the version, environments and stack output stored for
-a project from whatever is on disk, so it is always started by the user, from the Sync from disk
-button, which shows the diff first. There is no boot sync and no periodic one.
+a project from whatever is on disk, so it is always started by the user. There is no boot sync and
+no periodic one.
+
+**A sync shows its diff first.** `POST /api/sync/preview` starts a `sync-preview` job that reads
+everything the sync reads and stores none of it, leaving the diff on `jobs.result`: per project
+field, per environment and per app. The dialog polls the job rather than listening for the
+websocket event, so a dropped socket shows a slow dialog rather than one that never answers.
+Accepting it enqueues the real `sync-system` job, one per project.
+
+- The preview job is **global** (`projectId: null`) on purpose. It writes nothing, so the
+  per-project serialization has nothing to protect, and scoping it would park the dialog behind a
+  twenty-minute deploy.
+- **It is not the sync with a dry-run flag.** That flag threaded through the writes is where a
+  preview stops matching what it previews. What the two share instead is `mergeStackRead` and
+  `deriveEnvironmentState` in `src/shared/stackOutput/stackState.ts`, used by the write path too.
+- **Applying re-reads rather than replaying the diff.** It is a preview of an intent, not a
+  transaction.
+
+**Every action that starts a job confirms first** — pull tenants, pull models, pull files, import
+entries, the placeholder-image download. `ActionConfirmation` in
+`src/ui/presentation/shared/confirmation/` is the one dialog they all use, and the copy is built
+where the action is, so it names the checkout, environment and tenant involved.
 
 ---
 
@@ -215,8 +248,18 @@ Both run as background jobs, through the checkout's own `node_modules/.bin/webin
   of named credential vars is unmaintainable. `NODE_*` is not a glob: `NODE_EXTRA_CA_CERTS` is kept
   by name, `NODE_ENV` and `NODE_OPTIONS` are not. `CI=1` is load-bearing — it skips the v6
   telemetry gate that otherwise hard-fails deploys. `HOME` is mandatory, for corepack.
-- **Cancel kills the child.** SIGTERM first so pulumi can unwind, SIGKILL after a grace period; a
-  pulumi run killed outright can leave a stack lock that blocks the next deploy.
+- **Cancel kills the child's whole process group.** The child is spawned `detached`, so it leads
+  its own group: `webiny` is a launcher, and the run that holds the stack is pulumi several
+  processes below it, which signalling the pid alone leaves running. SIGTERM first so pulumi can
+  unwind, SIGKILL after a grace period; a pulumi run killed outright can leave a stack lock that
+  blocks the next deploy.
+- **A child outlives the server, and the next boot reaps it.** Owning its own group is what makes
+  it killable, and what stops it dying with the server — so every spawn is recorded in
+  `child_processes`, and boot terminates whatever a previous run left behind before marking stale
+  jobs `interrupted`. Two guards stand between the reaper and a stranger's process: the row is only
+  an orphan when the process that spawned it is gone (so a server booting beside a running CLI
+  deploy leaves it alone), and a pid is only killed when its start time and argument vector still
+  match what was recorded. Shutdown terminates this server's own children before draining.
 - **Stack state is re-read after every run, including a failed one.** A failed deploy is rarely a
   no-op. The refresh derives the environment row from every stored stack, not just the apps just
   read — otherwise deploying `api` alone blanks `admin_url`, and destroying `admin` alone marks the
@@ -232,6 +275,15 @@ Both run as background jobs, through the checkout's own `node_modules/.bin/webin
 sync from reading a checkpoint a deploy is halfway through rewriting. `projectId === null` is never
 blocked. A skipped job stays `pending` with `progressLabel = "waiting: project busy"`,
 cleared on claim. The claim update is guarded on the row still being `pending`.
+
+### Route guards
+
+**Every route whose path carries both `:projectId` and `:environmentId` checks that the two agree**,
+in `routeFactory` rather than in each handler, so one added later cannot forget it — see
+`src/api/routing/environmentOwnership.ts`. Twenty-three routes carried both and almost none checked:
+purge destroyed whatever the second id named, cleanup wiped another environment's data, and a
+destroy could be confirmed by typing the name of the project in the path while tearing down a stack
+belonging to a different one. The cost is one indexed read from local SQLite.
 
 ---
 
@@ -257,6 +309,12 @@ in the product deletes by default:
   delete would destroy.
 - **An archived environment is never auto-selected.** Archiving is "stop looking at this stack";
   landing on one would undo that on every page load.
+- **Purge refuses unless the confirmation is in its purge step.** Both presenters check it, not
+  just the dialog: the first step is the reversible one, and nothing else should be able to reach
+  the second.
+- **A delete that failed is reported as failed.** Archive, restore and purge all return a Result;
+  announcing "and all of its data were deleted" over a refused request, with the row still in the
+  list, is worse than the failure.
 - **Sync respects an archive.** `sync-system` lists environments with `includeArchived: true` so
   discovery cannot insert a duplicate beside an archived stack name, skips archived environments,
   and reports each one it skipped. Rediscovery never un-archives.
@@ -273,7 +331,17 @@ in the product deletes by default:
   then appears in every list, badge and confirmation dialog.
 - **`.projects.json` can carry `rootPath`.** Without it the seeded project is remote-only: it can
   be seeded, but not deployed, destroyed or synced from disk, and Deploy/Destroy are hidden for it.
-  A re-seed never clears a `rootPath` registered through the UI.
+  A re-seed never clears a `rootPath` registered through the UI, and skips an entry whose checkout
+  another project has already claimed.
+- **A failed read is never marked as loaded.** Every project-detail dataset stayed marked loaded
+  whether or not it loaded, so a one-second outage left a tab blank for the rest of the session
+  with nothing asking again. Reopening the tab now retries, and the failure says so.
+- **Health is an environment fact, and cached for ten minutes server-side.** The project list asks
+  per environment and shows online / partly online / unreachable with the count; a project with no
+  API to reach reads "no API", not unreachable. The badge is clickable and that click passes
+  `force`, or it would get the same cached answer and look like it did nothing.
+- **Seed Data and History appear only where an environment has an API.** Both open one, so on a
+  project that has never been deployed they could only lead to "this environment cannot be seeded".
 
 ---
 
@@ -292,7 +360,7 @@ in the product deletes by default:
 
 ---
 
-## API Routes (59)
+## API Routes (63)
 
 Environment-scoped routes live under `/api/projects/:projectId/environments/:environmentId/*`.
 Project-scoped routes (jobs, templates, sync) and the four global file routes stay where they are.
@@ -392,6 +460,9 @@ sync-system) return a `Job` object with HTTP 202 — work runs in the background
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/jobs` | List all jobs globally (not project-scoped) |
+| GET | `/api/jobs/:jobId` | Get a job, whatever project it belongs to |
+| POST | `/api/jobs/:jobId/cancel` | Cancel a job, whatever project it belongs to — the project-scoped routes below cannot reach one that has none |
+| POST | `/api/sync/preview` | Start a `sync-preview` job over one or more projects. Body carries `projectIds` |
 | POST | `/api/projects/:projectId/jobs` | Enqueue a new job (type + config) |
 | GET | `/api/projects/:projectId/jobs` | List jobs for a project (paginated, filterable by type/status) |
 | GET | `/api/projects/:projectId/jobs/:jobId` | Get a single job |
@@ -416,6 +487,7 @@ sync-system) return a `Job` object with HTTP 202 — work runs in the background
 |---|---|---|
 | `/` | Project list | Contained |
 | `/files` | Global file manager (drag-drop, picsum, thumbnails) | Contained |
+| `/activity` | Every job, including the ones belonging to no project | Contained |
 | `/projects/:projectId/env/:envName/*` | Project detail shell, explicit environment | Full width |
 | `/projects/:projectId/*` | Same shell, resolves to the first environment | Full width |
 
@@ -622,11 +694,21 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **504 tests** across 43 files (vitest)
+- **676 tests** across 57 files (vitest)
 - **Coverage**: v8 provider, ~67% statements, ~55% branches, ~70% functions. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
+  The route tests enqueue jobs and never run the queue, so nothing reaches a live CMS either.
+- **`StubHttpClient`** (`src/ui/testing/`) answers every typed route from a table keyed by path,
+  building the same envelope the server does, and the untyped `get`/`post` half from a second table
+  keyed by the literal path. UI presenters are tested through their own DI feature with it
+  underneath, which keeps the gateways and repositories real — they are where the shapes a
+  presenter reads come from. Its list-state stub calls `onChange` like the real one; without that
+  no test reaches a filter or pagination path.
+- **The child-process tests spawn real processes.** `ChildProcessTracker` is about killing process
+  groups, which a fake cannot demonstrate: they start detached `node` processes, some with children
+  of their own, and assert the whole group is gone.
 - **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.
 - Pass `{ httpClient: mockHttpClient }` to override HTTP. Everything else is production code.
