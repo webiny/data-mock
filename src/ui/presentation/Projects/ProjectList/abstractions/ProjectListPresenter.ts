@@ -2,6 +2,20 @@ import { createAbstraction } from "@webiny/stdlib";
 
 import type { ISyncPreviewVM } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 
+/**
+ * Whether a project's environments answer.
+ *
+ * "no-endpoint" is not a failure: a project that has never been deployed has nothing to reach, and
+ * reporting that as unreachable would put a red badge on every fresh checkout.
+ */
+export type ProjectHealth =
+  | "unknown"
+  | "checking"
+  | "online"
+  | "partial"
+  | "unreachable"
+  | "no-endpoint";
+
 export interface ProjectItemVM {
   id: string;
   name: string;
@@ -20,6 +34,9 @@ export interface ProjectItemVM {
   archivedAt: number | null;
   isSyncing: boolean;
   isSyncingModels: boolean;
+  health: ProjectHealth;
+  /** "3 of 4 environments online", or why there is nothing to report. */
+  healthLabel: string;
 }
 
 /** One line of the deletion impact, ready to render. Zero counts are left out by the presenter. */
@@ -72,6 +89,8 @@ export interface IProjectListPresenter {
   /** Enqueues a sync for every project that has a checkout. */
   /** Reads what a sync would change for every project with a checkout, and opens the diff. */
   syncAll(): void;
+  /** Re-checks one project's environments. The badge is clickable for exactly this. */
+  refreshHealth(projectId: string): Promise<void>;
   /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
   confirmDelete(projectId: string, projectName: string): void;
   cancelDelete(): void;

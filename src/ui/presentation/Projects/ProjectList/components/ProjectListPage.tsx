@@ -3,6 +3,7 @@ import { observer } from "mobx-react-lite";
 import {
   Alert,
   Badge,
+  Tooltip,
   Button,
   Card,
   Divider,
@@ -14,7 +15,11 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import type { ProjectItemVM, ProjectListPresenter } from "../abstractions/ProjectListPresenter.js";
+import type {
+  ProjectHealth,
+  ProjectItemVM,
+  ProjectListPresenter,
+} from "../abstractions/ProjectListPresenter.js";
 import { SyncPreviewDialog } from "~/ui/components/SyncPreviewDialog.js";
 
 interface ProjectListPageProps {
@@ -125,6 +130,10 @@ export const ProjectListPage = observer(function ProjectListPage({
                   <Badge variant="light" size="sm">
                     {project.webinyVersion ? `v${project.webinyVersion}` : "workspace root"}
                   </Badge>
+                  <HealthBadge
+                    project={project}
+                    onRefresh={() => void presenter.refreshHealth(project.id)}
+                  />
                 </Group>
                 <Text size="sm" c="dimmed">
                   {project.rootPath ?? "remote only — no local checkout"}
@@ -259,6 +268,43 @@ export const ProjectListPage = observer(function ProjectListPage({
     </Stack>
   );
 });
+
+const HEALTH_COLOR: Record<ProjectHealth, string> = {
+  unknown: "gray",
+  checking: "blue",
+  online: "green",
+  partial: "yellow",
+  unreachable: "red",
+  // Nothing to reach is not a failure: a checkout that has never been deployed has no API yet.
+  "no-endpoint": "gray",
+};
+
+const HEALTH_TEXT: Record<ProjectHealth, string> = {
+  unknown: "not checked",
+  checking: "checking",
+  online: "online",
+  partial: "partly online",
+  unreachable: "unreachable",
+  "no-endpoint": "no API",
+};
+
+function HealthBadge({ project, onRefresh }: { project: ProjectItemVM; onRefresh: () => void }) {
+  const clickable = project.health !== "checking" && project.health !== "no-endpoint";
+
+  return (
+    <Tooltip label={project.healthLabel}>
+      <Badge
+        variant="dot"
+        size="sm"
+        color={HEALTH_COLOR[project.health]}
+        style={{ cursor: clickable ? "pointer" : "default" }}
+        onClick={clickable ? onRefresh : undefined}
+      >
+        {HEALTH_TEXT[project.health]}
+      </Badge>
+    </Tooltip>
+  );
+}
 
 interface DeletionImpactPanelProps {
   confirmation: ProjectListPresenter.ViewModel["deleteConfirmation"];

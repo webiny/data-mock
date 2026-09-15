@@ -51,6 +51,26 @@ const EMPTY_IMPACT: DeletionImpact = {
 };
 
 /** Records calls and hands back whatever the test set up. No HTTP. */
+function makeEnvironment(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "e1",
+    projectId: "p1",
+    env: "dev",
+    variant: "",
+    region: null,
+    deployed: true,
+    apiUrl: "https://api.example.com",
+    adminUrl: null,
+    apiToken: null,
+    tenant: "root",
+    lastSyncedAt: null,
+    archivedAt: null,
+    createdAt: 1,
+    updatedAt: 1,
+    ...overrides,
+  };
+}
+
 class StubProjectsGateway {
   public projects: Project[] = [];
   public impact: DeletionImpact | null = { ...EMPTY_IMPACT, seedEntries: 1674, environments: 2 };
@@ -59,6 +79,8 @@ class StubProjectsGateway {
   public readonly restored: string[] = [];
   public readonly purged: string[] = [];
   public failArchive = false;
+  public healthChecks = 0;
+  public reachable = true;
   public failList = false;
   public failPurge = false;
 
@@ -94,7 +116,12 @@ class StubProjectsGateway {
       this.impactFails || this.impact === null
         ? Result.fail(new Error("boom") as never)
         : Result.ok(this.impact),
-    healthCheck: async () => Result.ok({ reachable: true, error: null }),
+    healthCheck: async () => {
+      this.healthChecks += 1;
+      return this.reachable
+        ? Result.ok({ reachable: true, error: null })
+        : Result.ok({ reachable: false, error: "connect ECONNREFUSED" });
+    },
   };
 }
 
@@ -105,10 +132,14 @@ class StubEnvironmentsGateway {
   public failSyncFor = new Set<string>();
   public hasChanges = true;
   public failList = false;
+  /** What every project's environment list returns. Health is only asked where there is an API. */
+  public environments: Array<Record<string, unknown>> = [];
 
   public readonly gateway: Partial<EnvironmentsGateway.Interface> = {
     listForProject: async () =>
-      this.failList ? Result.fail(new Error("environments refused") as never) : Result.ok([]),
+      this.failList
+        ? Result.fail(new Error("environments refused") as never)
+        : Result.ok(this.environments as never),
     listStacks: async () => Result.ok([]),
     sync: async (projectId: string) => {
       this.synced.push(projectId);
@@ -334,6 +365,61 @@ describe("ProjectListPresenter", () => {
     // An empty list invites adding a project that is probably already there.
     expect(p.vm.loadError).toContain("list refused");
     expect(p.vm.isEmpty).toBe(true);
+  });
+
+  it("reports a project whose environment answers as online", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.environments = [makeEnvironment()];
+
+    const p = presenter();
+    await p.load();
+    await flush();
+
+    expect(projectsGateway.healthChecks).toBe(1);
+    expect(p.vm.projects[0]?.health).toBe("online");
+  });
+
+  it("reports one that does not answer as unreachable", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.environments = [makeEnvironment()];
+    projectsGateway.reachable = false;
+
+    const p = presenter();
+    await p.load();
+    await flush();
+
+    expect(p.vm.projects[0]?.health).toBe("unreachable");
+  });
+
+  it("says there is nothing to reach rather than calling it unreachable", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.environments = [makeEnvironment({ apiUrl: null })];
+
+    const p = presenter();
+    await p.load();
+    await flush();
+
+    // A checkout that has never been deployed has no API yet; a red badge would be a lie.
+    expect(p.vm.projects[0]?.health).toBe("no-endpoint");
+    expect(projectsGateway.healthChecks).toBe(0);
+  });
+
+  it("counts how many of several environments answered", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.environments = [
+      makeEnvironment({ id: "e1" }),
+      makeEnvironment({ id: "e2" }),
+      // Archived and endpoint-less environments are not asked.
+      makeEnvironment({ id: "e3", archivedAt: 5 }),
+      makeEnvironment({ id: "e4", apiUrl: null }),
+    ];
+
+    const p = presenter();
+    await p.load();
+    await flush();
+
+    expect(projectsGateway.healthChecks).toBe(2);
+    expect(p.vm.projects[0]?.healthLabel).toContain("2 environments");
   });
 
   it("says the cards are incomplete when the environments could not be read", async () => {

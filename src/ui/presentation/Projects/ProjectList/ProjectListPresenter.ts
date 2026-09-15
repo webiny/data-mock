@@ -13,16 +13,20 @@ import { PurgeProjectUseCase } from "./useCases/PurgeProject/abstractions/PurgeP
 import { ProjectListPresenter as Abstraction } from "./abstractions/ProjectListPresenter.js";
 import type {
   DeletionImpactLineVM,
+  ProjectHealth,
   ProjectItemVM,
   ProjectListVM,
 } from "./abstractions/ProjectListPresenter.js";
-import type { DeletionImpact, Project } from "~/shared/types.js";
+import type { DeletionImpact, Project, ProjectEnvironment } from "~/shared/types.js";
 import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/impactLines.js";
 
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _loaded = false;
   private _syncingModelsProjectIds = new Set<string>();
+  /** Per project: how many of its environments answered, and how many were asked. */
+  private readonly _health = new Map<string, { reachable: number; checked: number }>();
+  private readonly _checkingHealth = new Set<string>();
   private _deleteProjectId: string | null = null;
   private _deleteProjectName: string | null = null;
   private _deleteMode: "archive" | "purge" = "archive";
@@ -102,6 +106,9 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
        * Reported once for the whole pass rather than per project: a server that is down fails
        * every one of them, and a toast each would bury the page.
        */
+      // Fire and forget: the list renders with "Not checked" and fills in as answers arrive.
+      void this.checkAllHealth();
+
       const failed = loaded.filter((ok) => !ok).length;
       if (failed > 0) {
         this.notificationService.error(
@@ -255,7 +262,99 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       syncable: project.rootPath !== null,
       isSyncing: this.isReadingDiffFor(project.id),
       isSyncingModels: this._syncingModelsProjectIds.has(project.id),
+      health: this.healthOf(project.id, environments),
+      healthLabel: this.healthLabelOf(project.id, environments),
     };
+  };
+
+  /** The environments worth asking: active, and with an API to ask. */
+  private reachableEnvironments(environments: ProjectEnvironment[]): ProjectEnvironment[] {
+    return environments.filter(
+      (environment) => environment.archivedAt === null && environment.apiUrl !== null,
+    );
+  }
+
+  private healthOf(projectId: string, environments: ProjectEnvironment[]): ProjectHealth {
+    if (this.reachableEnvironments(environments).length === 0) {
+      return "no-endpoint";
+    }
+    if (this._checkingHealth.has(projectId)) {
+      return "checking";
+    }
+
+    const counted = this._health.get(projectId);
+    if (counted === undefined || counted.checked === 0) {
+      return "unknown";
+    }
+    if (counted.reachable === counted.checked) {
+      return "online";
+    }
+    return counted.reachable === 0 ? "unreachable" : "partial";
+  }
+
+  private healthLabelOf(projectId: string, environments: ProjectEnvironment[]): string {
+    const asked = this.reachableEnvironments(environments);
+    if (asked.length === 0) {
+      return "No API to check — deploy or add an endpoint";
+    }
+    if (this._checkingHealth.has(projectId)) {
+      return "Checking...";
+    }
+
+    const counted = this._health.get(projectId);
+    if (counted === undefined || counted.checked === 0) {
+      return "Not checked";
+    }
+    if (counted.reachable === counted.checked) {
+      return counted.checked === 1 ? "Online" : `Online (${counted.checked} environments)`;
+    }
+    return `${counted.reachable} of ${counted.checked} environments online`;
+  }
+
+  /**
+   * Asks every project's environments whether they answer.
+   *
+   * Per environment, not per project: health is an environment-level fact — one stack can be up
+   * while another is torn down — and the badge says how many of them answered.
+   */
+  private checkAllHealth = async (): Promise<void> => {
+    await Promise.all(
+      this.projectsRepository.projects
+        .filter((project) => project.archivedAt === null)
+        .map((project) => this.refreshHealth(project.id)),
+    );
+  };
+
+  public refreshHealth = async (projectId: string): Promise<void> => {
+    const environments = this.reachableEnvironments(
+      this.environmentsRepository.getEnvironmentsByProjectId(projectId),
+    );
+
+    if (environments.length === 0 || this._checkingHealth.has(projectId)) {
+      return;
+    }
+
+    runInAction(() => {
+      this._checkingHealth.add(projectId);
+    });
+
+    try {
+      const results = await Promise.all(
+        environments.map((environment) =>
+          this.projectsGateway.healthCheck({ projectId, environmentId: environment.id }),
+        ),
+      );
+
+      const reachable = results.filter((result) => result.isOk() && result.value.reachable).length;
+
+      runInAction(() => {
+        this._health.set(projectId, { reachable, checked: results.length });
+      });
+    } finally {
+      runInAction(() => {
+        this._checkingHealth.delete(projectId);
+      });
+    }
   };
 
   private loadImpact = async (projectId: string): Promise<void> => {
