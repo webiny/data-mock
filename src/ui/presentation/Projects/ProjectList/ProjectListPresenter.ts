@@ -28,6 +28,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   private _deleteMode: "archive" | "purge" = "archive";
   private _impact: DeletionImpact | null = null;
   private _isLoadingImpact = false;
+  private _loadError: string | null = null;
   private readonly syncPreviewState: SyncPreviewState;
 
   public constructor(
@@ -61,6 +62,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       syncableCount: projects.filter((project) => project.syncable).length,
       archivedProjects,
       isLoading: this._isLoading,
+      loadError: this._loadError,
       isEmpty: !this._isLoading && all.length === 0,
       deleteConfirmation: {
         isOpen: this._deleteProjectId !== null,
@@ -80,8 +82,19 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       return;
     }
     this._isLoading = true;
+    this._loadError = null;
     try {
-      await this.loadProjectsUseCase.execute();
+      const result = await this.loadProjectsUseCase.execute();
+      if (result.isFail()) {
+        /**
+         * An empty list and a list that could not be read look identical on screen, and the empty
+         * one invites the user to add a project that is probably already there.
+         */
+        runInAction(() => {
+          this._loadError = result.error.message;
+        });
+        return;
+      }
       const projects = this.projectsRepository.projects;
       await Promise.all(projects.map((p) => this.loadEnvironments(p.id)));
     } finally {

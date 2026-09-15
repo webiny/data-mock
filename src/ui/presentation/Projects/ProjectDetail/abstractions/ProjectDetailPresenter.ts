@@ -203,6 +203,8 @@ export interface IProjectDetailVM {
   /** Hidden when a project has a single environment, which is the common case. */
   showEnvironmentSelector: boolean;
   environmentError: string | null;
+  /** Why the page is blank, when the project itself could not be read. */
+  loadError: string | null;
   tenants: ITenantVM[];
   groups: IGroupVM[];
   models: IModelVM[];

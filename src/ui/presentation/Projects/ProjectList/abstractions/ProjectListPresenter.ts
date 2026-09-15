@@ -52,6 +52,8 @@ export interface ProjectListVM {
   archivedProjects: ProjectItemVM[];
   isLoading: boolean;
   isEmpty: boolean;
+  /** Why the list is empty, when it is empty because it could not be read. */
+  loadError: string | null;
   deleteConfirmation: DeleteConfirmationVM;
   /** What a sync from disk would change. Shown before anything is stored. */
   syncPreview: ISyncPreviewVM;

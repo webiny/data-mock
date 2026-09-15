@@ -129,6 +129,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   /** Stack name from the URL (`dev`, `dev___blue`), or null to take the project's first. */
   private _envName: string | null = null;
   private _environmentError: string | null = null;
+  private _loadError: string | null = null;
   private _isLoading = false;
   private _isSyncing = false;
   private _removeEnvironmentId: string | null = null;
@@ -327,6 +328,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       systemInfoNotice: this.systemInfoNotice(stackRows, currentEnvironmentVM),
       showEnvironmentSelector: environmentVMs.length > 1,
       environmentError: this._environmentError,
+      loadError: this._loadError,
       tenants: tenants.map((t) => ({
         tenantId: t.tenantId,
         name: t.name,
@@ -450,11 +452,19 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this._envName = envName;
     this._environmentId = null;
     this._environmentError = null;
+    this._loadError = null;
     this._loadedDatasets.clear();
     this._loadingDatasets.clear();
     this._isLoading = true;
     try {
-      await this.loadProjectDetailUseCase.execute({ projectId });
+      const loaded = await this.loadProjectDetailUseCase.execute({ projectId });
+      if (loaded.isFail()) {
+        // Without this the page renders its whole frame around a project that was never there.
+        runInAction(() => {
+          this._loadError = loaded.error.message;
+        });
+        return;
+      }
       await this.resolveEnvironment(projectId, envName);
     } finally {
       runInAction(() => {
@@ -777,7 +787,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!ref) {
       return;
     }
-    await this.deleteTemplateUseCase.execute({ projectId: ref.projectId, templateId });
+    const result = await this.deleteTemplateUseCase.execute({
+      projectId: ref.projectId,
+      templateId,
+    });
+    if (result.isFail()) {
+      this.notifications.error(`Failed to delete template: ${result.error.message}`);
+      return;
+    }
     this.notifications.success("Template deleted.");
   };
 

@@ -59,6 +59,7 @@ export const ProjectListPage = observer(function ProjectListPage({
     isSyncingAll,
     syncableCount,
     syncPreview,
+    loadError,
   } = presenter.vm;
 
   if (isLoading) {
@@ -67,6 +68,14 @@ export const ProjectListPage = observer(function ProjectListPage({
         <Loader size="lg" />
         <Text c="dimmed">Loading projects...</Text>
       </Stack>
+    );
+  }
+
+  if (loadError !== null) {
+    return (
+      <Alert color="red" title="Could not load the projects" mt="xl">
+        {loadError}
+      </Alert>
     );
   }
 

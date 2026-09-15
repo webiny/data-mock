@@ -139,6 +139,16 @@ describe("ProjectDetailPresenter", () => {
     expect(p.vm.environmentError).toBeNull();
   });
 
+  it("says why the page is blank when the project could not be read", async () => {
+    http.failures.set("/api/projects/:id", "project not found");
+
+    const p = await loaded();
+
+    // Otherwise the whole page frame renders around a project that was never there.
+    expect(p.vm.loadError).toContain("project not found");
+    expect(p.vm.project).toBeNull();
+  });
+
   it("says what to do when a project has no environments", async () => {
     http.data.set(ENVIRONMENTS_PATH, []);
 

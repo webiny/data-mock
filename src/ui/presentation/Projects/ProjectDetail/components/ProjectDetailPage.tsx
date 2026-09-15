@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import {
+  Alert,
   Select,
   Badge,
   Box,
@@ -95,6 +96,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
     isUploadingGlobal,
     showEditDialog,
     showCleanupDialog,
+    loadError,
   } = vm;
 
   if (isLoading) {
@@ -103,6 +105,14 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
         <Loader size="lg" />
         <Text c="dimmed">Loading project details...</Text>
       </Stack>
+    );
+  }
+
+  if (loadError !== null) {
+    return (
+      <Alert color="red" title="Could not load this project" mt="xl">
+        {loadError}
+      </Alert>
     );
   }
 

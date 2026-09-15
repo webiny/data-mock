@@ -59,10 +59,12 @@ class StubProjectsGateway {
   public readonly restored: string[] = [];
   public readonly purged: string[] = [];
   public failArchive = false;
+  public failList = false;
   public failPurge = false;
 
   public readonly gateway: ProjectsGateway.Interface = {
-    list: async () => Result.ok(this.projects),
+    list: async () =>
+      this.failList ? Result.fail(new Error("list refused") as never) : Result.ok(this.projects),
     getById: async (id) => Result.ok(makeProject({ id })),
     create: async () => Result.ok(makeProject()),
     update: async () => Result.ok(makeProject()),
@@ -319,6 +321,17 @@ describe("ProjectListPresenter", () => {
     expect(projectsGateway.purged).toEqual(["p1"]);
     expect(p.vm.projects).toHaveLength(0);
     expect(p.vm.archivedProjects).toHaveLength(0);
+  });
+
+  it("says why the list is empty when it could not be read", async () => {
+    projectsGateway.failList = true;
+
+    const p = presenter();
+    await p.load();
+
+    // An empty list invites adding a project that is probably already there.
+    expect(p.vm.loadError).toContain("list refused");
+    expect(p.vm.isEmpty).toBe(true);
   });
 
   it("deletes nothing until the confirmation has been moved to purge", async () => {
