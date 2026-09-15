@@ -171,9 +171,15 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
   public loadScanRoots = async (): Promise<void> => {
     const result = await this.fileSystemGateway.listScanRoots();
     runInAction(() => {
-      if (result.isOk()) {
-        this._scanRoots = result.value;
+      if (result.isFail()) {
+        /**
+         * Said out loud: `addScanRoot` reloads this list, so a silent failure here made a root that
+         * was added successfully look as though it had not been.
+         */
+        this._error = result.error.message;
+        return;
       }
+      this._scanRoots = result.value;
     });
   };
 
@@ -282,8 +288,13 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
        * forget: it is enqueued as a job and reports through the job feed like any other.
        */
       if (result.value.rootPath !== null) {
-        await this.environmentsGateway.sync(result.value.id);
-        this.notificationService.success(`Project "${name}" added. Syncing from disk...`);
+        const synced = await this.environmentsGateway.sync(result.value.id);
+        // The project is added either way; only the follow-up sync is in doubt.
+        this.notificationService.success(
+          synced.isOk()
+            ? `Project "${name}" added. Syncing from disk...`
+            : `Project "${name}" added, but the sync could not be started. Run it from the project.`,
+        );
       } else {
         this.notificationService.success(`Project "${name}" added.`);
       }

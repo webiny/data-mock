@@ -15,6 +15,8 @@ export interface SeedHistoryVM {
   jobs: SeedHistoryJobVM[];
   isLoading: boolean;
   isEmpty: boolean;
+  /** Why the history is empty, when it is empty because it could not be read. */
+  error: string | null;
 }
 
 export interface ISeedHistoryPresenter {

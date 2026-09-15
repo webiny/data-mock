@@ -314,12 +314,22 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
     });
   }
 
+  /**
+   * The "last synced" stamp. A failure here is worth saying but not worth failing the sync for:
+   * the inventory it just wrote is good, only the timestamp beside it is stale.
+   */
   private async stampProject(projectId: string, status: SyncStatus): Promise<void> {
-    await this.updateProjectRepository.execute({
+    const stamped = await this.updateProjectRepository.execute({
       id: projectId,
       lastSyncedAt: Date.now(),
       lastSyncStatus: status,
     });
+
+    if (stamped.isFail()) {
+      this.logger.warn(
+        `Could not stamp the sync status of "${projectId}": ${stamped.error.message}`,
+      );
+    }
   }
 }
 

@@ -7,6 +7,7 @@ import type { EnvironmentRef } from "~/shared/types.js";
 
 class SeedHistoryPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
+  private _error: string | null = null;
 
   public constructor(
     private readonly loadSeedHistoryUseCase: LoadSeedHistoryUseCase.Interface,
@@ -28,14 +29,22 @@ class SeedHistoryPresenterImpl implements Abstraction.Interface {
     return {
       jobs,
       isLoading: this._isLoading,
-      isEmpty: !this._isLoading && jobs.length === 0,
+      error: this._error,
+      // An empty history and one that could not be read are different answers.
+      isEmpty: !this._isLoading && this._error === null && jobs.length === 0,
     };
   }
 
   public load = async (ref: EnvironmentRef): Promise<void> => {
     this._isLoading = true;
+    this._error = null;
     try {
-      await this.loadSeedHistoryUseCase.execute(ref);
+      const result = await this.loadSeedHistoryUseCase.execute(ref);
+      if (result.isFail()) {
+        runInAction(() => {
+          this._error = result.error.message;
+        });
+      }
     } finally {
       runInAction(() => {
         this._isLoading = false;

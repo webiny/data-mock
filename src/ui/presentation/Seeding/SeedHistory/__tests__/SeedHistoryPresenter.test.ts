@@ -97,6 +97,17 @@ describe("SeedHistoryPresenter", () => {
     expect(p.vm.jobs[0]).toMatchObject({ created: 0, errors: 0 });
   });
 
+  it("says why the history is empty when it could not be read", async () => {
+    http.failures.set(SEED_JOBS_PATH, "gateway timeout");
+
+    const p = presenter();
+    await p.load(REF);
+
+    expect(p.vm.error).toContain("gateway timeout");
+    // Not "no seed jobs yet": that is a different answer.
+    expect(p.vm.isEmpty).toBe(false);
+  });
+
   it("is empty only once loading has finished", async () => {
     http.urlData.set(SEED_JOBS_PATH, { seedJobs: { items: [], total: 1 } });
 

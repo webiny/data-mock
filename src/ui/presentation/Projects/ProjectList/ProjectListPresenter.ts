@@ -96,7 +96,18 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         return;
       }
       const projects = this.projectsRepository.projects;
-      await Promise.all(projects.map((p) => this.loadEnvironments(p.id)));
+      const loaded = await Promise.all(projects.map((p) => this.loadEnvironments(p.id)));
+
+      /**
+       * Reported once for the whole pass rather than per project: a server that is down fails
+       * every one of them, and a toast each would bury the page.
+       */
+      const failed = loaded.filter((ok) => !ok).length;
+      if (failed > 0) {
+        this.notificationService.error(
+          `Could not load the environments of ${failed} project(s). Their cards are incomplete.`,
+        );
+      }
     } finally {
       runInAction(() => {
         this._isLoading = false;
@@ -263,11 +274,14 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  private loadEnvironments = async (projectId: string): Promise<void> => {
+  /** Returns whether the read succeeded, so the caller can report the pass as a whole. */
+  private loadEnvironments = async (projectId: string): Promise<boolean> => {
     const result = await this.environmentsGateway.listForProject(projectId);
-    if (result.isOk()) {
-      this.environmentsRepository.setEnvironments(projectId, result.value);
+    if (result.isFail()) {
+      return false;
     }
+    this.environmentsRepository.setEnvironments(projectId, result.value);
+    return true;
   };
 }
 

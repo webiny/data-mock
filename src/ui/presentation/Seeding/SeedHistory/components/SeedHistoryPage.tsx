@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
-import { Stack, Text, Table, Badge, Loader } from "@mantine/core";
+import { Alert, Stack, Text, Table, Badge, Loader } from "@mantine/core";
 import type { EnvironmentRef } from "~/shared/types.js";
 import type { SeedHistoryPresenter } from "../abstractions/SeedHistoryPresenter.js";
 
@@ -42,6 +42,14 @@ export const SeedHistoryPage = observer(function SeedHistoryPage({
         <Loader />
         <Text>Loading seed history...</Text>
       </Stack>
+    );
+  }
+
+  if (vm.error !== null) {
+    return (
+      <Alert color="red" title="Could not load the seed history" my="md">
+        {vm.error}
+      </Alert>
     );
   }
 

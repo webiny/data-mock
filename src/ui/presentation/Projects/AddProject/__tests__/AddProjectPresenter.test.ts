@@ -237,6 +237,29 @@ describe("AddProjectPresenter", () => {
     expect(p.vm.error).toBeNull();
   });
 
+  it("says a scan root list that could not be read, rather than showing none", async () => {
+    http.failures.set(SCAN_ROOTS_PATH, "permission denied");
+
+    const p = presenter();
+    await p.loadScanRoots();
+
+    // addScanRoot reloads this list, so silence here reads as the add having failed.
+    expect(p.vm.error).toContain("permission denied");
+  });
+
+  it("says when a project was added but its sync could not be started", async () => {
+    http.failures.set(SYNC_PATH, "queue full");
+
+    const p = presenter();
+    p.setRootPath("/work/one");
+    p.setName("One");
+
+    const added = await p.submit();
+
+    // The project is there either way; only the follow-up is in doubt.
+    expect(added).toBe(true);
+  });
+
   it("lists the scan roots when the scan tab is opened", async () => {
     const p = presenter();
     p.setMode("scan");

@@ -104,9 +104,11 @@ class StubEnvironmentsGateway {
   public lastPreviewedIds: string[] = [];
   public failSyncFor = new Set<string>();
   public hasChanges = true;
+  public failList = false;
 
   public readonly gateway: Partial<EnvironmentsGateway.Interface> = {
-    listForProject: async () => Result.ok([]),
+    listForProject: async () =>
+      this.failList ? Result.fail(new Error("environments refused") as never) : Result.ok([]),
     listStacks: async () => Result.ok([]),
     sync: async (projectId: string) => {
       this.synced.push(projectId);
@@ -332,6 +334,18 @@ describe("ProjectListPresenter", () => {
     // An empty list invites adding a project that is probably already there.
     expect(p.vm.loadError).toContain("list refused");
     expect(p.vm.isEmpty).toBe(true);
+  });
+
+  it("says the cards are incomplete when the environments could not be read", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" }), makeProject({ id: "p2" })];
+    environmentsGateway.failList = true;
+
+    const p = presenter();
+    await p.load();
+
+    // One message for the whole pass, not one per project.
+    expect(notifications.errors).toHaveLength(1);
+    expect(notifications.errors[0]).toContain("2 project(s)");
   });
 
   it("deletes nothing until the confirmation has been moved to purge", async () => {
