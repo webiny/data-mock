@@ -320,11 +320,16 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     await Promise.all(
       this.projectsRepository.projects
         .filter((project) => project.archivedAt === null)
-        .map((project) => this.refreshHealth(project.id)),
+        // The cached answer is fine on load; only an explicit click asks again.
+        .map((project) => this.refreshHealth(project.id, false)),
     );
   };
 
-  public refreshHealth = async (projectId: string): Promise<void> => {
+  /**
+   * `force` on purpose: the server caches a health answer for ten minutes, so without it clicking
+   * the badge returns the same answer and reads as the click having done nothing.
+   */
+  public refreshHealth = async (projectId: string, force = true): Promise<void> => {
     const environments = this.reachableEnvironments(
       this.environmentsRepository.getEnvironmentsByProjectId(projectId),
     );
@@ -340,7 +345,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     try {
       const results = await Promise.all(
         environments.map((environment) =>
-          this.projectsGateway.healthCheck({ projectId, environmentId: environment.id }),
+          this.projectsGateway.healthCheck({ projectId, environmentId: environment.id }, force),
         ),
       );
 

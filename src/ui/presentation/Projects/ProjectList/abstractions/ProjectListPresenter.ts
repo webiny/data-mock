@@ -93,8 +93,11 @@ export interface IProjectListPresenter {
   /** Enqueues a sync for every project that has a checkout. */
   /** Reads what a sync would change for every project with a checkout, and opens the diff. */
   syncAll(): void;
-  /** Re-checks one project's environments. The badge is clickable for exactly this. */
-  refreshHealth(projectId: string): Promise<void>;
+  /**
+   * Re-checks one project's environments. The badge is clickable for exactly this, and a click
+   * bypasses the server's ten-minute cache.
+   */
+  refreshHealth(projectId: string, force?: boolean): Promise<void>;
   /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
   confirmDelete(projectId: string, projectName: string): void;
   cancelDelete(): void;

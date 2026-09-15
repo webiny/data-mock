@@ -80,6 +80,7 @@ class StubProjectsGateway {
   public readonly purged: string[] = [];
   public failArchive = false;
   public healthChecks = 0;
+  public forcedChecks = 0;
   public reachable = true;
   public failList = false;
   public failPurge = false;
@@ -116,8 +117,9 @@ class StubProjectsGateway {
       this.impactFails || this.impact === null
         ? Result.fail(new Error("boom") as never)
         : Result.ok(this.impact),
-    healthCheck: async () => {
+    healthCheck: async (_ref, force?: boolean) => {
       this.healthChecks += 1;
+      this.forcedChecks += force === true ? 1 : 0;
       return this.reachable
         ? Result.ok({ reachable: true, error: null })
         : Result.ok({ reachable: false, error: "connect ECONNREFUSED" });
@@ -442,6 +444,22 @@ describe("ProjectListPresenter", () => {
     await p.load();
 
     expect(p.vm.projects[0]?.seedable).toBe(true);
+  });
+
+  it("takes the cached answer on load and asks again only on a click", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.environments = [makeEnvironment()];
+
+    const p = presenter();
+    await p.load();
+    await flush();
+
+    expect(projectsGateway.forcedChecks).toBe(0);
+
+    // The server caches for ten minutes, so a click that did not force would look like a no-op.
+    await p.refreshHealth("p1");
+
+    expect(projectsGateway.forcedChecks).toBe(1);
   });
 
   it("says the cards are incomplete when the environments could not be read", async () => {
