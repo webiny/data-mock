@@ -58,6 +58,8 @@ class StubProjectsGateway {
   public readonly archived: string[] = [];
   public readonly restored: string[] = [];
   public readonly purged: string[] = [];
+  public failArchive = false;
+  public failPurge = false;
 
   public readonly gateway: ProjectsGateway.Interface = {
     list: async () => Result.ok(this.projects),
@@ -65,6 +67,9 @@ class StubProjectsGateway {
     create: async () => Result.ok(makeProject()),
     update: async () => Result.ok(makeProject()),
     archive: async (id) => {
+      if (this.failArchive) {
+        return Result.fail(new Error("archive refused") as never);
+      }
       this.archived.push(id);
       const archived = makeProject({ id, archivedAt: 999 });
       this.projects = this.projects.map((p) => (p.id === id ? archived : p));
@@ -77,6 +82,9 @@ class StubProjectsGateway {
       return Result.ok(restored);
     },
     purge: async (id) => {
+      if (this.failPurge) {
+        return Result.fail(new Error("purge refused") as never);
+      }
       this.purged.push(id);
       return Result.ok(undefined);
     },
@@ -311,6 +319,51 @@ describe("ProjectListPresenter", () => {
     expect(projectsGateway.purged).toEqual(["p1"]);
     expect(p.vm.projects).toHaveLength(0);
     expect(p.vm.archivedProjects).toHaveLength(0);
+  });
+
+  it("deletes nothing until the confirmation has been moved to purge", async () => {
+    projectsGateway.projects = [makeProject()];
+
+    const p = presenter();
+    await p.load();
+    p.confirmDelete("p1", "Project One");
+
+    // The first step is the reversible one; a purge from there destroys data with one click.
+    await p.purge();
+    expect(projectsGateway.purged).toEqual([]);
+
+    p.requestPurge();
+    await p.purge();
+    expect(projectsGateway.purged).toEqual(["p1"]);
+  });
+
+  it("says a delete failed instead of reporting it as done", async () => {
+    projectsGateway.projects = [makeProject()];
+    projectsGateway.failPurge = true;
+
+    const p = presenter();
+    await p.load();
+    p.confirmDelete("p1", "Project One");
+    p.requestPurge();
+    await p.purge();
+
+    expect(notifications.successes).toEqual([]);
+    expect(notifications.errors[0]).toContain("Failed to delete project");
+    // Still listed: nothing was deleted, so the list must not pretend otherwise.
+    expect(p.vm.projects).toHaveLength(1);
+  });
+
+  it("says an archive failed instead of reporting it as done", async () => {
+    projectsGateway.projects = [makeProject()];
+    projectsGateway.failArchive = true;
+
+    const p = presenter();
+    await p.load();
+    p.confirmDelete("p1", "Project One");
+    await p.archive();
+
+    expect(notifications.successes).toEqual([]);
+    expect(notifications.errors[0]).toContain("Failed to archive project");
   });
 
   it("closes the confirmation on cancel without touching anything", async () => {

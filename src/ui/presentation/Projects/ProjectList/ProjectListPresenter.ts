@@ -118,7 +118,13 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       return;
     }
     this.cancelDelete();
-    await this.archiveProjectUseCase.execute(id);
+
+    const result = await this.archiveProjectUseCase.execute(id);
+    if (result.isFail()) {
+      this.notificationService.error(`Failed to archive project: ${result.error.message}`);
+      return;
+    }
+
     this.notificationService.success(`Project "${name}" archived. Its data is kept.`);
   };
 
@@ -128,13 +134,31 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     if (id === null) {
       return;
     }
+    /**
+     * The confirmation has to have been moved to "purge" first. This destroys the project and
+     * every environment, seed entry, sync log, model and job that cascades from it, so it must not
+     * be reachable from the dialog's reversible first step by any route.
+     */
+    if (this._deleteMode !== "purge") {
+      return;
+    }
     this.cancelDelete();
-    await this.purgeProjectUseCase.execute(id);
+
+    const result = await this.purgeProjectUseCase.execute(id);
+    if (result.isFail()) {
+      this.notificationService.error(`Failed to delete project: ${result.error.message}`);
+      return;
+    }
+
     this.notificationService.success(`Project "${name}" and all of its data were deleted.`);
   };
 
   public restore = async (projectId: string): Promise<void> => {
-    await this.restoreProjectUseCase.execute(projectId);
+    const result = await this.restoreProjectUseCase.execute(projectId);
+    if (result.isFail()) {
+      this.notificationService.error(`Failed to restore project: ${result.error.message}`);
+      return;
+    }
     await this.loadEnvironments(projectId);
   };
 
