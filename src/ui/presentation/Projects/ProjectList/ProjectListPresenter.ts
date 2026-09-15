@@ -23,7 +23,6 @@ import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/im
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _loaded = false;
-  private _syncingModelsProjectIds = new Set<string>();
   /** Per project: how many of its environments answered, and how many were asked. */
   private readonly _health = new Map<string, { reachable: number; checked: number }>();
   private readonly _checkingHealth = new Set<string>();
@@ -262,7 +261,6 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       syncable: project.rootPath !== null,
       seedable: this.reachableEnvironments(environments).length > 0,
       isSyncing: this.isReadingDiffFor(project.id),
-      isSyncingModels: this._syncingModelsProjectIds.has(project.id),
       health: this.healthOf(project.id, environments),
       healthLabel: this.healthLabelOf(project.id, environments),
     };

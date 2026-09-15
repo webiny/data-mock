@@ -38,7 +38,6 @@ export interface ProjectItemVM {
   lastSyncedAt: number | null;
   archivedAt: number | null;
   isSyncing: boolean;
-  isSyncingModels: boolean;
   health: ProjectHealth;
   /** "3 of 4 environments online", or why there is nothing to report. */
   healthLabel: string;
