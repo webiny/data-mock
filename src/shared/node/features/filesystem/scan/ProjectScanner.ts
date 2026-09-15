@@ -58,7 +58,7 @@ class ProjectScannerImpl implements Abstraction.Interface {
       });
     }
 
-    return Result.ok({ candidates, errors });
+    return Result.ok({ candidates, errors, rootsScanned: rootsResult.value.length });
   }
 
   private async resolveRoots(paths?: string[]): Promise<Result<string[], Abstraction.Error>> {

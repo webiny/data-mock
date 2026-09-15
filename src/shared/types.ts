@@ -163,6 +163,8 @@ export interface ScanError {
 export interface ScanResult {
   candidates: ProjectCandidate[];
   errors: ScanError[];
+  /** How many roots were walked. Zero means none are configured, not that nothing was found. */
+  rootsScanned: number;
 }
 
 export interface ScanRoot {

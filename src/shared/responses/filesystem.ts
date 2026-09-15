@@ -27,6 +27,8 @@ export const projectCandidateSchema = z.object({
 export const scanResultSchema = z.object({
   candidates: z.array(projectCandidateSchema),
   errors: z.array(z.object({ path: z.string(), message: z.string() })),
+  /** How many roots were walked. Zero means none are configured, not that nothing was found. */
+  rootsScanned: z.number(),
 });
 
 export type ScanResultResponse = z.infer<typeof scanResultSchema>;

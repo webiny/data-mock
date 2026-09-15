@@ -41,7 +41,7 @@ describe("AddProjectPresenter", () => {
       entries: [{ name: "one", path: "/work/one", isWebinyProject: true, readable: true }],
       isWebinyProject: false,
     });
-    http.data.set(SCAN_PATH, { candidates: [makeCandidate()], errors: [] });
+    http.data.set(SCAN_PATH, { candidates: [makeCandidate()], errors: [], rootsScanned: 1 });
     http.data.set(SCAN_ROOTS_PATH, [{ id: "r1", path: "/work" }]);
     http.data.set(CREATE_PROJECT_PATH, { id: "p1", name: "one", rootPath: "/work/one" });
     http.data.set(SYNC_PATH, { id: "job1" });
@@ -99,6 +99,7 @@ describe("AddProjectPresenter", () => {
     http.data.set(SCAN_PATH, {
       candidates: [makeCandidate({ registered: true })],
       errors: [],
+      rootsScanned: 1,
     });
 
     const p = presenter();
@@ -117,6 +118,7 @@ describe("AddProjectPresenter", () => {
         makeCandidate({ rootPath: "/work/two", webinyVersion: null, versionMajor: null }),
       ],
       errors: [],
+      rootsScanned: 1,
     });
 
     const p = presenter();
@@ -129,7 +131,7 @@ describe("AddProjectPresenter", () => {
   });
 
   it("tells a scan that found nothing apart from one that has not run", async () => {
-    http.data.set(SCAN_PATH, { candidates: [], errors: [] });
+    http.data.set(SCAN_PATH, { candidates: [], errors: [], rootsScanned: 1 });
 
     const p = presenter();
     expect(p.vm.hasScanned).toBe(false);
@@ -258,6 +260,18 @@ describe("AddProjectPresenter", () => {
 
     // The project is there either way; only the follow-up is in doubt.
     expect(added).toBe(true);
+  });
+
+  it("says to add a folder rather than blaming roots that do not exist", async () => {
+    http.data.set(SCAN_ROOTS_PATH, []);
+    http.data.set(SCAN_PATH, { candidates: [], errors: [], rootsScanned: 0 });
+
+    const p = presenter();
+    await p.scan();
+
+    // "No Webiny projects found under those roots" pointed at folders that were never added.
+    expect(p.vm.error).toContain("Add a folder to scan first");
+    expect(p.vm.hasScanned).toBe(false);
   });
 
   it("lists the scan roots when the scan tab is opened", async () => {

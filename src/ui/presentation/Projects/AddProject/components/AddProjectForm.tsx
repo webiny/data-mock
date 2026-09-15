@@ -158,7 +158,7 @@ const ScanPanel = observer(function ScanPanel({ presenter }: PanelProps) {
         </Text>
         {vm.scanRoots.length === 0 && (
           <Text size="xs" c="dimmed" fs="italic">
-            None yet — add a folder that holds your Webiny checkouts.
+            None yet — type a folder that holds your Webiny checkouts below and press Add root.
           </Text>
         )}
         {vm.scanRoots.map((root) => (

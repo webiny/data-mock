@@ -24,7 +24,13 @@ class CreateScanRootRepositoryImpl implements Abstraction.Interface {
       return Result.fail(new ValidationError(`"${input.path}" is not an absolute path`));
     }
 
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+    // A mistyped path is by far the likeliest failure here, so it says so rather than reporting
+    // every bad root as "not a directory".
+    if (!fs.existsSync(resolved)) {
+      return Result.fail(new ValidationError(`"${resolved}" does not exist`));
+    }
+
+    if (!fs.statSync(resolved).isDirectory()) {
       return Result.fail(new ValidationError(`"${resolved}" is not a directory`));
     }
 

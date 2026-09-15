@@ -225,6 +225,19 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
           this._error = result.error.message;
           return;
         }
+        /**
+         * No roots is not the same answer as nothing found. The panel reported both as "No Webiny
+         * projects found under those roots", which blamed folders that were never added — exactly
+         * what happens after a mistyped path fails to be added as a root.
+         */
+        if (result.value.rootsScanned === 0) {
+          this._error = "Add a folder to scan first.";
+          this._candidates = [];
+          this._scanErrors = [];
+          this._hasScanned = false;
+          return;
+        }
+
         this._candidates = result.value.candidates;
         this._scanErrors = result.value.errors;
         this._hasScanned = true;
