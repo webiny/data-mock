@@ -4,6 +4,7 @@ import { useContainer } from "~/ui/di/DiContainerProvider.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { WSJobStatus } from "~/shared/websocket/types.js";
 import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
+import { getJobTypeLabel } from "~/shared/jobs/descriptors.js";
 
 const STATUS_CONFIG: Record<string, { color: string; message: string; autoClose: number | false }> =
   {
@@ -17,14 +18,6 @@ const STATUS_CONFIG: Record<string, { color: string; message: string; autoClose:
     },
   };
 
-const JOB_TYPE_LABELS: Record<string, string> = {
-  seed: "Seed data",
-  "pull-tenants": "Pull tenants",
-  "pull-models": "Pull models",
-  cleanup: "Cleanup entries",
-  import: "Import entries",
-};
-
 function handleJobStatus(event: WSJobStatus): void {
   if (!TERMINAL_JOB_STATUSES.has(event.status)) {
     return;
@@ -35,7 +28,7 @@ function handleJobStatus(event: WSJobStatus): void {
     message: `finished with status "${event.status}".`,
     autoClose: 5000,
   };
-  const label = JOB_TYPE_LABELS[event.type] ?? event.type;
+  const label = getJobTypeLabel(event.type);
 
   notifications.show({
     title: label,

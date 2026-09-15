@@ -68,6 +68,33 @@ export interface IEnvironmentDeleteConfirmationVM {
   impactTotal: number;
 }
 
+/**
+ * Deploy and destroy share one dialog shape. `step` is what makes destroy two-step: "review"
+ * states what will be torn down; "confirm" demands the project name typed back. Deploy never
+ * leaves "review" and never asks for a name.
+ */
+export interface IDeploymentDialogVM {
+  isOpen: boolean;
+  command: "deploy" | "destroy";
+  step: "review" | "confirm";
+  stackName: string | null;
+  projectName: string;
+  /** Apps this project's version can deploy. Empty while it loads, or for a remote-only project. */
+  deployableApps: string[];
+  selectedApps: string[];
+  region: string | null;
+  regionOptions: Array<{ value: string; label: string }>;
+  /** What a destroy would tear down, per app. Empty for a deploy. */
+  atRisk: Array<{ app: string; resourceCount: number | null; deployed: boolean }>;
+  /** Named resources a destroy would take with it, for the review step. */
+  atRiskResources: Array<{ label: string; value: string }>;
+  typedName: string;
+  /** False until the typed name matches exactly, or immediately true for a deploy. */
+  canConfirm: boolean;
+  isSubmitting: boolean;
+  error: string | null;
+}
+
 export interface ITenantVM {
   tenantId: string;
   name: string;
@@ -165,6 +192,7 @@ export interface IProjectDetailVM {
   currentEnvironment: IEnvironmentVM | null;
   stacks: IStackVM[];
   environmentDeleteConfirmation: IEnvironmentDeleteConfirmationVM;
+  deploymentDialog: IDeploymentDialogVM;
   systemInfo: ISystemInfoSectionVM[];
   /** Why System Info is empty, when it is. Never left blank without a reason. */
   systemInfoNotice: string | null;
@@ -228,6 +256,15 @@ export interface IProjectDetailPresenter {
   archiveEnvironment(): Promise<void>;
   purgeEnvironment(): Promise<void>;
   restoreEnvironment(environmentId: string): Promise<void>;
+  /** Opens the deploy or destroy dialog for the currently selected environment. */
+  openDeploymentDialog(command: "deploy" | "destroy"): void;
+  closeDeploymentDialog(): void;
+  toggleDeploymentApp(app: string): void;
+  setDeploymentRegion(region: string | null): void;
+  /** Moves a destroy from "review" to the typed-name step. Deploy never calls this. */
+  reviewDeployment(): void;
+  setDeploymentTypedName(value: string): void;
+  submitDeployment(): Promise<void>;
   loadTemplate(templateId: string): void;
   deleteTemplate(templateId: string): Promise<void>;
   pullTenants(): Promise<void>;
@@ -260,6 +297,8 @@ export interface IProjectDetailPresenter {
   clearSyncLogsFilter(): void;
   pullFiles(): Promise<void>;
   cancelJob(jobId: string): Promise<void>;
+  /** Live log tail for a running job, empty until it emits something. */
+  liveLogsFor(jobId: string): string;
   dispose(): void;
 }
 

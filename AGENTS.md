@@ -61,7 +61,7 @@ src/
 │           ├── deletion/               # DeletionImpactService — counts what a purge would destroy
 │           ├── scanRoots/              # CRUD for the directories scanned for checkouts
 │           ├── filesystem/             # DirectoryBrowser + ProjectScanner
-│           ├── webinyCli/              # Project detection, Pulumi checkpoint reading, sync, scheduler
+│           ├── webinyCli/              # Detection, checkpoint reading, sync, scheduler, CLI runner, deploy/destroy
 │           ├── tenants/                # Sync + list + verify access
 │           ├── models/                 # Sync + list + get + push + compare
 │           ├── seeding/                # Seed service + job CRUD + entry audit log + dependency resolver
@@ -79,7 +79,7 @@ src/
 │   ├── server.ts                       # createServer()
 │   ├── feature.ts                      # ApiFeature
 │   ├── routing/                        # routeFactory, sendTyped, sendError, createRequestContext
-│   └── routes/                         # 34 route handlers (see below)
+│   └── routes/                         # 37 route handlers (see below)
 │
 └── ui/                                  # React + Mantine + MobX (port 4001)
     ├── App.tsx, main.tsx               # Entry + DI container setup
@@ -166,6 +166,44 @@ would let a tick read a checkpoint a deploy is halfway through rewriting: a vali
 
 ---
 
+## Deploy and destroy
+
+Both run as background jobs, through the checkout's own `node_modules/.bin/webiny`.
+
+- **One app per child process, always.** Never omit the app positional: on v5 it trips the gate
+  that demands `--confirm-destroy-env`, and on v6 `destroy` with no app tears down admin, api and
+  core in sequence **with no confirmation of any kind**. An empty app list means "every deployable
+  app", expanded by the tool, ordered `core → api → admin` for deploy and reversed for destroy.
+- **Neither type is enqueueable through `POST /api/projects/:projectId/jobs`.** That route's body
+  is a bare `config` record, so allowing them would let a plain POST deploy or destroy with no
+  confirmation. They have their own routes. Destroy's requires the project name typed back and
+  **checks it server-side** — a confirmation that exists only in the browser is not a confirmation.
+- **The child's environment is an allow-list.** Both majors load the project `.env` WITHOUT
+  override, so anything in the server's environment beats the project's own. `AWS_*` is kept as a
+  prefix (minus `AWS_PROFILE`/`AWS_REGION`, which the tool sets per project) because an allow-list
+  of named credential vars is unmaintainable. `NODE_*` is not a glob: `NODE_EXTRA_CA_CERTS` is kept
+  by name, `NODE_ENV` and `NODE_OPTIONS` are not. `CI=1` is load-bearing — it skips the v6
+  telemetry gate that otherwise hard-fails deploys. `HOME` is mandatory, for corepack.
+- **Cancel kills the child.** SIGTERM first so pulumi can unwind, SIGKILL after a grace period; a
+  pulumi run killed outright can leave a stack lock that blocks the next deploy.
+- **Stack state is re-read after every run, including a failed one.** A failed deploy is rarely a
+  no-op. The refresh derives the environment row from every stored stack, not just the apps just
+  read — otherwise deploying `api` alone blanks `admin_url`, and destroying `admin` alone marks the
+  whole environment not-deployed.
+- **Region is a closed set** (`src/shared/webiny/regions.ts`, copied from `@webiny/project`);
+  `withRegion` throws for anything else. Variants named `none`, `empty` or `blank` are rejected.
+- Flags are deploy-only where the CLI says so: verified against both checkouts, neither major's
+  `destroy` accepts `--build` or a deployment-logs flag, and the log flag's name differs by major.
+
+### Job concurrency
+
+`MAX_CONCURRENT_JOBS = 4` globally, and **one running job per project** — which is what stops a
+scheduled sync from reading a checkpoint a deploy is halfway through rewriting. `projectId === null`
+is never blocked. A skipped job stays `pending` with `progressLabel = "waiting: project busy"`,
+cleared on claim. The claim update is guarded on the row still being `pending`.
+
+---
+
 ## Deletion
 
 Every child table cascades from both `projects` and `project_environments`, so a real delete
@@ -209,7 +247,7 @@ in the product deletes by default:
 
 ---
 
-## API Routes (56)
+## API Routes (59)
 
 Environment-scoped routes live under `/api/projects/:projectId/environments/:environmentId/*`.
 Project-scoped routes (jobs, templates, sync) and the four global file routes stay where they are.
@@ -244,6 +282,9 @@ sync-system) return a `Job` object with HTTP 202 — work runs in the background
 | GET | `/api/projects/:projectId/environments/:environmentId/stacks` | Per-app Pulumi state |
 | POST | `/api/projects/:projectId/environments/:environmentId/health` | Is this environment's API reachable |
 | POST | `/api/projects/:projectId/sync` | Sync version, environments and stack output from disk |
+| POST | `/api/projects/:projectId/environments/:environmentId/deploy` | Deploy apps (202, job) |
+| POST | `/api/projects/:projectId/environments/:environmentId/destroy` | Destroy apps — requires `confirmProjectName` (202, job) |
+| GET | `/api/projects/:projectId/deployable-apps` | Apps this project's Webiny version can deploy |
 
 ### Filesystem
 | Method | Path | Purpose |

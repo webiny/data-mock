@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
 import type {
+  IDeploymentDialogVM,
   IEnvironmentVM,
   IProjectDetailVM,
   IEditProjectInput,
@@ -52,9 +53,10 @@ import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListSt
 import type { URLListState } from "~/ui/features/router/abstractions/URLListState.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
-import type { WSJobStatus } from "~/shared/websocket/types.js";
+import type { WSJobLog, WSJobStatus } from "~/shared/websocket/types.js";
 import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
 import { getJobTypeDatasets } from "~/shared/jobs/descriptors.js";
+import { WEBINY_REGIONS } from "~/shared/webiny/regions.js";
 import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import { JobsRepository } from "~/ui/features/jobs/abstractions/JobsRepository.js";
 
@@ -75,6 +77,12 @@ const VIEW_DATASETS: Record<string, string[]> = {
   seed: ["tenants", "models"],
   import: ["tenants", "models"],
 };
+
+/**
+ * How many live log lines the browser keeps per job. A deploy streams raw Pulumi output — `CI=1`
+ * forces deployment logs on — so this is a tail, not the whole log.
+ */
+const LIVE_LOG_LIMIT = 2000;
 
 const STACK_STATE_LABELS: Record<string, string> = {
   deployed: "Deployed",
@@ -126,6 +134,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _removeEnvironmentMode: "archive" | "purge" = "archive";
   private _environmentImpact: DeletionImpact | null = null;
   private _isLoadingEnvironmentImpact = false;
+  private _deploymentCommand: "deploy" | "destroy" | null = null;
+  private _deploymentStep: "review" | "confirm" = "review";
+  private _deployableApps: string[] = [];
+  private _selectedApps: string[] = [];
+  private _deploymentRegion: string | null = null;
+  private _deploymentTypedName = "";
+  private _isSubmittingDeployment = false;
+  private _deploymentError: string | null = null;
   private _isSyncingTenants = false;
   private _isSyncingModels = false;
   private _isImporting = false;
@@ -145,6 +161,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private readonly syncLogsListState: URLListState.Interface;
   private readonly seedJobsListState: URLListState.Interface;
   private readonly disposeJobSubscription: () => void;
+  private readonly disposeJobLogSubscription: () => void;
+  /** Live log lines per job, newest last. Bounded — see LIVE_LOG_LIMIT. */
+  private _liveLogs = new Map<string, string[]>();
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
@@ -206,6 +225,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     });
     makeAutoObservable(this);
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
+    this.disposeJobLogSubscription = eventBridge.on("job:log", this.handleJobLog);
   }
 
   public get vm(): IProjectDetailVM {
@@ -292,6 +312,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         impact: this.environmentImpactLines,
         impactTotal: totalDeletionImpact(this.environmentImpactLines),
       },
+      deploymentDialog: this.buildDeploymentDialog(stackRows, currentEnvironmentVM, project?.name),
       systemInfo: this.buildSystemInfo(
         stackRows,
         currentEnvironmentVM,
@@ -517,6 +538,86 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     } finally {
       runInAction(() => {
         this._isSyncing = false;
+      });
+    }
+  };
+
+  public openDeploymentDialog = (command: "deploy" | "destroy"): void => {
+    this._deploymentCommand = command;
+    this._deploymentStep = "review";
+    this._deploymentTypedName = "";
+    this._deploymentError = null;
+    this._selectedApps = [];
+    this._deploymentRegion = null;
+    void this.loadDeployableApps();
+  };
+
+  public closeDeploymentDialog = (): void => {
+    this._deploymentCommand = null;
+    this._deploymentStep = "review";
+    this._deploymentTypedName = "";
+    this._deploymentError = null;
+    this._selectedApps = [];
+  };
+
+  public toggleDeploymentApp = (app: string): void => {
+    this._selectedApps = this._selectedApps.includes(app)
+      ? this._selectedApps.filter((candidate) => candidate !== app)
+      : [...this._selectedApps, app];
+  };
+
+  public setDeploymentRegion = (region: string | null): void => {
+    this._deploymentRegion = region;
+  };
+
+  public reviewDeployment = (): void => {
+    this._deploymentStep = "confirm";
+  };
+
+  public setDeploymentTypedName = (value: string): void => {
+    this._deploymentTypedName = value;
+  };
+
+  public submitDeployment = async (): Promise<void> => {
+    const command = this._deploymentCommand;
+    const projectId = this._projectId;
+    const environmentId = this._environmentId;
+
+    if (command === null || projectId === null || environmentId === null) {
+      return;
+    }
+
+    this._isSubmittingDeployment = true;
+    this._deploymentError = null;
+
+    try {
+      const apps = this._selectedApps;
+      const region = this._deploymentRegion;
+
+      const result =
+        command === "deploy"
+          ? await this.environmentsGateway.deploy(projectId, environmentId, {
+              ...(apps.length > 0 ? { apps } : {}),
+              ...(region !== null ? { region } : {}),
+            })
+          : await this.environmentsGateway.destroy(projectId, environmentId, {
+              ...(apps.length > 0 ? { apps } : {}),
+              ...(region !== null ? { region } : {}),
+              confirmProjectName: this._deploymentTypedName.trim(),
+            });
+
+      if (result.isFail()) {
+        runInAction(() => {
+          this._deploymentError = result.error.message;
+        });
+        return;
+      }
+
+      this.notifications.success(command === "deploy" ? "Deploy started." : "Destroy started.");
+      this.closeDeploymentDialog();
+    } finally {
+      runInAction(() => {
+        this._isSubmittingDeployment = false;
       });
     }
   };
@@ -1055,7 +1156,129 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
 
   public dispose = (): void => {
     this.disposeJobSubscription();
+    this.disposeJobLogSubscription();
   };
+
+  /**
+   * Live log lines for one job, joined for the viewer. Empty until the job emits something, at
+   * which point this is what the detail modal shows instead of the stored `logs` column — that one
+   * is only flushed every couple of seconds.
+   */
+  public liveLogsFor = (jobId: string): string => {
+    return (this._liveLogs.get(jobId) ?? []).join("\n");
+  };
+
+  private loadDeployableApps = async (): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    const result = await this.environmentsGateway.listDeployableApps(projectId);
+    runInAction(() => {
+      // An empty list is a real answer — a remote-only project can deploy nothing — so a failure
+      // leaves whatever was there rather than claiming there is nothing to deploy.
+      if (result.isOk()) {
+        this._deployableApps = result.value.apps;
+      }
+    });
+  };
+
+  /**
+   * The deploy and destroy dialog.
+   *
+   * The "at risk" list is built from the stored stacks rather than from a fresh read: it is what
+   * the last sync saw, which is the only honest thing to show before running anything. An
+   * unreadable stack reports a null count instead of zero.
+   */
+  private buildDeploymentDialog(
+    stacks: ProjectStack[],
+    environment: IEnvironmentVM | null,
+    projectName: string | undefined,
+  ): IDeploymentDialogVM {
+    const command = this._deploymentCommand ?? "deploy";
+    const isDestroy = command === "destroy";
+    const name = projectName ?? "";
+
+    const targeted =
+      this._selectedApps.length > 0
+        ? this._selectedApps
+        : this._deployableApps.length > 0
+          ? this._deployableApps
+          : stacks.map((stack) => stack.app);
+
+    const atRisk = isDestroy
+      ? targeted.map((app) => {
+          const stack = stacks.find((candidate) => candidate.app === app);
+          return {
+            app,
+            resourceCount:
+              stack === undefined || stack.readState === "unknown"
+                ? null
+                : (stack.resourceCount ?? 0),
+            deployed: stack?.deployed ?? false,
+          };
+        })
+      : [];
+
+    return {
+      isOpen: this._deploymentCommand !== null,
+      command,
+      step: this._deploymentStep,
+      stackName: environment?.stackName ?? null,
+      projectName: name,
+      deployableApps: this._deployableApps,
+      selectedApps: this._selectedApps,
+      // Null means "whatever the environment already uses", which is what the backend falls back to.
+      region: this._deploymentRegion,
+      regionOptions: WEBINY_REGIONS,
+      atRisk,
+      atRiskResources: isDestroy ? this.namedResourcesAtRisk(stacks, targeted) : [],
+      typedName: this._deploymentTypedName,
+      canConfirm: isDestroy
+        ? this._deploymentTypedName.trim() === name && name !== ""
+        : this._deployableApps.length > 0,
+      isSubmitting: this._isSubmittingDeployment,
+      error: this._deploymentError,
+    };
+  }
+
+  /**
+   * The named things a destroy takes with it — tables, buckets, user pools — pulled through the
+   * same key map the System Info panel uses, so the two never name the same resource differently.
+   */
+  private namedResourcesAtRisk(
+    stacks: ProjectStack[],
+    apps: string[],
+  ): Array<{ label: string; value: string }> {
+    const versionMajor = this._projectId
+      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId)?.versionMajor ??
+        null)
+      : null;
+
+    if (versionMajor === null) {
+      return [];
+    }
+
+    const outputsFor = (app: string): Record<string, unknown> | null => {
+      const stack = stacks.find((candidate) => candidate.app === app);
+      return stack !== undefined && stack.deployed ? stack.stackOutput : null;
+    };
+
+    const resolved: Array<{ label: string; value: string }> = [];
+
+    if (apps.includes("core")) {
+      resolved.push(...resolveCoreOutputs(outputsFor("core"), versionMajor));
+    }
+    if (apps.includes("api")) {
+      resolved.push(...resolveApiOutputs(outputsFor("api"), versionMajor));
+    }
+    if (apps.includes("admin")) {
+      resolved.push(...resolveAdminOutputs(outputsFor("admin"), versionMajor));
+    }
+
+    return resolved;
+  }
 
   private get environmentImpactLines(): Array<{ label: string; count: number }> {
     return this._environmentImpact === null ? [] : toDeletionImpactLines(this._environmentImpact);
@@ -1171,6 +1394,27 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private rawOutput(stacks: ProjectStack[], app: string): Record<string, unknown> | null {
     return stacks.find((candidate) => candidate.app === app)?.stackOutput ?? null;
   }
+
+  /**
+   * A deploy emits thousands of lines and the server-side buffer is unbounded, so the browser keeps
+   * only the tail. The full log is on the job once it finishes; this is the live view.
+   */
+  private handleJobLog = (event: WSJobLog): void => {
+    if (this._projectId === null || event.projectId !== this._projectId) {
+      return;
+    }
+
+    runInAction(() => {
+      const existing = this._liveLogs.get(event.jobId) ?? [];
+      const next = [...existing, event.line];
+      this._liveLogs.set(
+        event.jobId,
+        next.length > LIVE_LOG_LIMIT ? next.slice(next.length - LIVE_LOG_LIMIT) : next,
+      );
+      // MobX tracks the Map itself, not a mutation of a value inside it.
+      this._liveLogs = new Map(this._liveLogs);
+    });
+  };
 
   private handleJobStatus = (event: WSJobStatus): void => {
     if (!this._projectId || event.projectId !== this._projectId) {

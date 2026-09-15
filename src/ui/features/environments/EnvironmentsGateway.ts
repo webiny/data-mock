@@ -8,6 +8,9 @@ import {
   restoreProjectEnvironmentRoute,
   purgeProjectEnvironmentRoute,
   environmentDeletionImpactRoute,
+  deployEnvironmentRoute,
+  destroyEnvironmentRoute,
+  listDeployableAppsRoute,
 } from "~/shared/routes/environments.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
@@ -93,6 +96,54 @@ class EnvironmentsGatewayImpl implements Abstraction.Interface {
     return this.httpClient.request(purgeProjectEnvironmentRoute, {
       params: { projectId, environmentId },
     });
+  }
+
+  public async listDeployableApps(
+    projectId: string,
+  ): Promise<Result<{ apps: string[]; versionMajor: number | null }, HTTPError>> {
+    const result = await this.httpClient.request(listDeployableAppsRoute, {
+      params: { projectId },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.deployable);
+  }
+
+  public async deploy(
+    projectId: string,
+    environmentId: string,
+    input: { apps?: string[]; region?: string },
+  ): Promise<Result<Job, HTTPError>> {
+    const result = await this.httpClient.request(deployEnvironmentRoute, {
+      params: { projectId, environmentId },
+      body: input,
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.job);
+  }
+
+  public async destroy(
+    projectId: string,
+    environmentId: string,
+    input: { apps?: string[]; region?: string; confirmProjectName: string },
+  ): Promise<Result<Job, HTTPError>> {
+    const result = await this.httpClient.request(destroyEnvironmentRoute, {
+      params: { projectId, environmentId },
+      body: input,
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.job);
   }
 
   public async deletionImpact(

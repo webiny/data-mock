@@ -21,6 +21,7 @@ import { useFeature } from "~/ui/di/useFeature.js";
 import { SeedConfigPresentationFeature } from "~/ui/presentation/Seeding/SeedConfig/feature.js";
 import { SeedConfigPage } from "~/ui/presentation/Seeding/SeedConfig/components/SeedConfigPage.js";
 import { EnvironmentsTab } from "./EnvironmentsTab.js";
+import { DeploymentDialog } from "./DeploymentDialog.js";
 import { SystemInfoTab } from "./SystemInfoTab.js";
 import { TenantsTab } from "./TenantsTab.js";
 import { ModelsTab } from "./ModelsTab.js";
@@ -305,7 +306,10 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 stacks={vm.stacks}
                 isSyncing={vm.isSyncing}
                 confirmation={vm.environmentDeleteConfirmation}
+                canDeploy={project.rootPath !== null}
                 onSync={() => void presenter.syncProject()}
+                onDeploy={() => presenter.openDeploymentDialog("deploy")}
+                onDestroy={() => presenter.openDeploymentDialog("destroy")}
                 onSelectEnvironment={(stackName) =>
                   navigate(AppRoutes.environmentTab(projectId, stackName, "environments"))
                 }
@@ -378,6 +382,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onFilterChange={(k, v) => presenter.setJobsFilter(k, v)}
                 onClearFilter={() => presenter.clearJobsFilter()}
                 onCancel={(jobId) => void presenter.cancelJob(jobId)}
+                liveLogsFor={(jobId) => presenter.liveLogsFor(jobId)}
               />
             )}
             {activeView === "activity" && (
@@ -438,6 +443,16 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           </Box>
         </Group>
       </Stack>
+
+      <DeploymentDialog
+        vm={vm.deploymentDialog}
+        onClose={() => presenter.closeDeploymentDialog()}
+        onToggleApp={(app) => presenter.toggleDeploymentApp(app)}
+        onRegionChange={(region) => presenter.setDeploymentRegion(region)}
+        onReview={() => presenter.reviewDeployment()}
+        onTypedNameChange={(value) => presenter.setDeploymentTypedName(value)}
+        onSubmit={() => void presenter.submitDeployment()}
+      />
 
       <Modal
         opened={showEditDialog}

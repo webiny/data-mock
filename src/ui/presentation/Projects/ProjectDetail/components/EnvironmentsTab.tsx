@@ -28,7 +28,11 @@ interface EnvironmentsTabProps {
   stacks: IStackVM[];
   isSyncing: boolean;
   confirmation: IEnvironmentDeleteConfirmationVM;
+  /** Null for a project with no local checkout, where neither action applies. */
+  canDeploy: boolean;
   onSync: () => void;
+  onDeploy: () => void;
+  onDestroy: () => void;
   onSelectEnvironment: (stackName: string) => void;
   onConfirmRemove: (environmentId: string, stackName: string) => void;
   onCancelRemove: () => void;
@@ -81,7 +85,10 @@ export const EnvironmentsTab = observer(function EnvironmentsTab({
   stacks,
   isSyncing,
   confirmation,
+  canDeploy,
   onSync,
+  onDeploy,
+  onDestroy,
   onSelectEnvironment,
   onConfirmRemove,
   onCancelRemove,
@@ -97,9 +104,21 @@ export const EnvironmentsTab = observer(function EnvironmentsTab({
     <Stack gap="md">
       <Group justify="space-between">
         <Text fw={600}>Environments</Text>
-        <Button size="xs" variant="light" loading={isSyncing} onClick={onSync}>
-          Sync from disk
-        </Button>
+        <Group gap="xs">
+          {canDeploy && currentEnvironment !== null && (
+            <>
+              <Button size="xs" onClick={onDeploy}>
+                Deploy
+              </Button>
+              <Button size="xs" variant="light" color="red" onClick={onDestroy}>
+                Destroy
+              </Button>
+            </>
+          )}
+          <Button size="xs" variant="light" loading={isSyncing} onClick={onSync}>
+            Sync from disk
+          </Button>
+        </Group>
       </Group>
 
       {environments.length === 0 && (

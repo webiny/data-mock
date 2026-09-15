@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { observer } from "mobx-react-lite";
 import {
   Badge,
   Button,
@@ -14,6 +15,7 @@ import {
 } from "@mantine/core";
 import { Editor } from "@monaco-editor/react";
 import type { Job } from "~/shared/types.js";
+import { JOB_TYPE_OPTIONS, getJobTypeLabel } from "~/shared/jobs/descriptors.js";
 
 const PAGE_SIZE = 25;
 
@@ -25,24 +27,6 @@ const statusColor: Record<string, string> = {
   cancelled: "yellow",
   interrupted: "orange",
 };
-
-const typeLabels: Record<string, string> = {
-  seed: "Seed data",
-  "pull-tenants": "Pull tenants",
-  "pull-models": "Pull models",
-  cleanup: "Cleanup",
-  import: "Import",
-  "upload-files": "Upload files",
-};
-
-const TYPE_OPTIONS = [
-  { value: "seed", label: "Seed data" },
-  { value: "pull-tenants", label: "Pull tenants" },
-  { value: "pull-models", label: "Pull models" },
-  { value: "cleanup", label: "Cleanup" },
-  { value: "import", label: "Import" },
-  { value: "upload-files", label: "Upload files" },
-];
 
 const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
@@ -63,9 +47,11 @@ interface JobsTabProps {
   onFilterChange: (key: string, value: string | null) => void;
   onClearFilter: () => void;
   onCancel?: (jobId: string) => void;
+  /** Live log tail for a running job. Falls back to the stored log when empty. */
+  liveLogsFor?: (jobId: string) => string;
 }
 
-export function JobsTab({
+export const JobsTab = observer(function JobsTab({
   jobs,
   totalCount,
   page,
@@ -75,6 +61,7 @@ export function JobsTab({
   onFilterChange,
   onClearFilter,
   onCancel,
+  liveLogsFor,
 }: JobsTabProps) {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -87,7 +74,7 @@ export function JobsTab({
       <Group gap="xs">
         <Select
           placeholder="Type"
-          data={TYPE_OPTIONS}
+          data={[...JOB_TYPE_OPTIONS]}
           value={typeFilter}
           onChange={(v) => onFilterChange("jobType", v)}
           clearable
@@ -144,7 +131,7 @@ export function JobsTab({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" fw={500}>
-                      {typeLabels[job.type] ?? job.type}
+                      {getJobTypeLabel(job.type)}
                     </Text>
                   </Table.Td>
                   <Table.Td>
@@ -173,16 +160,13 @@ export function JobsTab({
       <Modal
         opened={selectedJob !== null}
         onClose={() => setSelectedJob(null)}
-        title={
-          selectedJob
-            ? `${typeLabels[selectedJob.type] ?? selectedJob.type} — ${selectedJob.status}`
-            : ""
-        }
+        title={selectedJob ? `${getJobTypeLabel(selectedJob.type)} — ${selectedJob.status}` : ""}
         size="lg"
       >
         {selectedJob && (
           <JobDetail
             job={selectedJob}
+            liveLogs={liveLogsFor?.(selectedJob.id) ?? ""}
             onCancel={
               onCancel && (selectedJob.status === "pending" || selectedJob.status === "running")
                 ? () => {
@@ -196,7 +180,7 @@ export function JobsTab({
       </Modal>
     </Stack>
   );
-}
+});
 
 function JobProgress({ job }: { job: Job }) {
   if (job.progress === null) {
@@ -217,8 +201,22 @@ function JobProgress({ job }: { job: Job }) {
   );
 }
 
-function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | undefined }) {
+const JobDetail = observer(function JobDetail({
+  job,
+  liveLogs,
+  onCancel,
+}: {
+  job: Job;
+  liveLogs: string;
+  onCancel?: (() => void) | undefined;
+}) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  /**
+   * Live lines win over `job.logs` while they exist: the stored column is only flushed every
+   * couple of seconds, so a running deploy would otherwise look frozen.
+   */
+  const logs = liveLogs !== "" ? liveLogs : (job.logs ?? "");
 
   return (
     <Stack gap="md">
@@ -317,28 +315,57 @@ function JobDetail({ job, onCancel }: { job: Job; onCancel?: (() => void) | unde
         </>
       )}
 
-      {job.logs && (
+      {logs !== "" && (
         <>
-          <Text size="xs" c="dimmed" fw={600}>
-            Logs
-          </Text>
-          <Editor
-            height="300px"
-            language="plaintext"
-            value={job.logs}
-            theme="vs-dark"
-            options={{
-              readOnly: true,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              fontSize: 13,
-              wordWrap: "on",
-              lineNumbers: "off",
-            }}
-          />
+          <Group gap="xs">
+            <Text size="xs" c="dimmed" fw={600}>
+              Logs
+            </Text>
+            {liveLogs !== "" && job.status === "running" && (
+              <Badge size="xs" variant="light" color="blue">
+                live
+              </Badge>
+            )}
+          </Group>
+          <LogViewer value={logs} follow={job.status === "running"} />
         </>
       )}
     </Stack>
+  );
+});
+
+/**
+ * Follows the tail while the job runs, and stops as soon as it finishes so a finished log can be
+ * scrolled back through without being yanked to the bottom.
+ */
+function LogViewer({ value, follow }: { value: string; follow: boolean }) {
+  const editorRef = useRef<{ revealLine: (line: number) => void } | null>(null);
+
+  useEffect(() => {
+    if (!follow || editorRef.current === null) {
+      return;
+    }
+    editorRef.current.revealLine(value.split("\n").length);
+  }, [value, follow]);
+
+  return (
+    <Editor
+      height="300px"
+      language="plaintext"
+      value={value}
+      theme="vs-dark"
+      onMount={(editor) => {
+        editorRef.current = editor as unknown as { revealLine: (line: number) => void };
+      }}
+      options={{
+        readOnly: true,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        fontSize: 13,
+        wordWrap: "on",
+        lineNumbers: "off",
+      }}
+    />
   );
 }
 
