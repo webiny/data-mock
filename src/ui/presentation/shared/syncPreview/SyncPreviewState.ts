@@ -39,6 +39,7 @@ export interface ISyncPreviewVM {
  */
 export class SyncPreviewState {
   private _projectIds: string[] = [];
+  private _jobId: string | null = null;
   private _isOpen = false;
   private _result: SyncPreviewJobResult | null = null;
   private _isLoading = false;
@@ -79,6 +80,7 @@ export class SyncPreviewState {
 
     this.stopPolling();
     this._projectIds = projectIds;
+    this._jobId = null;
     this._isOpen = true;
     this._result = null;
     this._error = null;
@@ -95,6 +97,10 @@ export class SyncPreviewState {
       return;
     }
 
+    runInAction(() => {
+      this._jobId = started.value.id;
+    });
+
     await this.awaitJob(started.value.id);
   };
 
@@ -103,8 +109,18 @@ export class SyncPreviewState {
     if (this._isApplying) {
       return;
     }
+
+    /**
+     * Stop the read too, not just the watching of it. A preview of a project on a remote backend
+     * spends tens of seconds in the Webiny CLI, and nobody is waiting for the answer any more.
+     */
+    if (this._isLoading && this._jobId !== null) {
+      void this.jobsGateway.cancelGlobal(this._jobId);
+    }
+
     this.stopPolling();
     this._isOpen = false;
+    this._jobId = null;
     this._projectIds = [];
     this._result = null;
     this._error = null;
@@ -156,6 +172,7 @@ export class SyncPreviewState {
 
         this.stopPolling();
         this._isOpen = false;
+        this._jobId = null;
         this._projectIds = [];
         this._result = null;
       });
@@ -176,8 +193,12 @@ export class SyncPreviewState {
   private awaitJob = async (jobId: string): Promise<void> => {
     const job = await this.jobsGateway.getGlobal(jobId);
 
-    // The dialog was dismissed while the job was being read.
-    if (!this._isOpen) {
+    /**
+     * The dialog was dismissed, or reopened on another job, while this one was being read. A
+     * second click starts a second job, and the slower of the two must not write its answer over
+     * the one the user is looking at.
+     */
+    if (!this._isOpen || this._jobId !== jobId) {
       return;
     }
 

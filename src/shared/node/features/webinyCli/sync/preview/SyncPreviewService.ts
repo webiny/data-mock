@@ -64,6 +64,19 @@ class SyncPreviewServiceImpl implements Abstraction.Interface {
       return Result.fail(new ValidationError(`"${project.rootPath}" is not a Webiny project.`));
     }
 
+    /**
+     * A remote backend is read by running the project's own CLI, which needs the major version to
+     * build its arguments. The sync itself refuses this case; the preview has to refuse it the
+     * same way rather than reporting every stack as unreadable.
+     */
+    if (detected.remoteBackend && detected.versionMajor === null) {
+      return Result.fail(
+        new ValidationError(
+          `Could not resolve the Webiny version of "${project.rootPath}", which a remote backend needs.`,
+        ),
+      );
+    }
+
     const messages: string[] = [];
     const projectFields = this.diffProject(project, detected);
 
@@ -92,7 +105,9 @@ class SyncPreviewServiceImpl implements Abstraction.Interface {
     }
 
     for (const environment of active) {
-      environments.push(await this.diffEnvironment(project, detected, environment));
+      environments.push(
+        await this.diffEnvironment(project, project.rootPath, detected, environment),
+      );
     }
 
     /**
@@ -183,6 +198,7 @@ class SyncPreviewServiceImpl implements Abstraction.Interface {
 
   private async diffEnvironment(
     project: Project,
+    rootPath: string,
     detected: WebinyProjectDetector.Output,
     environment: ProjectEnvironment,
   ): Promise<SyncEnvironmentChangeResponse> {
@@ -204,7 +220,7 @@ class SyncPreviewServiceImpl implements Abstraction.Interface {
 
     for (const app of detected.apps) {
       const current = stored.find((stack) => stack.app === app) ?? null;
-      const read = await this.readStack(project, detected, environment, app);
+      const read = await this.readStack(project, rootPath, detected, environment, app);
       const incoming = mergeStackRead(app, current, read);
 
       const index = merged.findIndex((stack) => stack.app === app);
@@ -282,16 +298,18 @@ class SyncPreviewServiceImpl implements Abstraction.Interface {
 
   private async readStack(
     project: Project,
+    rootPath: string,
     detected: WebinyProjectDetector.Output,
     environment: ProjectEnvironment,
     app: string,
   ): Promise<IStackRead> {
     if (!detected.remoteBackend) {
-      return this.readCheckpoint(project.rootPath as string, app, environment);
+      return this.readCheckpoint(rootPath, app, environment);
     }
 
     return this.remoteStackOutputReader.execute({
-      rootPath: project.rootPath as string,
+      rootPath,
+      // Checked in `execute`: a remote backend with no resolvable version never reaches here.
       versionMajor: detected.versionMajor as number,
       app,
       env: environment.env,

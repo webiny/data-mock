@@ -22,6 +22,7 @@ export interface IJobsGateway {
   get(projectId: string, jobId: string): Promise<Result<Job, HTTPError>>;
   /** For a job with no project of its own — a sync preview, a placeholder-image pull. */
   getGlobal(jobId: string): Promise<Result<Job, HTTPError>>;
+  cancelGlobal(jobId: string): Promise<Result<Job, HTTPError>>;
   cancel(projectId: string, jobId: string): Promise<Result<Job, HTTPError>>;
 }
 

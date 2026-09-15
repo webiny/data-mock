@@ -67,6 +67,19 @@ export const enqueueJobRoute = defineOneRoute("job", {
   item: jobSchema,
 });
 
+/**
+ * Cancels a job with no project of its own — a sync preview, a placeholder-image pull. The
+ * project-scoped route below checks the job belongs to that project, which those can never satisfy,
+ * so without this they could be started and never stopped.
+ */
+export const cancelGlobalJobRoute = defineOneRoute("job", {
+  method: "POST",
+  path: "/api/jobs/:jobId/cancel",
+  description: "Cancel a job, whatever project it belongs to",
+  params: z.object({ jobId: z.string() }),
+  item: jobSchema,
+});
+
 export const cancelJobRoute = defineOneRoute("job", {
   method: "POST",
   path: "/api/projects/:projectId/jobs/:jobId/cancel",

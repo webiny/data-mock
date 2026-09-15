@@ -117,13 +117,20 @@ class StubEnvironmentsGateway {
  * dialog polls the job, so nothing about it works without this.
  */
 class StubJobsGateway {
+  public status = "completed";
+  public readonly cancelled: string[] = [];
+
   public constructor(private readonly environments: StubEnvironmentsGateway) {}
 
   public readonly gateway: Partial<JobsGateway.Interface> = {
+    cancelGlobal: async (jobId: string) => {
+      this.cancelled.push(jobId);
+      return Result.ok({ id: jobId } as never);
+    },
     getGlobal: async () =>
       Result.ok({
         id: "preview-job",
-        status: "completed",
+        status: this.status,
         logs: null,
         progressLabel: null,
         result: {
@@ -159,6 +166,7 @@ describe("ProjectListPresenter", () => {
   let projectsGateway: StubProjectsGateway;
   let environmentsGateway: StubEnvironmentsGateway;
   let notifications: StubNotifications;
+  let jobsGateway: StubJobsGateway;
 
   beforeEach(() => {
     container = new Container();
@@ -172,10 +180,8 @@ describe("ProjectListPresenter", () => {
       environmentsGateway.gateway as EnvironmentsGateway.Interface,
     );
     container.registerInstance(NotificationService, notifications.service);
-    container.registerInstance(
-      JobsGateway,
-      new StubJobsGateway(environmentsGateway).gateway as JobsGateway.Interface,
-    );
+    jobsGateway = new StubJobsGateway(environmentsGateway);
+    container.registerInstance(JobsGateway, jobsGateway.gateway as JobsGateway.Interface);
     container.register(ProjectsRepository).inSingletonScope();
     container.register(EnvironmentsRepository).inSingletonScope();
     container.register(LoadProjectsUseCase);
@@ -369,6 +375,35 @@ describe("ProjectListPresenter", () => {
 
     expect(environmentsGateway.synced).toEqual(["p1"]);
     expect(p.vm.syncPreview.isOpen).toBe(false);
+  });
+
+  it("stops the read when the dialog is closed before it finishes", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    jobsGateway.status = "running";
+
+    const p = presenter();
+    await p.load();
+    p.syncProject("p1");
+    await flush();
+
+    expect(p.vm.syncPreview.isLoading).toBe(true);
+
+    p.closeSyncPreview();
+
+    // Nobody is waiting for the answer any more, and a remote backend spends real time on it.
+    expect(jobsGateway.cancelled).toEqual(["preview-job"]);
+  });
+
+  it("does not cancel a preview that has already answered", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+
+    const p = presenter();
+    await p.load();
+    p.syncProject("p1");
+    await flush();
+    p.closeSyncPreview();
+
+    expect(jobsGateway.cancelled).toEqual([]);
   });
 
   it("syncs nothing when the diff is dismissed", async () => {

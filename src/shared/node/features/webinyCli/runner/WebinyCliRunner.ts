@@ -62,6 +62,44 @@ class WebinyCliRunnerImpl implements Abstraction.Interface {
       : { file: "yarn", args: ["webiny", ...args] };
   }
 
+  /**
+   * Recording the child must never take the run down with it: by the time this is called the
+   * process is already running, and a database hiccup is not a reason to fail a deploy. An
+   * untracked child is only as bad as one from before there was a tracker.
+   */
+  private track(
+    pid: number,
+    command: { file: string; args: string[] },
+    cwd: string,
+    jobId: string | null | undefined,
+  ): string | null {
+    try {
+      return this.childProcessTracker.register({
+        pid,
+        jobId,
+        file: command.file,
+        args: command.args,
+        cwd,
+      });
+    } catch (error) {
+      this.logger.error("Failed to record the child process", { error: String(error) });
+      return null;
+    }
+  }
+
+  private untrack(handle: string | null): void {
+    if (handle === null) {
+      return;
+    }
+    try {
+      this.childProcessTracker.unregister(handle);
+    } catch (error) {
+      // A row left behind is reaped at the next boot: the process it names is gone by then, so it
+      // is dropped rather than signalled.
+      this.logger.error("Failed to forget the child process", { error: String(error) });
+    }
+  }
+
   private spawnAndCollect(
     command: { file: string; args: string[] },
     cwd: string,
@@ -81,16 +119,7 @@ class WebinyCliRunnerImpl implements Abstraction.Interface {
       const child = spawn(command.file, command.args, { cwd, env, detached: true });
 
       const pid = child.pid;
-      const trackerHandle =
-        pid === undefined
-          ? null
-          : this.childProcessTracker.register({
-              pid,
-              jobId: input.jobId,
-              file: command.file,
-              args: command.args,
-              cwd,
-            });
+      const trackerHandle = pid === undefined ? null : this.track(pid, command, cwd, input.jobId);
 
       const stdoutChunks: string[] = [];
       const stderrChunks: string[] = [];
@@ -148,9 +177,7 @@ class WebinyCliRunnerImpl implements Abstraction.Interface {
           clearTimeout(killTimer);
         }
         input.signal?.removeEventListener("abort", onAbort);
-        if (trackerHandle !== null) {
-          this.childProcessTracker.unregister(trackerHandle);
-        }
+        this.untrack(trackerHandle);
       };
 
       const settle = (result: Result<Abstraction.Output, Abstraction.Error>): void => {

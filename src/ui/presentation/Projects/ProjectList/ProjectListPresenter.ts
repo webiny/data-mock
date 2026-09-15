@@ -57,7 +57,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
 
     return {
       projects,
-      isSyncingAll: this.syncPreviewState.activeProjectIds.length > 1,
+      isSyncingAll: this.isReadingDiffFor(null),
       syncableCount: projects.filter((project) => project.syncable).length,
       archivedProjects,
       isLoading: this._isLoading,
@@ -163,6 +163,21 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     this.syncPreviewState.close();
   };
 
+  /**
+   * True only while the diff is being read — not while the user is reading it. A spinner that runs
+   * for as long as the dialog is open would suggest the button is still doing something.
+   *
+   * `null` asks about the "sync all" button, which is busy only for a diff covering more than one
+   * project.
+   */
+  private isReadingDiffFor(projectId: string | null): boolean {
+    if (!this.syncPreviewState.vm.isLoading) {
+      return false;
+    }
+    const active = this.syncPreviewState.activeProjectIds;
+    return projectId === null ? active.length > 1 : active.includes(projectId);
+  }
+
   private get syncableProjects(): Project[] {
     return this.projectsRepository.projects.filter(
       (project) => project.rootPath !== null && project.archivedAt === null,
@@ -190,7 +205,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       lastSyncedAt: project.lastSyncedAt,
       archivedAt: project.archivedAt,
       syncable: project.rootPath !== null,
-      isSyncing: this.syncPreviewState.activeProjectIds.includes(project.id),
+      isSyncing: this.isReadingDiffFor(project.id),
       isSyncingModels: this._syncingModelsProjectIds.has(project.id),
     };
   };
