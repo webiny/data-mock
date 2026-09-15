@@ -4,7 +4,11 @@ Single source of truth. Every agent and skill references this file.
 
 ## Overview
 
-A multi-project tool for generating and seeding mock data into Webiny CMS projects. Manages project connections (encrypted), syncs models/groups/tenants from live Webiny instances, generates realistic fake data respecting CMS field validation rules, and sends entries via GraphQL. Includes a CLI, REST API (Fastify), and web UI (React + Mantine).
+A multi-project tool for managing and seeding Webiny CMS systems. Registers Webiny checkouts on
+disk, discovers their deployed environments by reading Pulumi state, and deploys, destroys and
+seeds them. Syncs models/groups/tenants from live instances, generates realistic fake data
+respecting CMS field validation rules, and sends entries via GraphQL. Includes a CLI, REST API
+(Fastify), and web UI (React + Mantine).
 
 ---
 
@@ -545,7 +549,7 @@ export const ProjectsFeature = createFeature({
 ## Key Rules
 
 1. **Single responsibility** — one `execute()` per use case and repository. No multi-method classes.
-2. **Folder boundaries** — `src/shared/` is platform-agnostic. `src/shared/node/` is CLI+API only. UI must NEVER import from `src/shared/node/`, `src/api/`, or `src/cli/`.
+2. **Folder boundaries** — `src/shared/` is platform-agnostic. `src/shared/node/` is CLI+API only. UI must NEVER import from `src/shared/node/`, `src/api/`, or `src/cli/`. A pure module the UI needs belongs in `src/shared/`, not under `node/` — `stackOutput/` and `webiny/` live there for exactly that reason.
 3. **Abstractions separate from implementations** — always in `abstractions/` subdirectory, separate file.
 4. **Never export Impl classes** — only the `createImplementation` result is exported.
 5. **Result pattern** — all operations return `Result<T, E>`, never throw for expected failures.
@@ -616,8 +620,11 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **369 tests** across 33 files (vitest)
-- **Coverage**: v8 provider, ~53% statements, ~37% branches, ~56% functions. Thresholds enforced via `vitest.config.ts`.
+- **504 tests** across 43 files (vitest)
+- **Coverage**: v8 provider, ~67% statements, ~55% branches, ~70% functions. Thresholds enforced via `vitest.config.ts`.
+- **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
+  `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
+  recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
 - **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.
 - Pass `{ httpClient: mockHttpClient }` to override HTTP. Everything else is production code.
