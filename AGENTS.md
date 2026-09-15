@@ -119,7 +119,7 @@ belongs to a running Webiny instance hangs off the environment, not the project.
 |---|---|---|
 | `projects` | id, name, root_path, webiny_version, version_source, version_major, operations_version, pulumi_backend, aws_profile, aws_region, last_synced_at, last_sync_status, archived_at | A Webiny system. `webiny_version` is detected and display-only (null for a framework workspace root); `operations_version` is NOT NULL and drives the GraphQL operation registry. `archived_at` is the soft-delete marker — see Deletion below. |
 | `project_environments` | project_id FK, env, variant, region, deployed, api_url, admin_url, api_token (encrypted), tenant, last_synced_at, archived_at | One Pulumi stack name. `variant` is `""` not NULL — SQLite treats NULLs as distinct in unique indexes. `deployed` means any app is deployed; `api_url` is null when the api app is not. `archived_at` soft-deletes it while keeping its slot in the unique index. |
-| `project_stacks` | environment_id FK, app, deployed, resource_count, stack_output (JSON), read_state, synced_at | Per-app Pulumi state. `read_state` is `deployed` / `not-deployed` / `unknown`; an unknown read never overwrites a stored `stack_output`. |
+| `project_stacks` | environment_id FK, app, deployed, resource_count, stack_output (JSON), read_state, synced_at | Per-app Pulumi state. `read_state` is `deployed` / `not-deployed` / `unknown`; an unknown read never overwrites a stored `stack_output`. `resource_count` is null on a remote backend — only the checkpoint has one. |
 | `scan_roots` | path | Directories scanned for Webiny projects |
 | `project_tenants` | project_id FK, environment_id FK, tenant_id, name | Discovered tenants per environment |
 | `project_groups` | project_id FK, environment_id FK, slug, name, remote_id | CMS content model groups |
@@ -163,6 +163,34 @@ destroyable or syncable.
 would let a tick read a checkpoint a deploy is halfway through rewriting: a valid file with partial
 `resources` and stale outputs, which makes `resource_count` flap. A project that already has a
 `sync-system` job pending or running is skipped. Archived projects are excluded.
+
+---
+
+## Remote Pulumi backends
+
+A backend of `s3://`, `azblob://` or `gs://` keeps its state in a bucket, so there are no
+checkpoints and the local glob finds nothing. Sync falls back to `webiny output --json` per app.
+It is strictly worse than reading checkpoints and is used only because there is nothing to read:
+
+- **No discovery.** Environments must be added manually; the glob finds nothing whether the project
+  is deployed or not. A project with no active environment reports that, rather than reporting a
+  clean success over zero rows.
+- **No resource counts.** They exist only in the checkpoint.
+- **`deployed` comes from `{}` vs non-empty**, not from `resources`. `{}` is the remote equivalent
+  of a checkpoint with no `resources` key.
+- **A literal `null` is `unknown`, never `not-deployed`.** It is what both majors print for a stack
+  they cannot find, and reading it as destroyed would blank a live environment's inventory.
+- **v6 answers from a cache it gives no way to bypass**, maintained only by its own deploy/destroy
+  decorators — so anything changed outside the CLI leaves it stale indefinitely. Those syncs stamp
+  `stale-possible`, which outranks `partial`: a read that succeeded but may be out of date is a
+  different problem from one that failed.
+- **`--json` is mandatory.** Without it the null path prints prose and there is nothing to parse.
+- On a never-built v6 checkout this path builds the app workspace as a side effect, so the first
+  remote sync of a fresh checkout is slow and writes into `.webiny/`.
+
+The environment row is derived by the same code as the local path
+(`RefreshEnvironmentStacksService`, via its `readStack` hook), so the two cannot disagree about how
+`api_url`, `admin_url` and `deployed` are computed.
 
 ---
 

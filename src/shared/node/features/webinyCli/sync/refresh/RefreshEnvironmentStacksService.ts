@@ -28,13 +28,18 @@ class RefreshEnvironmentStacksServiceImpl implements Abstraction.Interface {
     let read = 0;
     let unknown = 0;
 
+    const readStack =
+      input.readStack ??
+      (async (app: string) =>
+        this.checkpointReader.read({
+          rootPath: input.rootPath,
+          app,
+          env: environment.env,
+          variant: environment.variant,
+        }));
+
     for (const app of input.apps) {
-      const result = this.checkpointReader.read({
-        rootPath: input.rootPath,
-        app,
-        env: environment.env,
-        variant: environment.variant,
-      });
+      const result = await readStack(app);
 
       await this.upsertStackRepository.execute({
         environmentId: environment.id,

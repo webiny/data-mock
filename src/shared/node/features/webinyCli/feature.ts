@@ -6,6 +6,7 @@ import { SyncScheduler } from "./schedule/SyncScheduler.js";
 import { WebinyCliRunner } from "./runner/WebinyCliRunner.js";
 import { RefreshEnvironmentStacksService } from "./sync/refresh/RefreshEnvironmentStacksService.js";
 import { WebinyDeploymentService } from "./deployment/WebinyDeploymentService.js";
+import { RemoteStackOutputReader } from "./remote/RemoteStackOutputReader.js";
 
 export const WebinyCliFeature = createFeature({
   name: "Shared/WebinyCliFeature",
@@ -17,5 +18,6 @@ export const WebinyCliFeature = createFeature({
     container.register(WebinyCliRunner).inSingletonScope();
     container.register(RefreshEnvironmentStacksService).inSingletonScope();
     container.register(WebinyDeploymentService).inSingletonScope();
+    container.register(RemoteStackOutputReader).inSingletonScope();
   },
 });
