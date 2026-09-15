@@ -64,10 +64,20 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     makeAutoObservable(this);
   }
 
+  /**
+   * The models a seed may touch.
+   *
+   * Webiny's own models — the search records the ACO app keeps, and anything else under the `wby`
+   * prefix — are never offered and must never be written to: entries generated into them are junk
+   * the admin app then tries to read. Everything that selects, deselects or seeds goes through
+   * here, so "select all" cannot reach one by another route.
+   */
+  private get seedableStates(): ModelState[] {
+    return this._modelStates.filter((ms) => !ms.model.modelId.startsWith(SYSTEM_MODEL_PREFIX));
+  }
+
   public get vm(): ISeedConfigVM {
-    const seedableStates = this._modelStates.filter(
-      (ms) => !ms.model.modelId.startsWith(SYSTEM_MODEL_PREFIX),
-    );
+    const seedableStates = this.seedableStates;
 
     const groupMap = new Map<string, { slug: string; name: string; models: ModelState[] }>();
 
@@ -173,13 +183,13 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   public selectAll = (): void => {
-    for (const ms of this._modelStates) {
+    for (const ms of this.seedableStates) {
       ms.selected = true;
     }
   };
 
   public deselectAll = (): void => {
-    for (const ms of this._modelStates) {
+    for (const ms of this.seedableStates) {
       ms.selected = false;
     }
   };
@@ -267,7 +277,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
       return;
     }
 
-    const selectedModels = this._modelStates
+    const selectedModels = this.seedableStates
       .filter((ms) => ms.selected)
       .map((ms) => ({
         modelId: ms.model.modelId,

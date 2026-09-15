@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Container } from "@webiny/di";
-import { Result } from "@webiny/stdlib";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
+import { StubHttpClient, stubListStateFactory } from "~/ui/testing/StubHttpClient.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
-import type { URLListState } from "~/ui/features/router/abstractions/URLListState.js";
 import { HTTPClientFeature } from "~/ui/infrastructure/httpClient/feature.js";
 import { ProjectDetailPresentationFeature } from "../feature.js";
 import { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
@@ -65,90 +64,6 @@ function makeStack(overrides: Partial<ProjectStack> = {}): ProjectStack {
     readState: "deployed",
     syncedAt: 5,
     ...overrides,
-  };
-}
-
-interface RecordedCall {
-  method: string;
-  path: string;
-  params: unknown;
-  body: unknown;
-}
-
-/**
- * Answers every typed route from a table keyed by path, building the same envelope the server
- * does. The presenter reaches the network through a dozen gateways; stubbing the one client under
- * them keeps the gateways and repositories real, which is where the shapes it reads come from.
- */
-class StubHttpClient {
-  public readonly calls: RecordedCall[] = [];
-  public readonly data = new Map<string, unknown>();
-  public readonly failures = new Map<string, string>();
-
-  public readonly client: HTTPClient.Interface = {
-    request: (async (route: never, args: never) => {
-      const definition = route as unknown as {
-        method: string;
-        path: string;
-        responseType: "list" | "one" | "none";
-        responseKey?: string;
-      };
-      const requestArgs = (args ?? {}) as { params?: unknown; body?: unknown };
-
-      this.calls.push({
-        method: definition.method,
-        path: definition.path,
-        params: requestArgs.params ?? null,
-        body: requestArgs.body ?? null,
-      });
-
-      const failure = this.failures.get(definition.path);
-      if (failure !== undefined) {
-        return Result.fail(new Error(failure) as never);
-      }
-
-      if (definition.responseType === "none") {
-        return Result.ok(undefined as never);
-      }
-
-      const key = definition.responseKey ?? "data";
-      const value = this.data.get(definition.path);
-
-      if (definition.responseType === "list") {
-        const items = (value as unknown[]) ?? [];
-        return Result.ok({ [key]: { items, total: items.length } } as never);
-      }
-
-      return Result.ok({ [key]: value ?? null } as never);
-    }) as HTTPClient.Interface["request"],
-    get: async () => Result.ok(null as never),
-    post: async () => Result.ok(null as never),
-    put: async () => Result.ok(null as never),
-    delete: async () => Result.ok(undefined),
-  };
-
-  public callsTo(path: string): RecordedCall[] {
-    return this.calls.filter((call) => call.path === path);
-  }
-}
-
-/** The real one reads `window.location`. Nothing here is about URL state. */
-function stubListStateFactory(): URLListStateFactory.Interface {
-  return {
-    create: (): URLListState.Interface =>
-      ({
-        page: 1,
-        sort: undefined,
-        get: () => "",
-        getMultiple: () => [],
-        getDateTime: () => null,
-        set: () => {},
-        setMultiple: () => {},
-        setDateTime: () => {},
-        setPage: () => {},
-        setSort: () => {},
-        clear: () => {},
-      }) as unknown as URLListState.Interface,
   };
 }
 
