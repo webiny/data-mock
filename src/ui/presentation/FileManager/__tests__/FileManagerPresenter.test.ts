@@ -3,6 +3,7 @@ import { Container } from "@webiny/di";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import { HTTPClientFeature } from "~/ui/infrastructure/httpClient/feature.js";
 import { EventsFeature } from "~/ui/infrastructure/events/feature.js";
+import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
 import { StubHttpClient } from "~/ui/testing/StubHttpClient.js";
 import { FileManagerPresentationFeature } from "../feature.js";
@@ -124,6 +125,43 @@ describe("FileManagerPresenter", () => {
     await p.confirmAction();
 
     expect(http.callsTo(PICSUM_PATH)).toHaveLength(0);
+  });
+
+  it("says a download was cancelled rather than just stopping the spinner", async () => {
+    const p = presenter();
+    await p.load();
+    p.pullPicsum();
+    await p.confirmAction();
+
+    expect(p.vm.isPullingPicsum).toBe(true);
+
+    container.resolve(EventBridge).emit("job:status", {
+      jobId: "job1",
+      projectId: null,
+      type: "pull-picsum",
+      status: "cancelled",
+    });
+
+    expect(p.vm.isPullingPicsum).toBe(false);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(p.vm.error).toContain("cancelled");
+  });
+
+  it("reloads the list when a download finishes", async () => {
+    const p = presenter();
+    await p.load();
+    const before = http.callsTo(LIST_PATH).length;
+
+    container.resolve(EventBridge).emit("job:status", {
+      jobId: "job1",
+      projectId: null,
+      type: "pull-picsum",
+      status: "completed",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(http.callsTo(LIST_PATH).length).toBe(before + 1);
   });
 
   it("opens and closes the preview of one file", async () => {

@@ -200,11 +200,27 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
     if (event.status === "completed") {
       this.notifications.success("Picsum images downloaded.");
       void this.load();
-    } else if (event.status === "failed") {
-      runInAction(() => {
-        this._error = "Picsum download job failed.";
-      });
+      return;
     }
+
+    /**
+     * Every other terminal status says something too. A cancelled or interrupted download used to
+     * just stop the spinner, which reads as "it worked" — and some images may well have landed
+     * before it stopped, so the list is reloaded either way.
+     *
+     * The message is set after that reload, not before: `load` clears the error it may set itself,
+     * and would take this one with it.
+     */
+    const message =
+      event.status === "failed"
+        ? "Picsum download job failed."
+        : `Picsum download ${event.status}. Some images may already have been downloaded.`;
+
+    void this.load().finally(() => {
+      runInAction(() => {
+        this._error = message;
+      });
+    });
   };
 }
 
