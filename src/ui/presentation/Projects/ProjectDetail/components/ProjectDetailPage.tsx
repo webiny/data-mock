@@ -18,6 +18,7 @@ import {
 } from "@mantine/core";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 import { ConfirmDialog } from "~/ui/components/ConfirmDialog.js";
+import { SyncPreviewDialog } from "~/ui/components/SyncPreviewDialog.js";
 import { useFeature } from "~/ui/di/useFeature.js";
 import { SeedConfigPresentationFeature } from "~/ui/presentation/Seeding/SeedConfig/feature.js";
 import { SeedConfigPage } from "~/ui/presentation/Seeding/SeedConfig/components/SeedConfigPage.js";
@@ -454,6 +455,12 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
         onReview={() => presenter.reviewDeployment()}
         onTypedNameChange={(value) => presenter.setDeploymentTypedName(value)}
         onSubmit={() => void presenter.submitDeployment()}
+      />
+
+      <SyncPreviewDialog
+        vm={vm.syncPreview}
+        onApply={() => void presenter.applySync()}
+        onClose={() => presenter.closeSyncPreview()}
       />
 
       <ConfirmDialog

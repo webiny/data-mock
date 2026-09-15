@@ -10,6 +10,7 @@ import {
   deployableAppsSchema,
 } from "../responses/environments.js";
 import { deletionImpactSchema } from "../responses/deletion.js";
+import { syncPreviewSchema } from "../responses/sync.js";
 import { jobSchema } from "./jobs.js";
 
 /** Archived environments are omitted unless `?includeArchived=true`. */
@@ -98,6 +99,22 @@ export const syncProjectRoute = defineOneRoute("job", {
   description: "Sync a project's version, environments and stack output from disk",
   params: z.object({ projectId: z.string() }),
   item: jobSchema,
+});
+
+/**
+ * Reads what a sync would write, and writes nothing.
+ *
+ * A sync rewrites the environments and stack output stored for a project, so it is shown as a diff
+ * first and applied only if the user accepts it. This runs inline rather than as a job: a local
+ * backend is a handful of file reads, and the caller is a dialog waiting for an answer. A remote
+ * backend has to ask the CLI once per app, so it is as slow here as the sync itself.
+ */
+export const previewProjectSyncRoute = defineOneRoute("preview", {
+  method: "POST",
+  path: "/api/projects/:projectId/sync/preview",
+  description: "Show what a sync from disk would change, without storing anything",
+  params: z.object({ projectId: z.string() }),
+  item: syncPreviewSchema,
 });
 
 export const healthCheckEnvironmentRoute = defineOneRoute("health", {

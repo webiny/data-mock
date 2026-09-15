@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
+import { SyncPreviewState } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
 import type {
   IDeploymentDialogVM,
@@ -167,6 +168,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   /** Live log lines per job, newest last. Bounded — see LIVE_LOG_LIMIT. */
   private _liveLogs = new Map<string, string[]>();
   private readonly actionConfirmation = new ActionConfirmation();
+  private readonly syncPreviewState: SyncPreviewState;
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
@@ -226,6 +228,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       },
       onChange: () => this.reloadSeedJobs(),
     });
+    this.syncPreviewState = new SyncPreviewState(environmentsGateway, notifications);
     makeAutoObservable(this);
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
     this.disposeJobLogSubscription = eventBridge.on("job:log", this.handleJobLog);
@@ -412,6 +415,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       isPullingFiles: this._isPullingFiles,
       showCleanupDialog: this._showCleanupDialog,
       confirmation: this.actionConfirmation.vm,
+      syncPreview: this.syncPreviewState.vm,
       showEditDialog: this._showEditDialog,
     };
   }
@@ -525,42 +529,24 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     });
   };
 
+  /**
+   * Opens the diff rather than syncing. A sync overwrites what is stored for the project with
+   * whatever the checkout currently says, so what it would change is shown first.
+   */
   public syncProject = (): void => {
-    const project = this.vm.project;
-    if (project === null) {
-      return;
-    }
-
-    this.actionConfirmation.request({
-      title: "Sync from disk",
-      message:
-        `Re-read the Pulumi state in ${project.rootPath ?? "this checkout"} and rewrite the ` +
-        `environments and stack output stored for "${project.name}"? Environments that no longer ` +
-        `exist on disk are not removed, and archived ones are left alone.`,
-      confirmLabel: "Sync from disk",
-      run: this.runSyncProject,
-    });
-  };
-
-  private runSyncProject = async (): Promise<void> => {
     const projectId = this._projectId;
     if (projectId === null) {
       return;
     }
+    void this.syncPreviewState.open(projectId);
+  };
 
-    this._isSyncing = true;
-    try {
-      const result = await this.environmentsGateway.sync(projectId);
-      if (result.isOk()) {
-        this.notifications.success("Sync started.");
-      } else {
-        this.notifications.error(`Failed to start sync: ${result.error.message}`);
-      }
-    } finally {
-      runInAction(() => {
-        this._isSyncing = false;
-      });
-    }
+  public applySync = async (): Promise<void> => {
+    await this.syncPreviewState.apply();
+  };
+
+  public closeSyncPreview = (): void => {
+    this.syncPreviewState.close();
   };
 
   public openDeploymentDialog = (command: "deploy" | "destroy"): void => {

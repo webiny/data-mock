@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
+import { SyncPreviewState } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
@@ -21,7 +22,6 @@ import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/im
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _loaded = false;
-  private _syncingProjectIds = new Set<string>();
   private _isSyncingAll = false;
   private _syncingModelsProjectIds = new Set<string>();
   private _deleteProjectId: string | null = null;
@@ -30,6 +30,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   private _impact: DeletionImpact | null = null;
   private _isLoadingImpact = false;
   private readonly actionConfirmation = new ActionConfirmation();
+  private readonly syncPreviewState: SyncPreviewState;
 
   public constructor(
     private readonly loadProjectsUseCase: LoadProjectsUseCase.Interface,
@@ -42,6 +43,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     private readonly environmentsRepository: EnvironmentsRepository.Interface,
     private readonly notificationService: NotificationService.Interface,
   ) {
+    this.syncPreviewState = new SyncPreviewState(environmentsGateway, notificationService);
     makeAutoObservable(this);
   }
 
@@ -67,6 +69,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         impactTotal: this.impactTotal,
       },
       confirmation: this.actionConfirmation.vm,
+      syncPreview: this.syncPreviewState.vm,
     };
   }
 
@@ -138,36 +141,20 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
    * project's environments. Pulling tenants or models needs a specific environment, so those
    * actions live on the project detail page where one is selected.
    */
+  /**
+   * Opens the diff rather than syncing. A sync overwrites what is stored for the project with
+   * whatever the checkout currently says, so what it would change is shown first.
+   */
   public syncProject = (projectId: string): void => {
-    const project = this.projectsRepository.projects.find((p) => p.id === projectId);
-    if (project === undefined) {
-      return;
-    }
-
-    this.actionConfirmation.request({
-      title: "Sync from disk",
-      message:
-        `Re-read the Pulumi state in ${project.rootPath ?? "this checkout"} and rewrite the ` +
-        `environments and stack output stored for "${project.name}"?`,
-      confirmLabel: "Sync from disk",
-      run: () => this.runSyncProject(projectId),
-    });
+    void this.syncPreviewState.open(projectId);
   };
 
-  private runSyncProject = async (projectId: string): Promise<void> => {
-    this._syncingProjectIds.add(projectId);
-    try {
-      const result = await this.environmentsGateway.sync(projectId);
-      if (result.isOk()) {
-        this.notificationService.success("Sync started.");
-      } else {
-        this.notificationService.error(`Failed to start sync: ${result.error.message}`);
-      }
-    } finally {
-      runInAction(() => {
-        this._syncingProjectIds.delete(projectId);
-      });
-    }
+  public applySync = async (): Promise<void> => {
+    await this.syncPreviewState.apply();
+  };
+
+  public closeSyncPreview = (): void => {
+    this.syncPreviewState.close();
   };
 
   /**
@@ -250,7 +237,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       lastSyncedAt: project.lastSyncedAt,
       archivedAt: project.archivedAt,
       syncable: project.rootPath !== null,
-      isSyncing: this._syncingProjectIds.has(project.id),
+      isSyncing: this.syncPreviewState.activeProjectId === project.id,
       isSyncingModels: this._syncingModelsProjectIds.has(project.id),
     };
   };

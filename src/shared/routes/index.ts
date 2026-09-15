@@ -23,6 +23,7 @@ export {
   listDeployableAppsRoute,
   listEnvironmentStacksRoute,
   syncProjectRoute,
+  previewProjectSyncRoute,
   healthCheckEnvironmentRoute,
 } from "./environments.js";
 

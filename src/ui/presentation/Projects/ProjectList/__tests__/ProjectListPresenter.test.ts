@@ -89,7 +89,9 @@ class StubProjectsGateway {
 
 class StubEnvironmentsGateway {
   public readonly synced: string[] = [];
+  public readonly previewed: string[] = [];
   public failSyncFor = new Set<string>();
+  public hasChanges = true;
 
   public readonly gateway: Partial<EnvironmentsGateway.Interface> = {
     listForProject: async () => Result.ok([]),
@@ -99,6 +101,18 @@ class StubEnvironmentsGateway {
       return this.failSyncFor.has(projectId)
         ? Result.fail(new Error("queue full") as never)
         : Result.ok({ id: "job1" } as never);
+    },
+    previewSync: async (projectId: string) => {
+      this.previewed.push(projectId);
+      return Result.ok({
+        projectId,
+        projectName: "Project",
+        backend: "local",
+        hasChanges: this.hasChanges,
+        project: [],
+        environments: [],
+        messages: [],
+      });
     },
   };
 }
@@ -300,31 +314,49 @@ describe("ProjectListPresenter", () => {
     expect(notifications.errors[0]).toContain("1 could not be queued");
   });
 
-  it("syncs nothing until the confirmation is accepted", async () => {
+  it("shows what a sync would change and stores nothing until it is applied", async () => {
     projectsGateway.projects = [makeProject({ id: "p1" })];
 
     const p = presenter();
     await p.load();
     p.syncProject("p1");
+    await Promise.resolve();
 
-    expect(p.vm.confirmation.isOpen).toBe(true);
+    expect(environmentsGateway.previewed).toEqual(["p1"]);
+    expect(p.vm.syncPreview.isOpen).toBe(true);
     expect(environmentsGateway.synced).toEqual([]);
 
-    await p.confirmAction();
+    await p.applySync();
 
     expect(environmentsGateway.synced).toEqual(["p1"]);
-    expect(p.vm.confirmation.isOpen).toBe(false);
+    expect(p.vm.syncPreview.isOpen).toBe(false);
   });
 
-  it("syncs nothing when the confirmation is dismissed", async () => {
+  it("syncs nothing when the diff is dismissed", async () => {
     projectsGateway.projects = [makeProject({ id: "p1" })];
 
     const p = presenter();
     await p.load();
     p.syncProject("p1");
-    p.cancelAction();
-    await p.confirmAction();
+    await Promise.resolve();
+    p.closeSyncPreview();
+    await p.applySync();
 
     expect(environmentsGateway.synced).toEqual([]);
+    expect(p.vm.syncPreview.isOpen).toBe(false);
+  });
+
+  it("keeps the diff open and reports the failure when the sync cannot be queued", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.failSyncFor.add("p1");
+
+    const p = presenter();
+    await p.load();
+    p.syncProject("p1");
+    await Promise.resolve();
+    await p.applySync();
+
+    expect(p.vm.syncPreview.isOpen).toBe(true);
+    expect(p.vm.syncPreview.error).toContain("queue full");
   });
 });

@@ -5,6 +5,7 @@ import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js"
 import { UpsertStackRepository as Abstraction } from "./abstractions/UpsertStackRepository.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
 import { toStack, toEnvironmentError } from "../toEnvironment.js";
+import { mergeStackRead } from "~/shared/stackOutput/stackState.js";
 import type { ProjectStack } from "~/shared/types.js";
 
 class UpsertStackRepositoryImpl implements Abstraction.Interface {
@@ -26,28 +27,28 @@ class UpsertStackRepositoryImpl implements Abstraction.Interface {
         .get();
 
       /**
-       * An "unknown" read means the stack file was missing, unreadable or unparseable. Writing
-       * nulls over a previously-good `stackOutput` would lose the only record of what is deployed,
-       * so only the read state and timestamp are updated.
+       * What the row becomes is decided by `mergeStackRead`, the same function the sync preview
+       * runs to predict this write. Deciding it here as well is how the preview and the write
+       * would drift.
        */
-      const isUnknown = input.readState === "unknown";
+      const merged = mergeStackRead(input.app, existing === undefined ? null : toStack(existing), {
+        readState: input.readState,
+        deployed: input.deployed,
+        resourceCount: input.resourceCount ?? null,
+        outputs: input.stackOutput ?? null,
+      });
+
+      const stackOutput = merged.stackOutput === null ? null : JSON.stringify(merged.stackOutput);
 
       if (existing) {
         this.databaseClient.db
           .update(projectStacks)
           .set({
-            readState: input.readState,
-            deployed: input.deployed ? 1 : 0,
+            readState: merged.readState,
+            deployed: merged.deployed ? 1 : 0,
+            resourceCount: merged.resourceCount,
+            stackOutput,
             syncedAt: now,
-            ...(isUnknown
-              ? {}
-              : {
-                  resourceCount: input.resourceCount ?? null,
-                  stackOutput:
-                    input.stackOutput === undefined || input.stackOutput === null
-                      ? null
-                      : JSON.stringify(input.stackOutput),
-                }),
           })
           .where(eq(projectStacks.id, existing.id))
           .run();
@@ -65,13 +66,10 @@ class UpsertStackRepositoryImpl implements Abstraction.Interface {
         id: generateId(),
         environmentId: input.environmentId,
         app: input.app,
-        deployed: input.deployed ? 1 : 0,
-        resourceCount: isUnknown ? null : (input.resourceCount ?? null),
-        stackOutput:
-          isUnknown || input.stackOutput === undefined || input.stackOutput === null
-            ? null
-            : JSON.stringify(input.stackOutput),
-        readState: input.readState,
+        deployed: merged.deployed ? 1 : 0,
+        resourceCount: merged.resourceCount,
+        stackOutput,
+        readState: merged.readState,
         syncedAt: now,
       };
 

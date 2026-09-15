@@ -4,6 +4,7 @@ import {
   listProjectEnvironmentsRoute,
   listEnvironmentStacksRoute,
   syncProjectRoute,
+  previewProjectSyncRoute,
   archiveProjectEnvironmentRoute,
   restoreProjectEnvironmentRoute,
   purgeProjectEnvironmentRoute,
@@ -15,6 +16,7 @@ import {
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { EnvironmentsGateway as Abstraction } from "./abstractions/EnvironmentsGateway.js";
+import type { SyncPreviewResponse } from "~/shared/responses/sync.js";
 
 class EnvironmentsGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
@@ -60,6 +62,18 @@ class EnvironmentsGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(result.value.job);
+  }
+
+  public async previewSync(projectId: string): Promise<Result<SyncPreviewResponse, HTTPError>> {
+    const result = await this.httpClient.request(previewProjectSyncRoute, {
+      params: { projectId },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.preview);
   }
 
   public async archive(

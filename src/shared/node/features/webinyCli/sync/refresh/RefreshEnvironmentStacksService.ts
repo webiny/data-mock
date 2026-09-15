@@ -3,8 +3,7 @@ import { UpsertStackRepository } from "~/shared/node/features/environments/stack
 import { ListStacksRepository } from "~/shared/node/features/environments/stacks/abstractions/ListStacksRepository.js";
 import { PulumiCheckpointReader } from "../../checkpoint/abstractions/PulumiCheckpointReader.js";
 import { RefreshEnvironmentStacksService as Abstraction } from "./abstractions/RefreshEnvironmentStacksService.js";
-import { readAdminUrl, readApiUrl, readRegion } from "~/shared/stackOutput/stackOutputKeyMap.js";
-import type { ProjectStack } from "~/shared/types.js";
+import { deriveEnvironmentState } from "~/shared/stackOutput/stackState.js";
 
 /**
  * Re-reads one environment's Pulumi checkpoints and writes what it finds onto `project_stacks` and
@@ -60,41 +59,24 @@ class RefreshEnvironmentStacksServiceImpl implements Abstraction.Interface {
     }
 
     /**
-     * The environment row is derived from EVERY stored stack, not just the ones read on this call.
-     *
-     * A deploy of `api` alone refreshes only `api`. Deriving from that read alone would write a
-     * null `adminUrl` over a perfectly good one, and destroying `admin` alone would mark the whole
-     * environment not-deployed while core and api are still up. Reading back what is stored makes
-     * a partial refresh and a full sync produce the same row.
+     * Read back what is stored, so a partial refresh and a full sync derive the row from the same
+     * set of stacks. `deriveEnvironmentState` is shared with the sync preview, which has to predict
+     * exactly what this write will produce.
      */
     const stored = await this.listStacksRepository.execute({ environmentId: environment.id });
-    const stacks = stored.isOk() ? stored.value : [];
-
-    const anyDeployed = stacks.some((stack) => stack.deployed);
-    const apiUrl = readApiUrl(outputsOf(stacks, "api"));
-    const adminUrl = readAdminUrl(outputsOf(stacks, "admin"));
-    const region = readRegion(outputsOf(stacks, "api")) ?? readRegion(outputsOf(stacks, "core"));
+    const derived = deriveEnvironmentState(stored.isOk() ? stored.value : []);
 
     await this.updateEnvironmentRepository.execute({
       id: environment.id,
-      deployed: anyDeployed,
-      apiUrl,
-      adminUrl,
-      ...(region !== null ? { region } : {}),
+      deployed: derived.deployed,
+      apiUrl: derived.apiUrl,
+      adminUrl: derived.adminUrl,
+      ...(derived.region !== null ? { region: derived.region } : {}),
       lastSyncedAt: Date.now(),
     });
 
-    return { read, unknown, deployed: anyDeployed };
+    return { read, unknown, deployed: derived.deployed };
   }
-}
-
-/**
- * The stored output of one app, but only while that app is deployed. A destroyed stack keeps its
- * last output for reference, and reading a URL back out of it would report a torn-down API as live.
- */
-function outputsOf(stacks: ProjectStack[], app: string): Record<string, unknown> | null {
-  const stack = stacks.find((candidate) => candidate.app === app);
-  return stack !== undefined && stack.deployed ? stack.stackOutput : null;
 }
 
 export const RefreshEnvironmentStacksService = Abstraction.createImplementation({

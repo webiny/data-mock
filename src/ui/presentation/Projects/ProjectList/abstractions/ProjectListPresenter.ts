@@ -1,6 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 
 import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
+import type { ISyncPreviewVM } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 
 export interface ProjectItemVM {
   id: string;
@@ -55,16 +56,20 @@ export interface ProjectListVM {
   deleteConfirmation: DeleteConfirmationVM;
   /** The one dialog standing in front of every action that starts a job. */
   confirmation: IActionConfirmationVM;
+  /** What a sync from disk would change. Shown before anything is stored. */
+  syncPreview: ISyncPreviewVM;
 }
 
 export interface IProjectListPresenter {
   readonly vm: ProjectListVM;
   load(): Promise<void>;
   /**
-   * Asks to rediscover this project's environments from the Pulumi state on disk. Nothing runs
-   * until `confirmAction`.
+   * Reads what a sync from disk would change and opens the diff. Nothing is stored until
+   * `applySync`.
    */
   syncProject(projectId: string): void;
+  applySync(): Promise<void>;
+  closeSyncPreview(): void;
   /** Runs the action the open confirmation describes. */
   confirmAction(): Promise<void>;
   cancelAction(): void;

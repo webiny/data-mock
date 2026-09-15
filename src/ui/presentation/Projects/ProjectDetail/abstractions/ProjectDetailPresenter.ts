@@ -1,6 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { SeedTemplateConfig, SeedEntryStatus, Job, StackReadState } from "~/shared/types.js";
 import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
+import type { ISyncPreviewVM } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 
 export interface IProjectVM {
   id: string;
@@ -244,6 +245,8 @@ export interface IProjectDetailVM {
   showCleanupDialog: boolean;
   /** The one dialog standing in front of every action that starts a job. */
   confirmation: IActionConfirmationVM;
+  /** What a sync from disk would change. Shown before anything is stored. */
+  syncPreview: ISyncPreviewVM;
 }
 
 export interface IProjectDetailPresenter {
@@ -252,10 +255,12 @@ export interface IProjectDetailPresenter {
   activateView(view: string): Promise<void>;
   checkHealth(): Promise<void>;
   /**
-   * Asks to rediscover this project's environments and stack output from the Pulumi state on disk.
-   * Nothing runs until `confirmAction`.
+   * Reads what a sync from disk would change and opens the diff. Nothing is stored until
+   * `applySync`.
    */
   syncProject(): void;
+  applySync(): Promise<void>;
+  closeSyncPreview(): void;
   /** Runs the action the open confirmation describes. */
   confirmAction(): Promise<void>;
   cancelAction(): void;

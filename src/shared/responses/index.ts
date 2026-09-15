@@ -46,3 +46,11 @@ export type { ProjectFileResponse, UploadFileBody } from "./files.js";
 
 export { syncLogSchema } from "./syncLogs.js";
 export type { SyncLogResponse } from "./syncLogs.js";
+
+export { syncPreviewSchema } from "./sync.js";
+export type {
+  SyncPreviewResponse,
+  SyncEnvironmentChangeResponse,
+  SyncStackChangeResponse,
+  SyncFieldChangeResponse,
+} from "./sync.js";
