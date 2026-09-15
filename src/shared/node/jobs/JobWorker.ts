@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { generateId, Logger } from "@webiny/stdlib";
 import { JobWorker as Abstraction } from "./abstractions/JobWorker.js";
 import { JobExecutionContextFactory } from "./abstractions/JobExecutionContextFactory.js";
@@ -10,9 +10,20 @@ import { JobQueryHelper } from "./JobQueryHelper.js";
 import { JobRecoveryHelper } from "./JobRecoveryHelper.js";
 import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
 
+/**
+ * How many jobs may run at once across every project. A deploy holds a child process for tens of
+ * minutes, so an unbounded launcher would put every pending row on the machine simultaneously.
+ */
+const MAX_CONCURRENT_JOBS = 4;
+
+/** Shown on a job that is queued behind another job for the same project. Cleared on claim. */
+const WAITING_LABEL = "waiting: project busy";
+
 class JobWorkerImpl implements Abstraction.Interface {
   private readonly controllers = new Map<string, AbortController>();
   private readonly inFlight = new Set<Promise<void>>();
+  /** Projects with a job running right now. Used to serialize per project. */
+  private readonly busyProjectIds = new Set<string>();
   private readonly queryHelper: JobQueryHelper;
   private readonly recoveryHelper: JobRecoveryHelper;
   private processing = false;
@@ -70,19 +81,44 @@ class JobWorkerImpl implements Abstraction.Interface {
     }
   }
 
+  /**
+   * Claims and launches pending jobs under two limits: a global cap, and one running job per
+   * project.
+   *
+   * Per-project serialization is what stops a scheduled sync from reading a checkpoint that a
+   * deploy is halfway through rewriting. Skipped jobs stay `pending` — there is no third status —
+   * and carry a label saying why, so a queued job does not look stuck.
+   *
+   * `projectId === null` is never blocked: global jobs (pulling placeholder images) belong to no
+   * project and would otherwise queue behind whichever project happened to be busy.
+   */
   private async processPendingJobs(): Promise<void> {
+    // Ordered, because once rows are skipped the natural order becomes rowid luck and a job can
+    // sit behind later arrivals indefinitely.
     const pendingJobs = this.databaseClient.db
       .select()
       .from(jobs)
       .where(eq(jobs.status, "pending"))
+      .orderBy(asc(jobs.createdAt))
       .all();
 
     for (const job of pendingJobs) {
-      this.databaseClient.db
-        .update(jobs)
-        .set({ status: "running", startedAt: Date.now() })
-        .where(eq(jobs.id, job.id))
-        .run();
+      if (this.inFlight.size >= MAX_CONCURRENT_JOBS) {
+        break;
+      }
+
+      if (job.projectId !== null && this.busyProjectIds.has(job.projectId)) {
+        this.markWaiting(job);
+        continue;
+      }
+
+      if (!this.claim(job)) {
+        continue;
+      }
+
+      if (job.projectId !== null) {
+        this.busyProjectIds.add(job.projectId);
+      }
 
       this.webSocketBroadcaster.broadcast("job:status", {
         jobId: job.id,
@@ -91,11 +127,48 @@ class JobWorkerImpl implements Abstraction.Interface {
         status: "running" as JobStatus,
       });
 
+      const projectId = job.projectId;
       const promise = this.executeJob(job)
         .catch(() => {})
-        .finally(() => this.inFlight.delete(promise));
+        .finally(() => {
+          this.inFlight.delete(promise);
+          if (projectId !== null) {
+            this.busyProjectIds.delete(projectId);
+          }
+        });
       this.inFlight.add(promise);
     }
+  }
+
+  /**
+   * Flips one row to `running`, guarded on it still being `pending`.
+   *
+   * The guard matters because `recoverStaleJobs` and `cancelJob` write the same rows: an
+   * unguarded update would resurrect a job that was cancelled between the select and the claim.
+   * `progressLabel` is cleared here rather than at completion — `finishJobWithLogs` only nulls it
+   * when `setProgress` was used, so a waiting label on a job that never reports progress would
+   * survive the whole run.
+   */
+  private claim(job: typeof jobs.$inferSelect): boolean {
+    const result = this.databaseClient.db
+      .update(jobs)
+      .set({ status: "running", startedAt: Date.now(), progressLabel: null })
+      .where(and(eq(jobs.id, job.id), eq(jobs.status, "pending")))
+      .run();
+
+    return result.changes > 0;
+  }
+
+  private markWaiting(job: typeof jobs.$inferSelect): void {
+    if (job.progressLabel === WAITING_LABEL) {
+      return;
+    }
+
+    this.databaseClient.db
+      .update(jobs)
+      .set({ progressLabel: WAITING_LABEL })
+      .where(and(eq(jobs.id, job.id), eq(jobs.status, "pending")))
+      .run();
   }
 
   public async cancelJob(jobId: string): Promise<void> {

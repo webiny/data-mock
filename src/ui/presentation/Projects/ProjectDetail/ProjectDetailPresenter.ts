@@ -54,6 +54,7 @@ import { NotificationService } from "~/ui/features/notifications/abstractions/No
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { WSJobStatus } from "~/shared/websocket/types.js";
 import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
+import { getJobTypeDatasets } from "~/shared/jobs/descriptors.js";
 import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import { JobsRepository } from "~/ui/features/jobs/abstractions/JobsRepository.js";
 
@@ -73,17 +74,6 @@ const VIEW_DATASETS: Record<string, string[]> = {
   activity: ["syncLogs"],
   seed: ["tenants", "models"],
   import: ["tenants", "models"],
-};
-
-const JOB_TYPE_DATASETS: Record<string, string[]> = {
-  seed: ["entries", "seedJobs", "jobs"],
-  "pull-tenants": ["tenants", "syncLogs", "jobs"],
-  "pull-models": ["models", "syncLogs", "jobs"],
-  cleanup: ["entries", "jobs"],
-  import: ["entries", "jobs"],
-  "upload-files": ["files", "syncLogs", "jobs"],
-  // A sync rewrites the environment list itself, not just the stacks hanging off it.
-  "sync-system": ["environments", "stacks", "jobs"],
 };
 
 const STACK_STATE_LABELS: Record<string, string> = {
@@ -1189,8 +1179,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!TERMINAL_JOB_STATUSES.has(event.status)) {
       return;
     }
-    const datasetsToReload = JOB_TYPE_DATASETS[event.type];
-    if (!datasetsToReload) {
+    // The descriptor table is the single source for this map; a local copy is what drifted before.
+    const datasetsToReload = getJobTypeDatasets(event.type);
+    if (datasetsToReload.length === 0) {
       return;
     }
     runInAction(() => {

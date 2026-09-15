@@ -102,7 +102,8 @@ export const JOB_TYPE_DESCRIPTORS = [
   {
     type: "sync-system",
     label: "Sync system info",
-    datasets: ["environments", "jobs"],
+    // A sync rewrites the environment list itself, not just the stacks hanging off it.
+    datasets: ["environments", "stacks", "jobs"],
     enqueueable: true,
     scope: "project",
     configSchema: z.object({}).loose(),
