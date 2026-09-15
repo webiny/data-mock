@@ -40,7 +40,7 @@ class RefreshEnvironmentStacksServiceImpl implements Abstraction.Interface {
     for (const app of input.apps) {
       const result = await readStack(app);
 
-      await this.upsertStackRepository.execute({
+      const stored = await this.upsertStackRepository.execute({
         environmentId: environment.id,
         app,
         readState: result.readState,
@@ -49,7 +49,12 @@ class RefreshEnvironmentStacksServiceImpl implements Abstraction.Interface {
         stackOutput: result.outputs,
       });
 
-      if (result.readState === "unknown") {
+      /**
+       * A stack that was read but could not be stored counts as unknown, not as read. The caller
+       * turns that count into the sync's "partial" status, and calling a lost write a success
+       * would report an inventory that was never written.
+       */
+      if (result.readState === "unknown" || stored.isFail()) {
         unknown += 1;
       } else {
         read += 1;

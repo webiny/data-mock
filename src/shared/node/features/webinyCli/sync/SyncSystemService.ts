@@ -57,13 +57,22 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
       return Result.fail(new ValidationError(`"${project.rootPath}" is not a Webiny project.`));
     }
 
-    await this.updateProjectRepository.execute({
+    const stamped = await this.updateProjectRepository.execute({
       id: project.id,
       webinyVersion: detected.webinyVersion,
       versionSource: detected.versionSource,
       versionMajor: detected.versionMajor,
       pulumiBackend: detected.pulumiBackend,
     });
+
+    /**
+     * The version write is not incidental: the operation registry and the CLI argument builder both
+     * read it. A sync that could not store it and carried on would report success while leaving the
+     * project on whatever version it had before.
+     */
+    if (stamped.isFail()) {
+      return Result.fail(stamped.error);
+    }
 
     /**
      * A remote backend keeps its state in a bucket, so there are no checkpoints to read and nothing
@@ -117,6 +126,12 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
       if (created.isOk()) {
         toSync.push(created.value);
         messages.push(`Discovered environment "${getStackName(candidate)}".`);
+      } else {
+        // Said out loud rather than dropped: the stack is on disk, and silently not tracking it
+        // looks identical to it not being there.
+        messages.push(
+          `Found "${getStackName(candidate)}" on disk but could not store it: ${created.error.message}`,
+        );
       }
     }
 
