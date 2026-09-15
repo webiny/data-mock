@@ -36,12 +36,8 @@ import type {
   ProjectStack,
 } from "~/shared/types.js";
 import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/impactLines.js";
-import {
-  deriveCmsEndpoints,
-  resolveAdminOutputs,
-  resolveApiOutputs,
-  resolveCoreOutputs,
-} from "~/shared/stackOutput/stackOutputKeyMap.js";
+import { buildSystemInfo, namedResourcesAtRisk, systemInfoNotice } from "./systemInfo.js";
+import { LiveJobLogs } from "./LiveJobLogs.js";
 import { getStackName } from "~/shared/environments/index.js";
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
 import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
@@ -80,12 +76,6 @@ const VIEW_DATASETS: Record<string, string[]> = {
   seed: ["tenants", "models"],
   import: ["tenants", "models"],
 };
-
-/**
- * How many live log lines the browser keeps per job. A deploy streams raw Pulumi output — `CI=1`
- * forces deployment logs on — so this is a tail, not the whole log.
- */
-const LIVE_LOG_LIMIT = 2000;
 
 const STACK_STATE_LABELS: Record<string, string> = {
   deployed: "Deployed",
@@ -167,8 +157,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private readonly seedJobsListState: URLListState.Interface;
   private readonly disposeJobSubscription: () => void;
   private readonly disposeJobLogSubscription: () => void;
-  /** Live log lines per job, newest last. Bounded — see LIVE_LOG_LIMIT. */
-  private _liveLogs = new Map<string, string[]>();
+  private readonly liveLogs = new LiveJobLogs();
   private readonly actionConfirmation = new ActionConfirmation();
   private readonly syncPreviewState: SyncPreviewState;
 
@@ -321,12 +310,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         impactTotal: totalDeletionImpact(this.environmentImpactLines),
       },
       deploymentDialog: this.buildDeploymentDialog(stackRows, currentEnvironmentVM, project?.name),
-      systemInfo: this.buildSystemInfo(
-        stackRows,
-        currentEnvironmentVM,
-        project?.versionMajor ?? null,
-      ),
-      systemInfoNotice: this.systemInfoNotice(stackRows, currentEnvironmentVM),
+      systemInfo: buildSystemInfo(stackRows, currentEnvironmentVM, project?.versionMajor ?? null),
+      systemInfoNotice: systemInfoNotice(stackRows, currentEnvironmentVM),
       showEnvironmentSelector: environmentVMs.length > 1,
       environmentError: this._environmentError,
       loadError: this._loadError,
@@ -1282,7 +1267,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
    * is only flushed every couple of seconds.
    */
   public liveLogsFor = (jobId: string): string => {
-    return (this._liveLogs.get(jobId) ?? []).join("\n");
+    return this.liveLogs.for(jobId);
   };
 
   private loadDeployableApps = async (): Promise<void> => {
@@ -1308,6 +1293,16 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
    * the last sync saw, which is the only honest thing to show before running anything. An
    * unreadable stack reports a null count instead of zero.
    */
+  /** The version the key maps are read through. Null for a workspace root, which resolves none. */
+  private get currentVersionMajor(): number | null {
+    if (this._projectId === null) {
+      return null;
+    }
+    return (
+      this.projectsRepository.projects.find((p) => p.id === this._projectId)?.versionMajor ?? null
+    );
+  }
+
   private buildDeploymentDialog(
     stacks: ProjectStack[],
     environment: IEnvironmentVM | null,
@@ -1351,7 +1346,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       regionOptions: WEBINY_REGIONS,
       preview: this._deploymentPreview,
       atRisk,
-      atRiskResources: isDestroy ? this.namedResourcesAtRisk(stacks, targeted) : [],
+      atRiskResources: isDestroy
+        ? namedResourcesAtRisk(stacks, targeted, this.currentVersionMajor)
+        : [],
       typedName: this._deploymentTypedName,
       canConfirm: isDestroy
         ? this._deploymentTypedName.trim() === name && name !== ""
@@ -1360,44 +1357,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       error: this._deploymentError,
     };
   }
-
-  /**
-   * The named things a destroy takes with it — tables, buckets, user pools — pulled through the
-   * same key map the System Info panel uses, so the two never name the same resource differently.
-   */
-  private namedResourcesAtRisk(
-    stacks: ProjectStack[],
-    apps: string[],
-  ): Array<{ label: string; value: string }> {
-    const versionMajor = this._projectId
-      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId)?.versionMajor ??
-        null)
-      : null;
-
-    if (versionMajor === null) {
-      return [];
-    }
-
-    const outputsFor = (app: string): Record<string, unknown> | null => {
-      const stack = stacks.find((candidate) => candidate.app === app);
-      return stack !== undefined && stack.deployed ? stack.stackOutput : null;
-    };
-
-    const resolved: Array<{ label: string; value: string }> = [];
-
-    if (apps.includes("core")) {
-      resolved.push(...resolveCoreOutputs(outputsFor("core"), versionMajor));
-    }
-    if (apps.includes("api")) {
-      resolved.push(...resolveApiOutputs(outputsFor("api"), versionMajor));
-    }
-    if (apps.includes("admin")) {
-      resolved.push(...resolveAdminOutputs(outputsFor("admin"), versionMajor));
-    }
-
-    return resolved;
-  }
-
   private get environmentImpactLines(): Array<{ label: string; count: number }> {
     return this._environmentImpact === null ? [] : toDeletionImpactLines(this._environmentImpact);
   }
@@ -1445,93 +1404,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     });
   };
 
-  /**
-   * The infrastructure facts worth surfacing, resolved from the raw Pulumi output through the
-   * per-major key map. Absent keys are omitted rather than rendered blank: a DynamoDB-only project
-   * has no search keys at all, and VPC keys appear only when VPC is enabled.
-   */
-  private buildSystemInfo(
-    stacks: ProjectStack[],
-    environment: IEnvironmentVM | null,
-    versionMajor: number | null,
-  ): ISystemInfoSectionVM[] {
-    if (environment === null || versionMajor === null) {
-      return [];
-    }
-
-    const sections: ISystemInfoSectionVM[] = [];
-
-    const core = this.rawOutput(stacks, "core");
-    const api = this.rawOutput(stacks, "api");
-    const admin = this.rawOutput(stacks, "admin");
-
-    const apiItems = resolveApiOutputs(api, versionMajor);
-    if (environment.apiUrl !== null) {
-      // CMS endpoints are derived from the base URL, never stored — operations append their own
-      // path, so persisting them would duplicate the base and drift from it.
-      apiItems.push(...deriveCmsEndpoints(environment.apiUrl));
-    }
-
-    if (apiItems.length > 0) {
-      sections.push({ title: "API", items: apiItems });
-    }
-
-    const adminItems = resolveAdminOutputs(admin, versionMajor);
-    if (adminItems.length > 0) {
-      sections.push({ title: "Admin", items: adminItems });
-    }
-
-    const coreItems = resolveCoreOutputs(core, versionMajor);
-    if (coreItems.length > 0) {
-      sections.push({ title: "Core", items: coreItems });
-    }
-
-    return sections;
-  }
-
-  /** Says why the panel is empty. An empty panel with no explanation reads as a broken page. */
-  private systemInfoNotice(
-    stacks: ProjectStack[],
-    environment: IEnvironmentVM | null,
-  ): string | null {
-    if (environment === null) {
-      return "No environment selected.";
-    }
-    if (stacks.length === 0) {
-      return "This environment has never been synced. Run a sync to read its stack output.";
-    }
-    if (stacks.every((stack) => stack.readState === "unknown")) {
-      return "None of this environment's stacks could be read. Their last known output is kept.";
-    }
-    if (!environment.deployed) {
-      return "This environment is not deployed, so it has no infrastructure to report.";
-    }
-    return null;
-  }
-
-  private rawOutput(stacks: ProjectStack[], app: string): Record<string, unknown> | null {
-    return stacks.find((candidate) => candidate.app === app)?.stackOutput ?? null;
-  }
-
-  /**
-   * A deploy emits thousands of lines and the server-side buffer is unbounded, so the browser keeps
-   * only the tail. The full log is on the job once it finishes; this is the live view.
-   */
   private handleJobLog = (event: WSJobLog): void => {
     if (this._projectId === null || event.projectId !== this._projectId) {
       return;
     }
-
-    runInAction(() => {
-      const existing = this._liveLogs.get(event.jobId) ?? [];
-      const next = [...existing, event.line];
-      this._liveLogs.set(
-        event.jobId,
-        next.length > LIVE_LOG_LIMIT ? next.slice(next.length - LIVE_LOG_LIMIT) : next,
-      );
-      // MobX tracks the Map itself, not a mutation of a value inside it.
-      this._liveLogs = new Map(this._liveLogs);
-    });
+    this.liveLogs.append(event.jobId, event.line);
   };
 
   private handleJobStatus = (event: WSJobStatus): void => {
