@@ -10,7 +10,6 @@ import type {
   IEditProjectInput,
   IMergedFileVM,
   IStackVM,
-  ISystemInfoSectionVM,
 } from "./abstractions/ProjectDetailPresenter.js";
 import { LoadProjectDetailUseCase } from "./useCases/LoadProjectDetail/abstractions/LoadProjectDetailUseCase.js";
 import { DeleteTemplateUseCase } from "./useCases/DeleteTemplate/abstractions/DeleteTemplateUseCase.js";
