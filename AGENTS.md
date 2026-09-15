@@ -271,6 +271,9 @@ in the product deletes by default:
 - **Project names are normalised through `toProjectName`.** A path pasted into the name field
   becomes its last segment. Older `.projects.json` entries carry a whole path as their name, which
   then appears in every list, badge and confirmation dialog.
+- **`.projects.json` can carry `rootPath`.** Without it the seeded project is remote-only: it can
+  be seeded, but not deployed, destroyed or synced from disk, and Deploy/Destroy are hidden for it.
+  A re-seed never clears a `rootPath` registered through the UI.
 
 ---
 

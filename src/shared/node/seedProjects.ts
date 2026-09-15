@@ -18,6 +18,12 @@ const SEED_FILE_PATH = ".projects.json";
 const projectSchema = z
   .object({
     name: z.string(),
+    /**
+     * Absolute path to the checkout, when there is one. Without it the project is remote-only: it
+     * can be seeded, but it cannot be deployed, destroyed or synced from disk, and the Deploy and
+     * Destroy buttons are not shown for it.
+     */
+    rootPath: z.string().min(1).optional(),
     apiUrl: z.string(),
     apiToken: z.string(),
     tenant: z.string().default("root"),
@@ -40,8 +46,10 @@ const seedFileSchema = z.array(projectSchema);
 export function seedProjectsFromFile(
   databaseClient: DatabaseClient.Interface,
   encryptionService: EncryptionService.Interface,
+  /** Overridable so a test can seed from its own file instead of the working directory's. */
+  seedFilePath: string = SEED_FILE_PATH,
 ): void {
-  const filePath = path.resolve(SEED_FILE_PATH);
+  const filePath = path.resolve(seedFilePath);
   if (!fs.existsSync(filePath)) {
     return;
   }
@@ -50,13 +58,13 @@ export function seedProjectsFromFile(
   try {
     raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
   } catch {
-    console.warn(`Failed to parse ${SEED_FILE_PATH}, skipping project seeding.`);
+    console.warn(`Failed to parse ${seedFilePath}, skipping project seeding.`);
     return;
   }
 
   const parsed = seedFileSchema.safeParse(raw);
   if (!parsed.success) {
-    console.warn(`Invalid ${SEED_FILE_PATH}: ${parsed.error.issues[0]?.message ?? "unknown"}`);
+    console.warn(`Invalid ${seedFilePath}: ${parsed.error.issues[0]?.message ?? "unknown"}`);
     return;
   }
 
@@ -84,6 +92,9 @@ export function seedProjectsFromFile(
         .set({
           name,
           operationsVersion: project.operationsVersion,
+          // Only ever set from the file, never cleared by it: a checkout registered through the UI
+          // must survive a re-seed of the same project.
+          ...(project.rootPath !== undefined ? { rootPath: project.rootPath } : {}),
           updatedAt: now,
         })
         .where(eq(projects.id, existing.id))
@@ -94,7 +105,7 @@ export function seedProjectsFromFile(
         .values({
           id: projectId,
           name,
-          rootPath: null,
+          rootPath: project.rootPath ?? null,
           operationsVersion: project.operationsVersion,
           createdAt: now,
           updatedAt: now,
