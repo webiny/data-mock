@@ -57,6 +57,7 @@ describe("AddProjectPresenter", () => {
 
   it("cannot submit a checkout with no name or no path", async () => {
     const p = presenter();
+    p.setMode("path");
 
     expect(p.vm.canSubmit).toBe(false);
 
@@ -187,6 +188,7 @@ describe("AddProjectPresenter", () => {
 
   it("syncs a newly registered checkout, so it does not land as an empty row", async () => {
     const p = presenter();
+    p.setMode("path");
     p.setRootPath("/work/one");
     p.setName("One");
 
@@ -215,6 +217,7 @@ describe("AddProjectPresenter", () => {
     http.failures.set(CREATE_PROJECT_PATH, "name already taken");
 
     const p = presenter();
+    p.setMode("path");
     p.setRootPath("/work/one");
     p.setName("One");
 
@@ -228,6 +231,7 @@ describe("AddProjectPresenter", () => {
 
   it("clears the form after a project is added", async () => {
     const p = presenter();
+    p.setMode("path");
     p.setRootPath("/work/one");
     p.setName("One");
 
@@ -237,6 +241,107 @@ describe("AddProjectPresenter", () => {
     expect(p.vm.name).toBe("");
     expect(p.vm.rootPath).toBe("");
     expect(p.vm.error).toBeNull();
+  });
+
+  it("adds every checkout that is ticked, each named after its folder", async () => {
+    http.data.set(SCAN_PATH, {
+      candidates: [
+        makeCandidate({ rootPath: "/work/one", name: "one" }),
+        makeCandidate({ rootPath: "/work/two", name: "two" }),
+      ],
+      errors: [],
+      rootsScanned: 1,
+    });
+
+    const p = presenter();
+    await p.scan();
+    p.selectCandidate("/work/one");
+    p.selectCandidate("/work/two");
+
+    expect(p.vm.selectedCount).toBe(2);
+    expect(p.vm.canSubmit).toBe(true);
+
+    const added = await p.submit();
+
+    expect(added).toBe(true);
+    expect(http.callsTo(CREATE_PROJECT_PATH).map((call) => call.body)).toMatchObject([
+      { name: "one", rootPath: "/work/one" },
+      { name: "two", rootPath: "/work/two" },
+    ]);
+    // Each needs its own sync, or it lands in the list as an empty row.
+    expect(http.callsTo(SYNC_PATH)).toHaveLength(2);
+  });
+
+  it("unticks a checkout that is ticked twice", async () => {
+    const p = presenter();
+    await p.scan();
+
+    p.selectCandidate("/work/one");
+    p.selectCandidate("/work/one");
+
+    expect(p.vm.selectedCount).toBe(0);
+    expect(p.vm.canSubmit).toBe(false);
+  });
+
+  it("ticks every checkout that is not already registered", async () => {
+    http.data.set(SCAN_PATH, {
+      candidates: [
+        makeCandidate({ rootPath: "/work/one" }),
+        makeCandidate({ rootPath: "/work/two", registered: true }),
+        makeCandidate({ rootPath: "/work/three" }),
+      ],
+      errors: [],
+      rootsScanned: 1,
+    });
+
+    const p = presenter();
+    await p.scan();
+    p.selectAllCandidates();
+
+    expect(p.vm.selectedCount).toBe(2);
+    expect(p.vm.selectableCount).toBe(2);
+
+    p.clearSelectedCandidates();
+    expect(p.vm.selectedCount).toBe(0);
+  });
+
+  it("lets a single ticked checkout be renamed before it is added", async () => {
+    const p = presenter();
+    await p.scan();
+    p.selectCandidate("/work/one");
+
+    expect(p.vm.name).toBe("one");
+
+    p.setName("Renamed");
+    const added = await p.submit();
+
+    expect(added).toBe(true);
+    expect(http.callsTo(CREATE_PROJECT_PATH)[0]?.body).toMatchObject({
+      name: "Renamed",
+      rootPath: "/work/one",
+    });
+  });
+
+  it("keeps the rest when one of several checkouts cannot be added", async () => {
+    http.data.set(SCAN_PATH, {
+      candidates: [
+        makeCandidate({ rootPath: "/work/one" }),
+        makeCandidate({ rootPath: "/work/two" }),
+      ],
+      errors: [],
+      rootsScanned: 1,
+    });
+    http.failures.set(CREATE_PROJECT_PATH, "name already taken");
+
+    const p = presenter();
+    await p.scan();
+    p.selectAllCandidates();
+    const added = await p.submit();
+
+    // Both were attempted; the dialog holds so the failures can be read.
+    expect(http.callsTo(CREATE_PROJECT_PATH)).toHaveLength(2);
+    expect(added).toBe(false);
+    expect(p.vm.error).toContain("name already taken");
   });
 
   it("says a scan root list that could not be read, rather than showing none", async () => {
@@ -253,6 +358,7 @@ describe("AddProjectPresenter", () => {
     http.failures.set(SYNC_PATH, "queue full");
 
     const p = presenter();
+    p.setMode("path");
     p.setRootPath("/work/one");
     p.setName("One");
 

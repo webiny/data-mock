@@ -46,6 +46,10 @@ export interface AddProjectVM {
   scanRoots: ScanRootVM[];
   newScanRootPath: string;
   candidates: ScanCandidateVM[];
+  /** How many checkouts are ticked. Scan mode adds all of them at once. */
+  selectedCount: number;
+  /** How many could be ticked — registered ones cannot. */
+  selectableCount: number;
   scanErrors: Array<{ path: string; message: string }>;
   isScanning: boolean;
   /** True once a scan has run, so "no projects found" is distinguishable from "not scanned". */
@@ -80,7 +84,10 @@ export interface IAddProjectPresenter {
   removeScanRoot(id: string): Promise<void>;
   loadScanRoots(): Promise<void>;
   scan(): Promise<void>;
+  /** Ticks or unticks one checkout. Several can be added in one go. */
   selectCandidate(rootPath: string): void;
+  selectAllCandidates(): void;
+  clearSelectedCandidates(): void;
   submit(): Promise<boolean>;
   reset(): void;
 }

@@ -34,6 +34,12 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
   private _scanRoots: ScanRoot[] = [];
   private _newScanRootPath = "";
   private _candidates: ProjectCandidate[] = [];
+  /**
+   * Scan mode picks any number of checkouts. The other three modes name exactly one, so they keep
+   * using `_rootPath` — a scan that quietly wrote into it would make "add these five" look like
+   * "add the last one you clicked".
+   */
+  private _selectedRootPaths: string[] = [];
   private _scanErrors: ScanError[] = [];
   private _isScanning = false;
   private _hasScanned = false;
@@ -70,6 +76,8 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
       scanRoots: this._scanRoots.map((root) => ({ id: root.id, path: root.path })),
       newScanRootPath: this._newScanRootPath,
       candidates: this._candidates.map((candidate) => this.toCandidateVM(candidate)),
+      selectedCount: this._selectedRootPaths.length,
+      selectableCount: this._candidates.filter((candidate) => !candidate.registered).length,
       scanErrors: this._scanErrors,
       isScanning: this._isScanning,
       hasScanned: this._hasScanned,
@@ -249,6 +257,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  /** Toggles one checkout in or out of the set to add. */
   public selectCandidate = (rootPath: string): void => {
     const candidate = this._candidates.find((item) => item.rootPath === rootPath);
     // A registered checkout is shown but not selectable — adding it again would create a second
@@ -256,11 +265,46 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     if (candidate === undefined || candidate.registered) {
       return;
     }
-    this._rootPath = candidate.rootPath;
-    this.applyDerivedName(candidate.rootPath);
+
+    this._selectedRootPaths = this._selectedRootPaths.includes(rootPath)
+      ? this._selectedRootPaths.filter((path) => path !== rootPath)
+      : [...this._selectedRootPaths, rootPath];
+
+    this._error = null;
+    this.applyScanName();
   };
 
+  public selectAllCandidates = (): void => {
+    this._selectedRootPaths = this._candidates
+      .filter((candidate) => !candidate.registered)
+      .map((candidate) => candidate.rootPath);
+    this._error = null;
+    this.applyScanName();
+  };
+
+  public clearSelectedCandidates = (): void => {
+    this._selectedRootPaths = [];
+    this.applyScanName();
+  };
+
+  /**
+   * One selected checkout may be renamed before it is added, so its folder name is offered as the
+   * default. Several cannot share one name, so each takes its own folder's — and the name field
+   * stops being offered.
+   */
+  private applyScanName(): void {
+    const only = this._selectedRootPaths.length === 1 ? this._selectedRootPaths[0] : undefined;
+    if (only === undefined) {
+      return;
+    }
+    this.applyDerivedName(only);
+  }
+
   public submit = async (): Promise<boolean> => {
+    if (this._mode === "scan") {
+      return this.submitScanned();
+    }
+
     const body =
       this._mode === "remote"
         ? {
@@ -283,33 +327,9 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     this._error = null;
 
     try {
-      const result = await this.createProjectUseCase.execute(parsed.data);
-
-      if (result.isFail()) {
-        runInAction(() => {
-          this._error = result.error.message;
-        });
-        this.notificationService.error(`Failed to add project: ${result.error.message}`);
+      const added = await this.addOne(parsed.data, this._name.trim());
+      if (added === null) {
         return false;
-      }
-
-      const name = this._name;
-
-      /**
-       * A freshly registered checkout has no version, environments or stack output until it is
-       * synced, so the project would land in the list as an empty row. Syncing here is fire and
-       * forget: it is enqueued as a job and reports through the job feed like any other.
-       */
-      if (result.value.rootPath !== null) {
-        const synced = await this.environmentsGateway.sync(result.value.id);
-        // The project is added either way; only the follow-up sync is in doubt.
-        this.notificationService.success(
-          synced.isOk()
-            ? `Project "${name}" added. Syncing from disk...`
-            : `Project "${name}" added, but the sync could not be started. Run it from the project.`,
-        );
-      } else {
-        this.notificationService.success(`Project "${name}" added.`);
       }
 
       this.reset();
@@ -321,6 +341,111 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  /**
+   * Adds every checkout ticked in the scan list.
+   *
+   * One request per project rather than one batch: a checkout that cannot be registered — a name
+   * already taken, a folder that moved — must not stop the rest, which is the whole point of
+   * picking several at once.
+   */
+  private async submitScanned(): Promise<boolean> {
+    const paths = this._selectedRootPaths;
+    if (paths.length === 0) {
+      this._error = "Select at least one project.";
+      return false;
+    }
+
+    this._isSubmitting = true;
+    this._error = null;
+
+    try {
+      const failures: string[] = [];
+      let addedCount = 0;
+
+      for (const rootPath of paths) {
+        // A single pick may be renamed before it is added; several each take their folder's name.
+        const name = paths.length === 1 ? this._name.trim() : basename(rootPath);
+        const parsed = createProjectBodySchema.safeParse({ name, rootPath });
+
+        if (!parsed.success) {
+          failures.push(`${basename(rootPath)}: ${parsed.error.issues[0]?.message ?? "invalid"}`);
+          continue;
+        }
+
+        const added = await this.addOne(parsed.data, name, { quiet: paths.length > 1 });
+        if (added === null) {
+          failures.push(`${name}: ${this._error ?? "could not be added"}`);
+          continue;
+        }
+        addedCount += 1;
+      }
+
+      if (paths.length > 1 && addedCount > 0) {
+        this.notificationService.success(`${addedCount} project(s) added. Syncing from disk...`);
+      }
+
+      if (failures.length > 0) {
+        runInAction(() => {
+          this._error = failures.join("; ");
+        });
+        // Whatever did go in stays in; the dialog holds so the rest can be seen.
+        return false;
+      }
+
+      this.reset();
+      return true;
+    } finally {
+      runInAction(() => {
+        this._isSubmitting = false;
+      });
+    }
+  }
+
+  /**
+   * Creates one project and starts its sync. Returns null when it could not be created, having set
+   * the error.
+   *
+   * A freshly registered checkout has no version, environments or stack output until it is synced,
+   * so it would otherwise land in the list as an empty row. The sync is fire and forget: it is
+   * enqueued as a job and reports through the job feed like any other.
+   */
+  private async addOne(
+    body: CreateProjectUseCase.Input,
+    name: string,
+    options: { quiet?: boolean } = {},
+  ): Promise<string | null> {
+    const result = await this.createProjectUseCase.execute(body);
+
+    if (result.isFail()) {
+      runInAction(() => {
+        this._error = result.error.message;
+      });
+      if (options.quiet !== true) {
+        this.notificationService.error(`Failed to add project: ${result.error.message}`);
+      }
+      return null;
+    }
+
+    if (result.value.rootPath === null) {
+      if (options.quiet !== true) {
+        this.notificationService.success(`Project "${name}" added.`);
+      }
+      return result.value.id;
+    }
+
+    const synced = await this.environmentsGateway.sync(result.value.id);
+    if (options.quiet !== true) {
+      // The project is added either way; only the follow-up sync is in doubt.
+      this.notificationService.success(
+        synced.isOk()
+          ? `Project "${name}" added. Syncing from disk...`
+          : `Project "${name}" added, but the sync could not be started. Run it from the project.`,
+      );
+    }
+
+    return result.value.id;
+  }
+
   public reset = (): void => {
     this._mode = "scan";
     this._name = "";
@@ -330,6 +455,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
     this._isBrowsing = false;
     this._newScanRootPath = "";
     this._candidates = [];
+    this._selectedRootPaths = [];
     this._scanErrors = [];
     this._isScanning = false;
     this._hasScanned = false;
@@ -342,6 +468,13 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
   };
 
   private get canSubmit(): boolean {
+    if (this._mode === "scan") {
+      // Several checkouts each take their folder's name, so only a single pick needs one typed.
+      return (
+        this._selectedRootPaths.length > 1 ||
+        (this._selectedRootPaths.length === 1 && this._name.trim() !== "")
+      );
+    }
     if (this._name.trim() === "") {
       return false;
     }
@@ -370,7 +503,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
             ? `v${candidate.versionMajor} workspace root`
             : "not a Webiny project",
       registered: candidate.registered,
-      selected: this._rootPath === candidate.rootPath,
+      selected: this._selectedRootPaths.includes(candidate.rootPath),
     };
   }
 }

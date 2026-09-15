@@ -13,6 +13,7 @@ import {
   Stack,
   Tabs,
   Text,
+  Checkbox,
   TextInput,
   Tooltip,
 } from "@mantine/core";
@@ -116,22 +117,35 @@ export const AddProjectForm = observer(function AddProjectForm({
           </Tabs.Panel>
         </Tabs>
 
-        {vm.mode !== "remote" && vm.rootPath !== "" && (
+        {vm.mode !== "remote" && vm.mode !== "scan" && vm.rootPath !== "" && (
           <Alert color="blue" variant="light" py="xs">
             <Text size="sm">{vm.rootPath}</Text>
           </Alert>
         )}
 
-        <TextInput
-          label="Name"
-          placeholder="My Webiny Project"
-          value={vm.name}
-          onChange={(e) => presenter.setName(e.currentTarget.value)}
-          required
-        />
+        {vm.mode === "scan" && vm.selectedCount > 1 && (
+          <Alert color="blue" variant="light" py="xs">
+            <Text size="sm">
+              {vm.selectedCount} projects selected. Each is named after its folder.
+            </Text>
+          </Alert>
+        )}
+
+        {/* Several checkouts cannot share one name, so the field is only offered for a single pick. */}
+        {(vm.mode !== "scan" || vm.selectedCount <= 1) && (
+          <TextInput
+            label="Name"
+            placeholder="My Webiny Project"
+            value={vm.name}
+            onChange={(e) => presenter.setName(e.currentTarget.value)}
+            required
+          />
+        )}
 
         <Button type="submit" loading={vm.isSubmitting} disabled={!vm.canSubmit}>
-          Add Project
+          {vm.mode === "scan" && vm.selectedCount > 1
+            ? `Add ${vm.selectedCount} Projects`
+            : "Add Project"}
         </Button>
       </Stack>
     </form>
@@ -229,6 +243,28 @@ const ScanPanel = observer(function ScanPanel({ presenter }: PanelProps) {
         </Text>
       )}
 
+      {vm.selectableCount > 1 && (
+        <Group gap="xs">
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            onClick={() => presenter.selectAllCandidates()}
+          >
+            Select all ({vm.selectableCount})
+          </Button>
+          {vm.selectedCount > 0 && (
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              onClick={() => presenter.clearSelectedCandidates()}
+            >
+              Clear
+            </Button>
+          )}
+        </Group>
+      )}
+
       <Stack gap={4}>
         {vm.candidates.map((candidate) => (
           <Card
@@ -243,14 +279,23 @@ const ScanPanel = observer(function ScanPanel({ presenter }: PanelProps) {
             onClick={() => presenter.selectCandidate(candidate.rootPath)}
           >
             <Group justify="space-between" wrap="nowrap">
-              <Stack gap={0} style={{ minWidth: 0 }}>
-                <Text size="sm" fw={500}>
-                  {candidate.name}
-                </Text>
-                <Text size="xs" c="dimmed" style={{ wordBreak: "break-all" }}>
-                  {candidate.rootPath}
-                </Text>
-              </Stack>
+              <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                <Checkbox
+                  size="xs"
+                  checked={candidate.selected}
+                  disabled={candidate.registered}
+                  readOnly
+                  aria-label={`Select ${candidate.name}`}
+                />
+                <Stack gap={0} style={{ minWidth: 0 }}>
+                  <Text size="sm" fw={500}>
+                    {candidate.name}
+                  </Text>
+                  <Text size="xs" c="dimmed" style={{ wordBreak: "break-all" }}>
+                    {candidate.rootPath}
+                  </Text>
+                </Stack>
+              </Group>
               <Group gap={4} wrap="nowrap">
                 <Badge size="xs" variant="light">
                   {candidate.versionLabel}

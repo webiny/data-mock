@@ -61,7 +61,7 @@ export function AppLayout() {
         <RouterView />
       </AppShell.Main>
 
-      <Modal opened={addModalOpen} onClose={handleCloseAdd} title="Add Project" size="md">
+      <Modal opened={addModalOpen} onClose={handleCloseAdd} title="Add Project" size="lg">
         <AddProjectForm presenter={addPresenter} onSuccess={handleAddSuccess} />
       </Modal>
     </AppShell>
