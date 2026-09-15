@@ -7,6 +7,7 @@ import { WebinyProjectDetector } from "~/shared/node/features/webinyCli/detect/a
 import { ProjectScanner as Abstraction } from "./abstractions/ProjectScanner.js";
 import { ValidationError } from "~/shared/errors.js";
 import { SKIP_DIRECTORIES, hasWebinyMarker } from "../webinyMarkers.js";
+import { toProjectName } from "~/shared/projects/projectName.js";
 import type { ProjectCandidate, ScanError, ScanResult } from "~/shared/types.js";
 
 const DEFAULT_MAX_DEPTH = 3;
@@ -43,18 +44,22 @@ class ProjectScannerImpl implements Abstraction.Interface {
       this.walk(root, maxDepth, found, errors);
     }
 
-    const registered = await this.registeredPaths();
+    const known = await this.knownProjects();
     const candidates: ProjectCandidate[] = [];
 
     for (const rootPath of [...found].sort()) {
       const detected = await this.detector.execute({ rootPath });
+      const name = path.basename(rootPath);
 
       candidates.push({
         rootPath,
-        name: path.basename(rootPath),
+        name,
         versionMajor: detected.isOk() ? detected.value.versionMajor : null,
         webinyVersion: detected.isOk() ? detected.value.webinyVersion : null,
-        registered: registered.has(rootPath),
+        registered: known.paths.has(rootPath),
+        attachableProjectId: known.paths.has(rootPath)
+          ? null
+          : (known.checkoutless.get(toProjectName(name)) ?? null),
       });
     }
 
@@ -81,21 +86,37 @@ class ProjectScannerImpl implements Abstraction.Interface {
     return Result.ok(stored.value.map((root) => root.path));
   }
 
-  private async registeredPaths(): Promise<Set<string>> {
-    // Archived projects count as registered: re-adding one would collide with the row that is
-    // still there, so the scan must not offer it as new.
+  /**
+   * The checkouts already registered, and the projects that name none.
+   *
+   * Archived projects count in both: re-adding one would sit beside the row that is still there,
+   * so the scan must not offer it as new.
+   *
+   * The second map is what stops a duplicate. A project seeded from `.projects.json` had no way to
+   * name a checkout, so the scan saw its folder as unknown and offered to add it again — two rows
+   * for one system, one of which cannot be deployed.
+   */
+  private async knownProjects(): Promise<{
+    paths: Set<string>;
+    checkoutless: Map<string, string>;
+  }> {
     const projects = await this.listProjectsRepository.execute({ includeArchived: true });
     if (projects.isFail()) {
-      return new Set();
+      return { paths: new Set(), checkoutless: new Map() };
     }
 
     const paths = new Set<string>();
+    const checkoutless = new Map<string, string>();
+
     for (const project of projects.value) {
       if (project.rootPath !== null) {
         paths.add(path.resolve(project.rootPath));
+        continue;
       }
+      checkoutless.set(project.name, project.id);
     }
-    return paths;
+
+    return { paths, checkoutless };
   }
 
   private walk(directory: string, depth: number, found: Set<string>, errors: ScanError[]): void {

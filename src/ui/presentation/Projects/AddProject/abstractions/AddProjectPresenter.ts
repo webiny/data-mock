@@ -26,6 +26,11 @@ export interface ScanCandidateVM {
   versionLabel: string;
   /** Already a project here — selecting it would collide with the existing row. */
   registered: boolean;
+  /**
+   * A project of this name exists but names no checkout. Picking this one attaches the checkout to
+   * it rather than creating a second project for the same system.
+   */
+  attachable: boolean;
   selected: boolean;
 }
 

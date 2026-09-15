@@ -11,6 +11,7 @@ const SCAN_PATH = "/api/fs/scan";
 const SCAN_ROOTS_PATH = "/api/scan-roots";
 const CREATE_PROJECT_PATH = "/api/projects";
 const SYNC_PATH = "/api/projects/:projectId/sync";
+const UPDATE_PROJECT_PATH = "/api/projects/:id";
 
 function makeCandidate(overrides: Record<string, unknown> = {}) {
   return {
@@ -19,6 +20,7 @@ function makeCandidate(overrides: Record<string, unknown> = {}) {
     webinyVersion: "6.4.9",
     versionMajor: 6,
     registered: false,
+    attachableProjectId: null,
     ...overrides,
   };
 }
@@ -342,6 +344,29 @@ describe("AddProjectPresenter", () => {
     expect(http.callsTo(CREATE_PROJECT_PATH)).toHaveLength(2);
     expect(added).toBe(false);
     expect(p.vm.error).toContain("name already taken");
+  });
+
+  it("attaches a checkout to the project already carrying its name", async () => {
+    http.data.set(SCAN_PATH, {
+      candidates: [makeCandidate({ attachableProjectId: "p-existing" })],
+      errors: [],
+      rootsScanned: 1,
+    });
+    http.data.set(UPDATE_PROJECT_PATH, { id: "p-existing", name: "one", rootPath: "/work/one" });
+
+    const p = presenter();
+    await p.scan();
+
+    expect(p.vm.candidates[0]?.attachable).toBe(true);
+
+    p.selectCandidate("/work/one");
+    const added = await p.submit();
+
+    expect(added).toBe(true);
+    // A second project for the same system is how you get a row that cannot be deployed.
+    expect(http.callsTo(CREATE_PROJECT_PATH)).toHaveLength(0);
+    expect(http.callsTo(UPDATE_PROJECT_PATH, "PUT")[0]?.body).toEqual({ rootPath: "/work/one" });
+    expect(http.callsTo(SYNC_PATH)).toHaveLength(1);
   });
 
   it("says a scan root list that could not be read, rather than showing none", async () => {

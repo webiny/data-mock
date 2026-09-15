@@ -148,7 +148,14 @@ export interface ProjectCandidate {
   name: string;
   versionMajor: number | null;
   webinyVersion: string | null;
+  /** A project already points at this exact checkout, so adding it again would duplicate it. */
   registered: boolean;
+  /**
+   * A project of this name exists but names no checkout — almost always this same system, seeded
+   * from `.projects.json` before that file could carry a `rootPath`. Offered as attach rather than
+   * add: creating a second project here is how you end up with two rows for one system.
+   */
+  attachableProjectId: string | null;
 }
 
 export interface ScanError {

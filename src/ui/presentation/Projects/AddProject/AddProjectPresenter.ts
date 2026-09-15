@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { CreateProjectUseCase } from "./useCases/CreateProject/abstractions/CreateProjectUseCase.js";
+import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { FileSystemGateway } from "~/ui/features/filesystem/abstractions/FileSystemGateway.js";
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
@@ -54,6 +55,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
 
   public constructor(
     private readonly createProjectUseCase: CreateProjectUseCase.Interface,
+    private readonly projectsGateway: ProjectsGateway.Interface,
     private readonly fileSystemGateway: FileSystemGateway.Interface,
     private readonly environmentsGateway: EnvironmentsGateway.Interface,
     private readonly notificationService: NotificationService.Interface,
@@ -372,8 +374,18 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
           continue;
         }
 
-        const added = await this.addOne(parsed.data, name, { quiet: paths.length > 1 });
-        if (added === null) {
+        const candidate = this._candidates.find((item) => item.rootPath === rootPath);
+
+        /**
+         * A project of this name already exists without a checkout — almost always this same
+         * system. It adopts the checkout instead of a second row being created beside it.
+         */
+        const done =
+          candidate?.attachableProjectId != null
+            ? await this.attachOne(candidate.attachableProjectId, rootPath)
+            : await this.addOne(parsed.data, name, { quiet: paths.length > 1 });
+
+        if (done === null) {
           failures.push(`${name}: ${this._error ?? "could not be added"}`);
           continue;
         }
@@ -399,6 +411,21 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
         this._isSubmitting = false;
       });
     }
+  }
+
+  /** Points an existing project at a checkout it did not name, and syncs it. */
+  private async attachOne(projectId: string, rootPath: string): Promise<string | null> {
+    const updated = await this.projectsGateway.update(projectId, { rootPath });
+
+    if (updated.isFail()) {
+      runInAction(() => {
+        this._error = updated.error.message;
+      });
+      return null;
+    }
+
+    await this.environmentsGateway.sync(projectId);
+    return projectId;
   }
 
   /**
@@ -503,6 +530,7 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
             ? `v${candidate.versionMajor} workspace root`
             : "not a Webiny project",
       registered: candidate.registered,
+      attachable: candidate.attachableProjectId !== null,
       selected: this._selectedRootPaths.includes(candidate.rootPath),
     };
   }
@@ -510,5 +538,11 @@ class AddProjectPresenterImpl implements Abstraction.Interface {
 
 export const AddProjectPresenter = Abstraction.createImplementation({
   implementation: AddProjectPresenterImpl,
-  dependencies: [CreateProjectUseCase, FileSystemGateway, EnvironmentsGateway, NotificationService],
+  dependencies: [
+    CreateProjectUseCase,
+    ProjectsGateway,
+    FileSystemGateway,
+    EnvironmentsGateway,
+    NotificationService,
+  ],
 });

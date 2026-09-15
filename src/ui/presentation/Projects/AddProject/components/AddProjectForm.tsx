@@ -126,7 +126,8 @@ export const AddProjectForm = observer(function AddProjectForm({
         {vm.mode === "scan" && vm.selectedCount > 1 && (
           <Alert color="blue" variant="light" py="xs">
             <Text size="sm">
-              {vm.selectedCount} projects selected. Each is named after its folder.
+              {vm.selectedCount} projects selected. Each is named after its folder, and one marked
+              &ldquo;attach to existing&rdquo; is added to the project already carrying that name.
             </Text>
           </Alert>
         )}
@@ -303,6 +304,11 @@ const ScanPanel = observer(function ScanPanel({ presenter }: PanelProps) {
                 {candidate.registered && (
                   <Badge size="xs" variant="outline" color="gray">
                     already added
+                  </Badge>
+                )}
+                {candidate.attachable && (
+                  <Badge size="xs" variant="light" color="orange">
+                    attach to existing
                   </Badge>
                 )}
               </Group>

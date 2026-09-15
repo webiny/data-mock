@@ -22,6 +22,8 @@ export const projectCandidateSchema = z.object({
   versionMajor: z.number().nullable(),
   webinyVersion: z.string().nullable(),
   registered: z.boolean(),
+  /** An existing project of this name that names no checkout, and could adopt this one. */
+  attachableProjectId: z.string().nullable(),
 });
 
 export const scanResultSchema = z.object({
