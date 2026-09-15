@@ -686,6 +686,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (projectId === null || environmentId === null) {
       return;
     }
+    /**
+     * The confirmation has to have been moved to "purge" first. This destroys every seed entry,
+     * sync log, model and job that hangs off the environment, so it must not be reachable from the
+     * dialog's reversible first step by any route.
+     */
+    if (this._removeEnvironmentMode !== "purge") {
+      return;
+    }
     this.cancelRemoveEnvironment();
 
     const result = await this.environmentsGateway.purge(projectId, environmentId);

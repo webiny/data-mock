@@ -72,6 +72,23 @@ const STACKS_PATH = "/api/projects/:projectId/environments/:environmentId/stacks
 const DEPLOYABLE_PATH = "/api/projects/:projectId/deployable-apps";
 const DEPLOY_PATH = "/api/projects/:projectId/environments/:environmentId/deploy";
 const DESTROY_PATH = "/api/projects/:projectId/environments/:environmentId/destroy";
+const IMPACT_PATH = "/api/projects/:projectId/environments/:environmentId/deletion-impact";
+const ARCHIVE_PATH = "/api/projects/:projectId/environments/:environmentId";
+const PURGE_PATH = "/api/projects/:projectId/environments/:environmentId/purge";
+const RESTORE_PATH = "/api/projects/:projectId/environments/:environmentId/restore";
+const EMPTY_IMPACT = {
+  environments: 0,
+  stacks: 0,
+  tenants: 0,
+  groups: 0,
+  models: 0,
+  files: 0,
+  seedJobs: 0,
+  seedEntries: 0,
+  syncLogs: 0,
+  jobs: 0,
+  seedTemplates: 0,
+};
 const HEALTH_PATH = "/api/projects/:projectId/environments/:environmentId/health";
 const TENANT_PULL_PATH = "/api/projects/:projectId/environments/:environmentId/tenants/pull";
 
@@ -95,6 +112,9 @@ describe("ProjectDetailPresenter", () => {
     http.data.set(STACKS_PATH, [makeStack()]);
     http.data.set(DEPLOYABLE_PATH, { apps: ["core", "api", "admin"], versionMajor: 6 });
     http.data.set(HEALTH_PATH, { reachable: true, error: null });
+    http.data.set(IMPACT_PATH, EMPTY_IMPACT);
+    http.data.set(ARCHIVE_PATH, makeEnvironment({ archivedAt: 999 }));
+    http.data.set(RESTORE_PATH, makeEnvironment());
   });
 
   function presenter() {
@@ -338,6 +358,90 @@ describe("ProjectDetailPresenter", () => {
       await p.activateView("system");
 
       expect(p.vm.stacks[0]?.stateLabel).toBe("Could not read");
+    });
+  });
+
+  describe("removing an environment", () => {
+    it("opens in the reversible mode with the impact of a purge on screen", async () => {
+      http.data.set(IMPACT_PATH, { ...EMPTY_IMPACT, seedEntries: 1674, syncLogs: 3 });
+
+      const p = await loaded();
+      p.confirmRemoveEnvironment(ENVIRONMENT_ID, "dev");
+      await flush();
+
+      const confirmation = p.vm.environmentDeleteConfirmation;
+      expect(confirmation.isOpen).toBe(true);
+      expect(confirmation.mode).toBe("archive");
+      expect(confirmation.impactTotal).toBe(1677);
+    });
+
+    it("archives without touching anything that hangs off the environment", async () => {
+      const p = await loaded();
+      p.confirmRemoveEnvironment(ENVIRONMENT_ID, "dev");
+      await flush();
+
+      await p.archiveEnvironment();
+
+      // Same path as reading one environment, so the method is what distinguishes it.
+      expect(http.callsTo(ARCHIVE_PATH, "DELETE")).toHaveLength(1);
+      expect(http.callsTo(PURGE_PATH)).toHaveLength(0);
+      expect(p.vm.environmentDeleteConfirmation.isOpen).toBe(false);
+    });
+
+    it("purges nothing until the confirmation has been moved to purge", async () => {
+      const p = await loaded();
+      p.confirmRemoveEnvironment(ENVIRONMENT_ID, "dev");
+      await flush();
+
+      // The first step is the reversible one; a purge from there destroys data with one click.
+      await p.purgeEnvironment();
+      expect(http.callsTo(PURGE_PATH)).toHaveLength(0);
+
+      p.requestPurgeEnvironment();
+      expect(p.vm.environmentDeleteConfirmation.mode).toBe("purge");
+
+      await p.purgeEnvironment();
+      expect(http.callsTo(PURGE_PATH)).toHaveLength(1);
+    });
+
+    it("stops addressing an environment it just purged", async () => {
+      const p = await loaded();
+      expect(p.vm.currentEnvironment?.id).toBe(ENVIRONMENT_ID);
+
+      p.confirmRemoveEnvironment(ENVIRONMENT_ID, "dev");
+      await flush();
+      p.requestPurgeEnvironment();
+      http.data.set(ENVIRONMENTS_PATH, []);
+
+      await p.purgeEnvironment();
+
+      expect(p.vm.currentEnvironment).toBeNull();
+    });
+
+    it("keeps the environment when the purge fails", async () => {
+      http.failures.set(PURGE_PATH, "environment is busy");
+
+      const p = await loaded();
+      p.confirmRemoveEnvironment(ENVIRONMENT_ID, "dev");
+      await flush();
+      p.requestPurgeEnvironment();
+
+      await p.purgeEnvironment();
+
+      expect(p.vm.currentEnvironment?.id).toBe(ENVIRONMENT_ID);
+    });
+
+    it("restores an archived environment", async () => {
+      http.data.set(ENVIRONMENTS_PATH, [makeEnvironment({ archivedAt: 999 })]);
+
+      const p = await loaded();
+      expect(p.vm.archivedEnvironments).toHaveLength(1);
+
+      http.data.set(ENVIRONMENTS_PATH, [makeEnvironment()]);
+      await p.restoreEnvironment(ENVIRONMENT_ID);
+
+      expect(http.callsTo(RESTORE_PATH)).toHaveLength(1);
+      expect(p.vm.archivedEnvironments).toEqual([]);
     });
   });
 

@@ -84,8 +84,11 @@ export class StubHttpClient {
     return Promise.resolve(Result.ok((this.urlData.get(path) ?? null) as never));
   }
 
-  public callsTo(path: string): RecordedCall[] {
-    return this.calls.filter((call) => call.path === path);
+  /** Every recorded call to one route path, narrowed to one method when two share a path. */
+  public callsTo(path: string, method?: string): RecordedCall[] {
+    return this.calls.filter(
+      (call) => call.path === path && (method === undefined || call.method === method),
+    );
   }
 }
 
