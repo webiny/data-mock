@@ -422,6 +422,28 @@ describe("ProjectListPresenter", () => {
     expect(p.vm.projects[0]?.healthLabel).toContain("2 environments");
   });
 
+  it("offers seeding only where there is an API to seed into", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.environments = [makeEnvironment({ apiUrl: null })];
+
+    const p = presenter();
+    await p.load();
+
+    // A Seed Data button that can only lead to "this environment cannot be seeded" is worse than
+    // no button.
+    expect(p.vm.projects[0]?.seedable).toBe(false);
+  });
+
+  it("offers seeding once an environment has an API", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    environmentsGateway.environments = [makeEnvironment()];
+
+    const p = presenter();
+    await p.load();
+
+    expect(p.vm.projects[0]?.seedable).toBe(true);
+  });
+
   it("says the cards are incomplete when the environments could not be read", async () => {
     projectsGateway.projects = [makeProject({ id: "p1" }), makeProject({ id: "p2" })];
     environmentsGateway.failList = true;

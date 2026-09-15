@@ -140,12 +140,17 @@ export const ProjectListPage = observer(function ProjectListPage({
                 </Text>
               </Stack>
               <Group gap="xs">
-                {onSeedProject && (
+                {/*
+                  Both of these open an environment, so a project with none to open — never
+                  deployed, or deployed without its api app — offers neither. A Seed Data button
+                  that can only lead to "this environment cannot be seeded" is worse than no button.
+                */}
+                {onSeedProject && project.seedable && (
                   <Button variant="filled" size="xs" onClick={() => onSeedProject(project.id)}>
                     Seed Data
                   </Button>
                 )}
-                {onViewHistory && (
+                {onViewHistory && project.seedable && (
                   <Button variant="light" size="xs" onClick={() => onViewHistory(project.id)}>
                     History
                   </Button>

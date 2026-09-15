@@ -30,6 +30,11 @@ export interface ProjectItemVM {
   deployedCount: number;
   /** False for a remote-only project, which has nothing on disk to sync. */
   syncable: boolean;
+  /**
+   * Whether any active environment has an API to talk to. Seeding and seed history both address
+   * one, so with none there is nothing for those buttons to open.
+   */
+  seedable: boolean;
   lastSyncedAt: number | null;
   archivedAt: number | null;
   isSyncing: boolean;

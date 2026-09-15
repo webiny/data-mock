@@ -260,6 +260,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       lastSyncedAt: project.lastSyncedAt,
       archivedAt: project.archivedAt,
       syncable: project.rootPath !== null,
+      seedable: this.reachableEnvironments(environments).length > 0,
       isSyncing: this.isReadingDiffFor(project.id),
       isSyncingModels: this._syncingModelsProjectIds.has(project.id),
       health: this.healthOf(project.id, environments),
