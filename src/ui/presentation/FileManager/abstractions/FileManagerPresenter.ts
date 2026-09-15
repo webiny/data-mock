@@ -1,3 +1,4 @@
+import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { createAbstraction } from "@webiny/stdlib";
 
 export interface IFileManagerBadgeVM {
@@ -21,12 +22,18 @@ export interface IFileManagerVM {
   picsumCount: number;
   error: string | null;
   previewFile: IFileManagerFileVM | null;
+  /** The one dialog standing in front of every action that starts a job. */
+  confirmation: IActionConfirmationVM;
 }
 
 export interface IFileManagerPresenter {
   readonly vm: IFileManagerVM;
   load(): Promise<void>;
-  pullPicsum(): Promise<void>;
+  /** Asks to download placeholder images. Nothing runs until `confirmAction`. */
+  pullPicsum(): void;
+  /** Runs the action the open confirmation describes. */
+  confirmAction(): Promise<void>;
+  cancelAction(): void;
   setPicsumCount(count: number): void;
   deleteFile(fileName: string): Promise<void>;
   uploadFiles(files: File[]): Promise<void>;

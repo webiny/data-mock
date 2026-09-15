@@ -5,6 +5,7 @@ import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import type { FileWithPath } from "@mantine/dropzone";
 import { FileCard } from "~/ui/components/FileCard.js";
 import { FilePreviewModal } from "~/ui/components/FilePreviewModal.js";
+import { ConfirmDialog } from "~/ui/components/ConfirmDialog.js";
 import type { FileManagerPresenter } from "../abstractions/FileManagerPresenter.js";
 
 interface FileManagerPageProps {
@@ -19,7 +20,8 @@ export const FileManagerPage = observer(function FileManagerPage({
     return () => presenter.dispose();
   }, [presenter]);
 
-  const { files, isLoading, isPullingPicsum, picsumCount, error, previewFile } = presenter.vm;
+  const { files, isLoading, isPullingPicsum, picsumCount, error, previewFile, confirmation } =
+    presenter.vm;
 
   return (
     <Stack gap="md">
@@ -101,6 +103,12 @@ export const FileManagerPage = observer(function FileManagerPage({
               }
             : null
         }
+      />
+
+      <ConfirmDialog
+        vm={confirmation}
+        onConfirm={() => void presenter.confirmAction()}
+        onCancel={() => presenter.cancelAction()}
       />
     </Stack>
   );

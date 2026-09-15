@@ -281,7 +281,8 @@ describe("ProjectListPresenter", () => {
 
     const p = presenter();
     await p.load();
-    await p.syncAll();
+    p.syncAll();
+    await p.confirmAction();
 
     expect(environmentsGateway.synced).toEqual(["p1"]);
     expect(notifications.successes.some((message) => message.includes("1 project"))).toBe(true);
@@ -293,8 +294,37 @@ describe("ProjectListPresenter", () => {
 
     const p = presenter();
     await p.load();
-    await p.syncAll();
+    p.syncAll();
+    await p.confirmAction();
 
     expect(notifications.errors[0]).toContain("1 could not be queued");
+  });
+
+  it("syncs nothing until the confirmation is accepted", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+
+    const p = presenter();
+    await p.load();
+    p.syncProject("p1");
+
+    expect(p.vm.confirmation.isOpen).toBe(true);
+    expect(environmentsGateway.synced).toEqual([]);
+
+    await p.confirmAction();
+
+    expect(environmentsGateway.synced).toEqual(["p1"]);
+    expect(p.vm.confirmation.isOpen).toBe(false);
+  });
+
+  it("syncs nothing when the confirmation is dismissed", async () => {
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+
+    const p = presenter();
+    await p.load();
+    p.syncProject("p1");
+    p.cancelAction();
+    await p.confirmAction();
+
+    expect(environmentsGateway.synced).toEqual([]);
   });
 });

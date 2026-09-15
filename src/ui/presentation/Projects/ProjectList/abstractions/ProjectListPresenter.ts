@@ -1,5 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 
+import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
+
 export interface ProjectItemVM {
   id: string;
   name: string;
@@ -51,15 +53,23 @@ export interface ProjectListVM {
   isLoading: boolean;
   isEmpty: boolean;
   deleteConfirmation: DeleteConfirmationVM;
+  /** The one dialog standing in front of every action that starts a job. */
+  confirmation: IActionConfirmationVM;
 }
 
 export interface IProjectListPresenter {
   readonly vm: ProjectListVM;
   load(): Promise<void>;
-  /** Rediscovers this project's environments from the Pulumi state on disk. */
-  syncProject(projectId: string): Promise<void>;
+  /**
+   * Asks to rediscover this project's environments from the Pulumi state on disk. Nothing runs
+   * until `confirmAction`.
+   */
+  syncProject(projectId: string): void;
+  /** Runs the action the open confirmation describes. */
+  confirmAction(): Promise<void>;
+  cancelAction(): void;
   /** Enqueues a sync for every project that has a checkout. */
-  syncAll(): Promise<void>;
+  syncAll(): void;
   /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
   confirmDelete(projectId: string, projectName: string): void;
   cancelDelete(): void;

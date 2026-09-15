@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
 import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
 import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
@@ -22,6 +23,7 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
   private _error: string | null = null;
   private _previewFileName: string | null = null;
   private readonly disposeJobSubscription: () => void;
+  private readonly actionConfirmation = new ActionConfirmation();
 
   public constructor(
     private readonly localFilesGateway: LocalFilesGateway.Interface,
@@ -43,6 +45,7 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
       picsumCount: this._picsumCount,
       error: this._error,
       previewFile: files.find((file) => file.fileName === this._previewFileName) ?? null,
+      confirmation: this.actionConfirmation.vm,
     };
   }
 
@@ -84,7 +87,26 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  public pullPicsum = async (): Promise<void> => {
+  public pullPicsum = (): void => {
+    this.actionConfirmation.request({
+      title: "Download placeholder images",
+      message:
+        `Download ${this._picsumCount} image(s) from picsum.photos into the local file store? ` +
+        `Files with a name that is already taken are overwritten.`,
+      confirmLabel: `Download ${this._picsumCount} image(s)`,
+      run: this.runPullPicsum,
+    });
+  };
+
+  public confirmAction = async (): Promise<void> => {
+    await this.actionConfirmation.confirm();
+  };
+
+  public cancelAction = (): void => {
+    this.actionConfirmation.cancel();
+  };
+
+  private runPullPicsum = async (): Promise<void> => {
     this._isPullingPicsum = true;
     this._error = null;
     try {

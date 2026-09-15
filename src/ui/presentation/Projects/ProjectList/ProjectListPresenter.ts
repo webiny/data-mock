@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
@@ -28,6 +29,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   private _deleteMode: "archive" | "purge" = "archive";
   private _impact: DeletionImpact | null = null;
   private _isLoadingImpact = false;
+  private readonly actionConfirmation = new ActionConfirmation();
 
   public constructor(
     private readonly loadProjectsUseCase: LoadProjectsUseCase.Interface,
@@ -64,6 +66,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         impact: this.impactLines,
         impactTotal: this.impactTotal,
       },
+      confirmation: this.actionConfirmation.vm,
     };
   }
 
@@ -135,7 +138,23 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
    * project's environments. Pulling tenants or models needs a specific environment, so those
    * actions live on the project detail page where one is selected.
    */
-  public syncProject = async (projectId: string): Promise<void> => {
+  public syncProject = (projectId: string): void => {
+    const project = this.projectsRepository.projects.find((p) => p.id === projectId);
+    if (project === undefined) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Sync from disk",
+      message:
+        `Re-read the Pulumi state in ${project.rootPath ?? "this checkout"} and rewrite the ` +
+        `environments and stack output stored for "${project.name}"?`,
+      confirmLabel: "Sync from disk",
+      run: () => this.runSyncProject(projectId),
+    });
+  };
+
+  private runSyncProject = async (projectId: string): Promise<void> => {
     this._syncingProjectIds.add(projectId);
     try {
       const result = await this.environmentsGateway.sync(projectId);
@@ -155,12 +174,40 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
    * Enqueues one sync per project rather than a single batch job: each is scoped to its own
    * project, so one failing checkout cannot take the rest of the run down with it.
    */
-  public syncAll = async (): Promise<void> => {
+  public syncAll = (): void => {
+    const syncable = this.syncableProjects;
+    if (syncable.length === 0) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Sync every project from disk",
+      message:
+        `Re-read the Pulumi state of ${syncable.length} project(s) and rewrite the environments ` +
+        `and stack output stored for each? One sync job is queued per project.`,
+      confirmLabel: `Sync ${syncable.length} project(s)`,
+      run: this.runSyncAll,
+    });
+  };
+
+  private get syncableProjects(): Project[] {
+    return this.projectsRepository.projects.filter(
+      (project) => project.rootPath !== null && project.archivedAt === null,
+    );
+  }
+
+  public confirmAction = async (): Promise<void> => {
+    await this.actionConfirmation.confirm();
+  };
+
+  public cancelAction = (): void => {
+    this.actionConfirmation.cancel();
+  };
+
+  private runSyncAll = async (): Promise<void> => {
     this._isSyncingAll = true;
     try {
-      const syncable = this.projectsRepository.projects.filter(
-        (project) => project.rootPath !== null && project.archivedAt === null,
-      );
+      const syncable = this.syncableProjects;
 
       const results = await Promise.all(
         syncable.map((project) => this.environmentsGateway.sync(project.id)),

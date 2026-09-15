@@ -1,5 +1,6 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { SeedTemplateConfig, SeedEntryStatus, Job, StackReadState } from "~/shared/types.js";
+import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 
 export interface IProjectVM {
   id: string;
@@ -241,6 +242,8 @@ export interface IProjectDetailVM {
   isPullingFiles: boolean;
   showEditDialog: boolean;
   showCleanupDialog: boolean;
+  /** The one dialog standing in front of every action that starts a job. */
+  confirmation: IActionConfirmationVM;
 }
 
 export interface IProjectDetailPresenter {
@@ -248,8 +251,14 @@ export interface IProjectDetailPresenter {
   load(projectId: string, envName: string | null): Promise<void>;
   activateView(view: string): Promise<void>;
   checkHealth(): Promise<void>;
-  /** Rediscovers this project's environments and stack output from the Pulumi state on disk. */
-  syncProject(): Promise<void>;
+  /**
+   * Asks to rediscover this project's environments and stack output from the Pulumi state on disk.
+   * Nothing runs until `confirmAction`.
+   */
+  syncProject(): void;
+  /** Runs the action the open confirmation describes. */
+  confirmAction(): Promise<void>;
+  cancelAction(): void;
   /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
   confirmRemoveEnvironment(environmentId: string, stackName: string): void;
   cancelRemoveEnvironment(): void;
@@ -270,8 +279,8 @@ export interface IProjectDetailPresenter {
   submitDeployment(): Promise<void>;
   loadTemplate(templateId: string): void;
   deleteTemplate(templateId: string): Promise<void>;
-  pullTenants(): Promise<void>;
-  pullModels(): Promise<void>;
+  pullTenants(): void;
+  pullModels(): void;
   openEditDialog(): void;
   closeEditDialog(): void;
   submitEdit(input: IEditProjectInput): Promise<boolean>;
@@ -285,7 +294,7 @@ export interface IProjectDetailPresenter {
   uploadAllGlobalImages(): Promise<void>;
   uploadSelectedGlobalImages(fileNames: string[]): Promise<void>;
   deleteSyncLog(logId: string): Promise<void>;
-  importEntries(tenant: string, modelIds: string[]): Promise<void>;
+  importEntries(tenant: string, modelIds: string[]): void;
   openCleanupDialog(): void;
   closeCleanupDialog(): void;
   confirmCleanup(): Promise<void>;
@@ -298,7 +307,7 @@ export interface IProjectDetailPresenter {
   loadSyncLogsPage(page: number): void;
   setSyncLogsFilter(key: string, value: string | null): void;
   clearSyncLogsFilter(): void;
-  pullFiles(): Promise<void>;
+  pullFiles(): void;
   cancelJob(jobId: string): Promise<void>;
   /** Live log tail for a running job, empty until it emits something. */
   liveLogsFor(jobId: string): string;

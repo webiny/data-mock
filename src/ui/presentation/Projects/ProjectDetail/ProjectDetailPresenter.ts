@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
 import type {
   IDeploymentDialogVM,
@@ -165,6 +166,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private readonly disposeJobLogSubscription: () => void;
   /** Live log lines per job, newest last. Bounded — see LIVE_LOG_LIMIT. */
   private _liveLogs = new Map<string, string[]>();
+  private readonly actionConfirmation = new ActionConfirmation();
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
@@ -409,6 +411,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       isUploadingGlobal: this._isUploadingGlobal,
       isPullingFiles: this._isPullingFiles,
       showCleanupDialog: this._showCleanupDialog,
+      confirmation: this.actionConfirmation.vm,
       showEditDialog: this._showEditDialog,
     };
   }
@@ -522,7 +525,24 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     });
   };
 
-  public syncProject = async (): Promise<void> => {
+  public syncProject = (): void => {
+    const project = this.vm.project;
+    if (project === null) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Sync from disk",
+      message:
+        `Re-read the Pulumi state in ${project.rootPath ?? "this checkout"} and rewrite the ` +
+        `environments and stack output stored for "${project.name}"? Environments that no longer ` +
+        `exist on disk are not removed, and archived ones are left alone.`,
+      confirmLabel: "Sync from disk",
+      run: this.runSyncProject,
+    });
+  };
+
+  private runSyncProject = async (): Promise<void> => {
     const projectId = this._projectId;
     if (projectId === null) {
       return;
@@ -767,7 +787,23 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this.notifications.success("Template deleted.");
   };
 
-  public pullTenants = async (): Promise<void> => {
+  public pullTenants = (): void => {
+    const environment = this.currentEnvironment;
+    if (environment === null) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Pull tenants",
+      message:
+        `Read every tenant from the live system on ${getStackName(environment)} and replace the ` +
+        `tenant list stored for this environment?`,
+      confirmLabel: "Pull tenants",
+      run: this.runPullTenants,
+    });
+  };
+
+  private runPullTenants = async (): Promise<void> => {
     const ref = this.ref;
     if (!ref) {
       return;
@@ -790,7 +826,23 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  public pullModels = async (): Promise<void> => {
+  public pullModels = (): void => {
+    const environment = this.currentEnvironment;
+    if (environment === null) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Pull models",
+      message:
+        `Read every content model from the live system on ${getStackName(environment)} and ` +
+        `replace the models stored for this environment?`,
+      confirmLabel: "Pull models",
+      run: this.runPullModels,
+    });
+  };
+
+  private runPullModels = async (): Promise<void> => {
     const ref = this.ref;
     if (!ref) {
       return;
@@ -973,6 +1025,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  public confirmAction = async (): Promise<void> => {
+    await this.actionConfirmation.confirm();
+  };
+
+  public cancelAction = (): void => {
+    this.actionConfirmation.cancel();
+  };
+
   public openCleanupDialog = (): void => {
     this._showCleanupDialog = true;
   };
@@ -1005,7 +1065,23 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  public importEntries = async (tenant: string, modelIds: string[]): Promise<void> => {
+  public importEntries = (tenant: string, modelIds: string[]): void => {
+    const environment = this.currentEnvironment;
+    if (environment === null || modelIds.length === 0) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Import entries",
+      message:
+        `Read every entry of ${modelIds.length} model(s) from tenant "${tenant}" on ` +
+        `${getStackName(environment)} and store them here?`,
+      confirmLabel: "Import entries",
+      run: () => this.runImportEntries(tenant, modelIds),
+    });
+  };
+
+  private runImportEntries = async (tenant: string, modelIds: string[]): Promise<void> => {
     const ref = this.ref;
     if (!ref) {
       return;
@@ -1128,7 +1204,23 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this.syncLogsListState.setBatch({ logType: null, logStatus: null });
   };
 
-  public pullFiles = async (): Promise<void> => {
+  public pullFiles = (): void => {
+    const environment = this.currentEnvironment;
+    if (environment === null) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Pull files",
+      message:
+        `Download the File Manager contents of tenant "${this.currentTenant()}" on ` +
+        `${getStackName(environment)} into this tool?`,
+      confirmLabel: "Pull files",
+      run: this.runPullFiles,
+    });
+  };
+
+  private runPullFiles = async (): Promise<void> => {
     const ref = this.ref;
     if (!ref) {
       return;
