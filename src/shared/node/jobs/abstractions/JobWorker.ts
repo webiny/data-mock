@@ -9,6 +9,8 @@ export interface IJob {
   status: JobStatus;
   config: string | null;
   logs: string | null;
+  /** The job's own answer, parsed. Null for jobs whose effect is the write. */
+  result: unknown;
   progress: number | null;
   progressLabel: string | null;
   parentJobId: string | null;

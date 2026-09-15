@@ -15,7 +15,6 @@ import {
   Title,
 } from "@mantine/core";
 import type { ProjectItemVM, ProjectListPresenter } from "../abstractions/ProjectListPresenter.js";
-import { ConfirmDialog } from "~/ui/components/ConfirmDialog.js";
 import { SyncPreviewDialog } from "~/ui/components/SyncPreviewDialog.js";
 
 interface ProjectListPageProps {
@@ -59,7 +58,6 @@ export const ProjectListPage = observer(function ProjectListPage({
     deleteConfirmation,
     isSyncingAll,
     syncableCount,
-    confirmation,
     syncPreview,
   } = presenter.vm;
 
@@ -248,12 +246,6 @@ export const ProjectListPage = observer(function ProjectListPage({
         vm={syncPreview}
         onApply={() => void presenter.applySync()}
         onClose={() => presenter.closeSyncPreview()}
-      />
-
-      <ConfirmDialog
-        vm={confirmation}
-        onConfirm={() => void presenter.confirmAction()}
-        onCancel={() => presenter.cancelAction()}
       />
     </Stack>
   );

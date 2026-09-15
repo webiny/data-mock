@@ -1,6 +1,5 @@
 import { createAbstraction } from "@webiny/stdlib";
 
-import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import type { ISyncPreviewVM } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 
 export interface ProjectItemVM {
@@ -46,7 +45,7 @@ export interface DeleteConfirmationVM {
 
 export interface ProjectListVM {
   projects: ProjectItemVM[];
-  /** True while every syncable project is being enqueued. */
+  /** True while the diff covering every syncable project is being read. */
   isSyncingAll: boolean;
   /** Projects with a checkout on disk. Nothing else can be synced. */
   syncableCount: number;
@@ -54,8 +53,6 @@ export interface ProjectListVM {
   isLoading: boolean;
   isEmpty: boolean;
   deleteConfirmation: DeleteConfirmationVM;
-  /** The one dialog standing in front of every action that starts a job. */
-  confirmation: IActionConfirmationVM;
   /** What a sync from disk would change. Shown before anything is stored. */
   syncPreview: ISyncPreviewVM;
 }
@@ -70,10 +67,8 @@ export interface IProjectListPresenter {
   syncProject(projectId: string): void;
   applySync(): Promise<void>;
   closeSyncPreview(): void;
-  /** Runs the action the open confirmation describes. */
-  confirmAction(): Promise<void>;
-  cancelAction(): void;
   /** Enqueues a sync for every project that has a checkout. */
+  /** Reads what a sync would change for every project with a checkout, and opens the diff. */
   syncAll(): void;
   /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
   confirmDelete(projectId: string, projectName: string): void;

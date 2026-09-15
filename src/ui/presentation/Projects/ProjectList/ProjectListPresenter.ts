@@ -1,11 +1,11 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { SyncPreviewState } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
 import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
+import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import { LoadProjectsUseCase } from "./useCases/LoadProjects/abstractions/LoadProjectsUseCase.js";
 import { ArchiveProjectUseCase } from "./useCases/ArchiveProject/abstractions/ArchiveProjectUseCase.js";
 import { RestoreProjectUseCase } from "./useCases/RestoreProject/abstractions/RestoreProjectUseCase.js";
@@ -22,14 +22,12 @@ import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/im
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _loaded = false;
-  private _isSyncingAll = false;
   private _syncingModelsProjectIds = new Set<string>();
   private _deleteProjectId: string | null = null;
   private _deleteProjectName: string | null = null;
   private _deleteMode: "archive" | "purge" = "archive";
   private _impact: DeletionImpact | null = null;
   private _isLoadingImpact = false;
-  private readonly actionConfirmation = new ActionConfirmation();
   private readonly syncPreviewState: SyncPreviewState;
 
   public constructor(
@@ -42,8 +40,13 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     private readonly environmentsGateway: EnvironmentsGateway.Interface,
     private readonly environmentsRepository: EnvironmentsRepository.Interface,
     private readonly notificationService: NotificationService.Interface,
+    jobsGateway: JobsGateway.Interface,
   ) {
-    this.syncPreviewState = new SyncPreviewState(environmentsGateway, notificationService);
+    this.syncPreviewState = new SyncPreviewState(
+      environmentsGateway,
+      jobsGateway,
+      notificationService,
+    );
     makeAutoObservable(this);
   }
 
@@ -54,7 +57,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
 
     return {
       projects,
-      isSyncingAll: this._isSyncingAll,
+      isSyncingAll: this.syncPreviewState.activeProjectIds.length > 1,
       syncableCount: projects.filter((project) => project.syncable).length,
       archivedProjects,
       isLoading: this._isLoading,
@@ -68,7 +71,6 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         impact: this.impactLines,
         impactTotal: this.impactTotal,
       },
-      confirmation: this.actionConfirmation.vm,
       syncPreview: this.syncPreviewState.vm,
     };
   }
@@ -137,16 +139,20 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   };
 
   /**
-   * Syncing is project-scoped: it reads the Pulumi checkpoints on disk and rediscovers this
-   * project's environments. Pulling tenants or models needs a specific environment, so those
-   * actions live on the project detail page where one is selected.
-   */
-  /**
-   * Opens the diff rather than syncing. A sync overwrites what is stored for the project with
-   * whatever the checkout currently says, so what it would change is shown first.
+   * Opens the diff rather than syncing.
+   *
+   * Syncing is project-scoped: it reads the Pulumi checkpoints on disk and rediscovers that
+   * project's environments, overwriting what is stored with whatever the checkout currently says.
+   * Pulling tenants or models needs a specific environment, so those actions live on the project
+   * detail page where one is selected.
    */
   public syncProject = (projectId: string): void => {
-    void this.syncPreviewState.open(projectId);
+    void this.syncPreviewState.open([projectId]);
+  };
+
+  /** The same diff, over every project with a checkout. */
+  public syncAll = (): void => {
+    void this.syncPreviewState.open(this.syncableProjects.map((project) => project.id));
   };
 
   public applySync = async (): Promise<void> => {
@@ -157,64 +163,11 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     this.syncPreviewState.close();
   };
 
-  /**
-   * Enqueues one sync per project rather than a single batch job: each is scoped to its own
-   * project, so one failing checkout cannot take the rest of the run down with it.
-   */
-  public syncAll = (): void => {
-    const syncable = this.syncableProjects;
-    if (syncable.length === 0) {
-      return;
-    }
-
-    this.actionConfirmation.request({
-      title: "Sync every project from disk",
-      message:
-        `Re-read the Pulumi state of ${syncable.length} project(s) and rewrite the environments ` +
-        `and stack output stored for each? One sync job is queued per project.`,
-      confirmLabel: `Sync ${syncable.length} project(s)`,
-      run: this.runSyncAll,
-    });
-  };
-
   private get syncableProjects(): Project[] {
     return this.projectsRepository.projects.filter(
       (project) => project.rootPath !== null && project.archivedAt === null,
     );
   }
-
-  public confirmAction = async (): Promise<void> => {
-    await this.actionConfirmation.confirm();
-  };
-
-  public cancelAction = (): void => {
-    this.actionConfirmation.cancel();
-  };
-
-  private runSyncAll = async (): Promise<void> => {
-    this._isSyncingAll = true;
-    try {
-      const syncable = this.syncableProjects;
-
-      const results = await Promise.all(
-        syncable.map((project) => this.environmentsGateway.sync(project.id)),
-      );
-
-      const failed = results.filter((result) => result.isFail()).length;
-
-      if (failed === 0) {
-        this.notificationService.success(`Sync started for ${results.length} project(s).`);
-      } else {
-        this.notificationService.error(
-          `Sync started for ${results.length - failed} project(s); ${failed} could not be queued.`,
-        );
-      }
-    } finally {
-      runInAction(() => {
-        this._isSyncingAll = false;
-      });
-    }
-  };
 
   private get impactLines(): DeletionImpactLineVM[] {
     return this._impact === null ? [] : toDeletionImpactLines(this._impact);
@@ -237,7 +190,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       lastSyncedAt: project.lastSyncedAt,
       archivedAt: project.archivedAt,
       syncable: project.rootPath !== null,
-      isSyncing: this.syncPreviewState.activeProjectId === project.id,
+      isSyncing: this.syncPreviewState.activeProjectIds.includes(project.id),
       isSyncingModels: this._syncingModelsProjectIds.has(project.id),
     };
   };
@@ -278,5 +231,6 @@ export const ProjectListPresenter = Abstraction.createImplementation({
     EnvironmentsGateway,
     EnvironmentsRepository,
     NotificationService,
+    JobsGateway,
   ],
 });

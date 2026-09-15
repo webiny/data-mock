@@ -201,6 +201,7 @@ class JobWorkerImpl implements Abstraction.Interface {
         configJson: job.config,
         appendLog: context.appendLog,
         setProgress: context.setProgress,
+        setResult: context.setResult,
         signal: controller.signal,
       });
 
@@ -211,7 +212,13 @@ class JobWorkerImpl implements Abstraction.Interface {
       const status: JobStatus = controller.signal.aborted ? "cancelled" : "failed";
       const errorLog = `${context.getLogs()}\nERROR: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`;
       this.logger.error(`Job ${job.id} (${job.type}) failed`, { error: String(error) });
-      await this.finishJobWithLogs(job, status, errorLog, context.wasProgressUsed());
+      await this.finishJobWithLogs(
+        job,
+        status,
+        errorLog,
+        context.wasProgressUsed(),
+        context.getResult(),
+      );
     } finally {
       this.controllers.delete(job.id);
     }
@@ -222,7 +229,13 @@ class JobWorkerImpl implements Abstraction.Interface {
     status: JobStatus,
     context: JobExecutionContextFactory.Context,
   ): Promise<void> {
-    await this.finishJobWithLogs(job, status, context.getLogs(), context.wasProgressUsed());
+    await this.finishJobWithLogs(
+      job,
+      status,
+      context.getLogs(),
+      context.wasProgressUsed(),
+      context.getResult(),
+    );
   }
 
   private async finishJobWithLogs(
@@ -230,12 +243,20 @@ class JobWorkerImpl implements Abstraction.Interface {
     status: JobStatus,
     logs: string,
     progressUsed: boolean,
+    result: string | null = null,
   ): Promise<void> {
     const updateFields: Record<string, unknown> = {
       status,
       completedAt: Date.now(),
       logs,
     };
+    /**
+     * Written only when the executor produced one. A failed run keeps whatever partial result it
+     * managed to set rather than having it blanked on the way out.
+     */
+    if (result !== null) {
+      updateFields["result"] = result;
+    }
     if (progressUsed) {
       updateFields["progress"] = 100;
       updateFields["progressLabel"] = null;

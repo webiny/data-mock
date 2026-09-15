@@ -12,6 +12,7 @@ export class JobExecutionContext {
   private logLines: string[] = [];
   private logsDirty = false;
   private progressUsed = false;
+  private resultJson: string | null = null;
   private lastProgressDbWriteAt = 0;
   private readonly logFlushTimer: ReturnType<typeof setInterval>;
 
@@ -60,6 +61,21 @@ export class JobExecutionContext {
       }
     }
   };
+
+  public setResult = (value: unknown): void => {
+    try {
+      this.resultJson = JSON.stringify(value);
+    } catch (error) {
+      // A result that cannot be serialized is a bug in the executor, not a reason to fail the job
+      // it belongs to — the work is already done by the time this is called.
+      this.logger.error("Failed to serialize job result", { error: String(error) });
+      this.resultJson = null;
+    }
+  };
+
+  public getResult(): string | null {
+    return this.resultJson;
+  }
 
   public getLogs(): string {
     return this.logLines.join("\n") + (this.logLines.length > 0 ? "\n" : "");

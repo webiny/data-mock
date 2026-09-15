@@ -12,6 +12,11 @@ export interface IJobExecutionContext {
   configJson: string | null;
   appendLog: (line: string) => void;
   setProgress: (input: ISetProgressInput) => void;
+  /**
+   * The job's answer, for a job that has one. Stored as JSON on the row when the job finishes, so
+   * a caller that was not listening while it ran can still read it.
+   */
+  setResult: (value: unknown) => void;
   signal: AbortSignal;
 }
 

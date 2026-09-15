@@ -34,6 +34,11 @@ export interface JobTypeDescriptor {
 
 const environmentConfig = z.object({ environmentId: z.string().min(1) });
 
+/** Which projects a sync preview covers. One for a single project, many for "sync all". */
+export const syncPreviewJobConfigSchema = z.object({
+  projectIds: z.array(z.string().min(1)).min(1),
+});
+
 /** Deploy and destroy: which environment, and which of its apps. */
 const deploymentConfig = z.object({
   environmentId: z.string().min(1),
@@ -115,6 +120,25 @@ export const JOB_TYPE_DESCRIPTORS = [
     enqueueable: true,
     scope: "project",
     configSchema: z.object({}).loose(),
+  },
+  {
+    type: "sync-preview",
+    label: "Preview sync",
+    // Writes nothing, so nothing to invalidate. The dialog reads the result off the job row.
+    datasets: [],
+    /**
+     * Started only through POST /api/sync/preview, which takes the project list in its body. The
+     * generic route is project-scoped and could not express a preview of several projects.
+     */
+    enqueueable: false,
+    /**
+     * Global on purpose, although it reads project state. A preview writes nothing, so there is
+     * nothing for the per-project serialization to protect — and scoping it to a project would
+     * make the dialog sit behind a twenty-minute deploy before it could show a diff. Applying is
+     * what re-reads under the lock.
+     */
+    scope: "global",
+    configSchema: syncPreviewJobConfigSchema,
   },
   {
     type: "deploy",

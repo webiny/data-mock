@@ -282,6 +282,8 @@ export interface Job {
   status: string;
   config: unknown;
   logs: string | null;
+  /** The job's own answer, for a job that produces one. Null for jobs whose effect is the write. */
+  result: unknown;
   progress: number | null;
   progressLabel: string | null;
   parentJobId: string | null;

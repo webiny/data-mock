@@ -22,6 +22,13 @@
       "when": 1789454261744,
       "tag": "0002_youthful_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789457415464,
+      "tag": "0003_square_reaper",
+      "breakpoints": true
     }
   ]
 }

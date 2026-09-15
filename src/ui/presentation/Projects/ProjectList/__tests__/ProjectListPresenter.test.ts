@@ -6,6 +6,7 @@ import { ProjectsRepository } from "~/ui/features/projects/ProjectsRepository.js
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
 import { EnvironmentsRepository } from "~/ui/features/environments/EnvironmentsRepository.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
+import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import { ProjectListPresenter as ProjectListPresenterAbstraction } from "../abstractions/ProjectListPresenter.js";
 import { ProjectListPresenter } from "../ProjectListPresenter.js";
 import { LoadProjectsUseCase } from "../useCases/LoadProjects/LoadProjectsUseCase.js";
@@ -90,6 +91,7 @@ class StubProjectsGateway {
 class StubEnvironmentsGateway {
   public readonly synced: string[] = [];
   public readonly previewed: string[] = [];
+  public lastPreviewedIds: string[] = [];
   public failSyncFor = new Set<string>();
   public hasChanges = true;
 
@@ -102,18 +104,41 @@ class StubEnvironmentsGateway {
         ? Result.fail(new Error("queue full") as never)
         : Result.ok({ id: "job1" } as never);
     },
-    previewSync: async (projectId: string) => {
-      this.previewed.push(projectId);
-      return Result.ok({
-        projectId,
-        projectName: "Project",
-        backend: "local",
-        hasChanges: this.hasChanges,
-        project: [],
-        environments: [],
-        messages: [],
-      });
+    previewSync: async (projectIds: string[]) => {
+      this.previewed.push(...projectIds);
+      this.lastPreviewedIds = projectIds;
+      return Result.ok({ id: "preview-job" } as never);
     },
+  };
+}
+
+/**
+ * Answers the preview job with a finished row carrying one preview per project asked for. The
+ * dialog polls the job, so nothing about it works without this.
+ */
+class StubJobsGateway {
+  public constructor(private readonly environments: StubEnvironmentsGateway) {}
+
+  public readonly gateway: Partial<JobsGateway.Interface> = {
+    getGlobal: async () =>
+      Result.ok({
+        id: "preview-job",
+        status: "completed",
+        logs: null,
+        progressLabel: null,
+        result: {
+          previews: this.environments.lastPreviewedIds.map((projectId) => ({
+            projectId,
+            projectName: `Project ${projectId}`,
+            backend: "local",
+            hasChanges: this.environments.hasChanges,
+            project: [],
+            environments: [],
+            messages: [],
+          })),
+          failures: [],
+        },
+      } as never),
   };
 }
 
@@ -147,6 +172,10 @@ describe("ProjectListPresenter", () => {
       environmentsGateway.gateway as EnvironmentsGateway.Interface,
     );
     container.registerInstance(NotificationService, notifications.service);
+    container.registerInstance(
+      JobsGateway,
+      new StubJobsGateway(environmentsGateway).gateway as JobsGateway.Interface,
+    );
     container.register(ProjectsRepository).inSingletonScope();
     container.register(EnvironmentsRepository).inSingletonScope();
     container.register(LoadProjectsUseCase);
@@ -155,6 +184,11 @@ describe("ProjectListPresenter", () => {
     container.register(PurgeProjectUseCase);
     container.register(ProjectListPresenter);
   });
+
+  /** Lets the enqueue-then-poll chain behind a fire-and-forget open() settle. */
+  function flush(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
 
   function presenter() {
     return container.resolve(ProjectListPresenterAbstraction);
@@ -296,10 +330,14 @@ describe("ProjectListPresenter", () => {
     const p = presenter();
     await p.load();
     p.syncAll();
-    await p.confirmAction();
+    await flush();
+
+    // Only the project with a checkout is previewed, so only it can be stored.
+    expect(environmentsGateway.previewed).toEqual(["p1"]);
+
+    await p.applySync();
 
     expect(environmentsGateway.synced).toEqual(["p1"]);
-    expect(notifications.successes.some((message) => message.includes("1 project"))).toBe(true);
   });
 
   it("reports how many syncs could not be queued", async () => {
@@ -309,7 +347,8 @@ describe("ProjectListPresenter", () => {
     const p = presenter();
     await p.load();
     p.syncAll();
-    await p.confirmAction();
+    await flush();
+    await p.applySync();
 
     expect(notifications.errors[0]).toContain("1 could not be queued");
   });
@@ -320,7 +359,7 @@ describe("ProjectListPresenter", () => {
     const p = presenter();
     await p.load();
     p.syncProject("p1");
-    await Promise.resolve();
+    await flush();
 
     expect(environmentsGateway.previewed).toEqual(["p1"]);
     expect(p.vm.syncPreview.isOpen).toBe(true);
@@ -338,7 +377,7 @@ describe("ProjectListPresenter", () => {
     const p = presenter();
     await p.load();
     p.syncProject("p1");
-    await Promise.resolve();
+    await flush();
     p.closeSyncPreview();
     await p.applySync();
 
@@ -353,7 +392,7 @@ describe("ProjectListPresenter", () => {
     const p = presenter();
     await p.load();
     p.syncProject("p1");
-    await Promise.resolve();
+    await flush();
     await p.applySync();
 
     expect(p.vm.syncPreview.isOpen).toBe(true);

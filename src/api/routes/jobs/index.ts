@@ -4,6 +4,7 @@ import { getJob } from "./get/route.js";
 import { enqueueJob } from "./enqueue/route.js";
 import { cancelJob } from "./cancel/route.js";
 import { listGlobalJobs } from "./global/route.js";
+import { getGlobalJob } from "./getGlobal/route.js";
 
 export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   await listJobs(app);
@@ -11,4 +12,5 @@ export async function registerJobRoutes(app: FastifyInstance): Promise<void> {
   await enqueueJob(app);
   await cancelJob(app);
   await listGlobalJobs(app);
+  await getGlobalJob(app);
 }

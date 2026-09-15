@@ -228,7 +228,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       },
       onChange: () => this.reloadSeedJobs(),
     });
-    this.syncPreviewState = new SyncPreviewState(environmentsGateway, notifications);
+    this.syncPreviewState = new SyncPreviewState(environmentsGateway, jobsGateway, notifications);
     makeAutoObservable(this);
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
     this.disposeJobLogSubscription = eventBridge.on("job:log", this.handleJobLog);
@@ -538,7 +538,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (projectId === null) {
       return;
     }
-    void this.syncPreviewState.open(projectId);
+    void this.syncPreviewState.open([projectId]);
   };
 
   public applySync = async (): Promise<void> => {

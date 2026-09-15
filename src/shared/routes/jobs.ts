@@ -10,6 +10,7 @@ export const jobSchema = z.object({
   status: z.string(),
   config: z.unknown().nullable(),
   logs: z.string().nullable(),
+  result: z.unknown().nullable(),
   progress: z.number().nullable(),
   progressLabel: z.string().nullable(),
   parentJobId: z.string().nullable(),
@@ -46,6 +47,14 @@ export const getJobRoute = defineOneRoute("job", {
   path: "/api/projects/:projectId/jobs/:jobId",
   description: "Get a single job",
   params: z.object({ projectId: z.string(), jobId: z.string() }),
+  item: jobSchema,
+});
+
+/** A job with no project of its own — a placeholder-image pull, a sync preview. */
+export const getGlobalJobRoute = defineOneRoute("job", {
+  path: "/api/jobs/:jobId",
+  description: "Get a single job, whatever project it belongs to",
+  params: z.object({ jobId: z.string() }),
   item: jobSchema,
 });
 

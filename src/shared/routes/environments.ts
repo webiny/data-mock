@@ -10,7 +10,6 @@ import {
   deployableAppsSchema,
 } from "../responses/environments.js";
 import { deletionImpactSchema } from "../responses/deletion.js";
-import { syncPreviewSchema } from "../responses/sync.js";
 import { jobSchema } from "./jobs.js";
 
 /** Archived environments are omitted unless `?includeArchived=true`. */
@@ -102,19 +101,22 @@ export const syncProjectRoute = defineOneRoute("job", {
 });
 
 /**
- * Reads what a sync would write, and writes nothing.
+ * Starts a job that reads what a sync would write, and writes nothing.
  *
- * A sync rewrites the environments and stack output stored for a project, so it is shown as a diff
- * first and applied only if the user accepts it. This runs inline rather than as a job: a local
- * backend is a handful of file reads, and the caller is a dialog waiting for an answer. A remote
- * backend has to ask the CLI once per app, so it is as slow here as the sync itself.
+ * A job rather than an inline answer: a project on a remote backend is read by asking the Webiny
+ * CLI once per app, which is tens of seconds of child processes. The diff lands on the job's
+ * `result`, and the dialog reads it from there.
+ *
+ * The project list is in the body rather than the path because "sync all" previews many projects
+ * at once, and a project-scoped path cannot say that.
  */
-export const previewProjectSyncRoute = defineOneRoute("preview", {
+export const previewProjectSyncRoute = defineOneRoute("job", {
   method: "POST",
-  path: "/api/projects/:projectId/sync/preview",
-  description: "Show what a sync from disk would change, without storing anything",
-  params: z.object({ projectId: z.string() }),
-  item: syncPreviewSchema,
+  path: "/api/sync/preview",
+  description: "Start a job that shows what a sync from disk would change",
+  params: z.object({}),
+  body: z.object({ projectIds: z.array(z.string().min(1)).min(1) }),
+  item: jobSchema,
 });
 
 export const healthCheckEnvironmentRoute = defineOneRoute("health", {

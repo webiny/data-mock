@@ -1,5 +1,4 @@
 import { createAbstraction } from "@webiny/stdlib";
-import type { SyncPreviewResponse } from "~/shared/responses/sync.js";
 import type { Result } from "@webiny/stdlib";
 import type { DeletionImpact, Job, ProjectEnvironment, ProjectStack } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
@@ -12,8 +11,11 @@ export interface IEnvironmentsGateway {
   ): Promise<Result<ProjectEnvironment[], HTTPError>>;
   listStacks(projectId: string, environmentId: string): Promise<Result<ProjectStack[], HTTPError>>;
   sync(projectId: string): Promise<Result<Job, HTTPError>>;
-  /** What a sync would change. Reads the same state the sync reads and stores none of it. */
-  previewSync(projectId: string): Promise<Result<SyncPreviewResponse, HTTPError>>;
+  /**
+   * Starts a job that reads what a sync would change and stores none of it. The diff lands on the
+   * job's `result`.
+   */
+  previewSync(projectIds: string[]): Promise<Result<Job, HTTPError>>;
   /** Soft delete — keeps every child row and can be undone with `restore`. */
   archive(projectId: string, environmentId: string): Promise<Result<ProjectEnvironment, HTTPError>>;
   restore(projectId: string, environmentId: string): Promise<Result<ProjectEnvironment, HTTPError>>;

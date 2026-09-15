@@ -50,3 +50,14 @@ export type SyncFieldChangeResponse = z.infer<typeof syncFieldChangeSchema>;
 export type SyncStackChangeResponse = z.infer<typeof syncStackChangeSchema>;
 export type SyncEnvironmentChangeResponse = z.infer<typeof syncEnvironmentChangeSchema>;
 export type SyncPreviewResponse = z.infer<typeof syncPreviewSchema>;
+
+/**
+ * What a `sync-preview` job leaves on its row: one preview per project it could read, and a reason
+ * for each it could not.
+ */
+export const syncPreviewJobResultSchema = z.object({
+  previews: z.array(syncPreviewSchema),
+  failures: z.array(z.object({ projectId: z.string(), error: z.string() })),
+});
+
+export type SyncPreviewJobResult = z.infer<typeof syncPreviewJobResultSchema>;

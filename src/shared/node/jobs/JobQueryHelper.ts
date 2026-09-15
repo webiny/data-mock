@@ -29,6 +29,7 @@ function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
     status: row.status as JobStatus,
     config: row.config,
     logs: row.logs,
+    result: row.result === null ? null : safeParse(row.result),
     progress: row.progress,
     progressLabel: row.progressLabel,
     parentJobId: row.parentJobId,
@@ -36,6 +37,15 @@ function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
     completedAt: row.completedAt,
     createdAt: row.createdAt,
   };
+}
+
+/** A result written by an older build, or hand-edited, must not take the whole job row down. */
+function safeParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 export class JobQueryHelper {

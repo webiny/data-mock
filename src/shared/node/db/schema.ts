@@ -256,6 +256,11 @@ export const jobs = sqliteTable("jobs", {
   status: text("status").notNull(),
   config: text("config"),
   logs: text("logs"),
+  /**
+   * The job's own answer, as JSON, for jobs that produce one rather than just writing rows — a
+   * sync preview is the whole point of running it. Null for jobs whose effect IS the write.
+   */
+  result: text("result"),
   progress: integer("progress"),
   progressLabel: text("progress_label"),
   parentJobId: text("parent_job_id"),

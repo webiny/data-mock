@@ -1,8 +1,20 @@
-import { Alert, Badge, Button, Group, Loader, Modal, Stack, Table, Text } from "@mantine/core";
+import {
+  Alert,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  Loader,
+  Modal,
+  Stack,
+  Table,
+  Text,
+} from "@mantine/core";
 import type { ISyncPreviewVM } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import type {
   SyncEnvironmentChangeResponse,
   SyncFieldChangeResponse,
+  SyncPreviewResponse,
 } from "~/shared/responses/sync.js";
 
 interface SyncPreviewDialogProps {
@@ -20,14 +32,16 @@ const CHANGE_COLOR: Record<string, string> = {
 };
 
 export function SyncPreviewDialog({ vm, onApply, onClose }: SyncPreviewDialogProps) {
-  const preview = vm.preview;
+  const result = vm.result;
+  const changed = (result?.previews ?? []).filter((preview) => preview.hasChanges);
+  const unchanged = (result?.previews ?? []).filter((preview) => !preview.hasChanges);
 
   return (
     <Modal opened={vm.isOpen} onClose={onClose} title="Sync from disk" size="lg" centered>
       {vm.isLoading && (
         <Group gap="sm">
           <Loader size="sm" />
-          <Text>Reading the state on disk...</Text>
+          <Text>{vm.progressLabel ?? "Reading the state on disk..."}</Text>
         </Group>
       )}
 
@@ -37,30 +51,27 @@ export function SyncPreviewDialog({ vm, onApply, onClose }: SyncPreviewDialogPro
         </Alert>
       )}
 
-      {preview !== null && (
+      {result !== null && (
         <Stack gap="md">
-          <Text>
-            {preview.hasChanges
-              ? `Storing this sync would change what is recorded for "${preview.projectName}".`
-              : `Nothing stored for "${preview.projectName}" would change.`}
-          </Text>
-
-          {preview.messages.map((message) => (
-            <Alert key={message} color="yellow">
-              {message}
+          {result.failures.map((failure) => (
+            <Alert key={failure.projectId} color="red" title="Could not be read">
+              {failure.error}
             </Alert>
           ))}
 
-          {preview.project.length > 0 && (
-            <Stack gap="xs">
-              <Text fw={600}>Project</Text>
-              <FieldTable fields={preview.project} />
-            </Stack>
+          {changed.length === 0 && result.previews.length > 0 && (
+            <Text>Nothing stored would change.</Text>
           )}
 
-          {preview.environments.map((environment) => (
-            <EnvironmentChanges key={environment.stackName} environment={environment} />
+          {changed.map((preview) => (
+            <ProjectChanges key={preview.projectId} preview={preview} />
           ))}
+
+          {unchanged.length > 0 && changed.length > 0 && (
+            <Text size="sm" c="dimmed">
+              Unchanged: {unchanged.map((preview) => preview.projectName).join(", ")}
+            </Text>
+          )}
         </Stack>
       )}
 
@@ -68,15 +79,42 @@ export function SyncPreviewDialog({ vm, onApply, onClose }: SyncPreviewDialogPro
         <Button variant="default" onClick={onClose} disabled={vm.isApplying}>
           Cancel
         </Button>
-        <Button
-          onClick={onApply}
-          loading={vm.isApplying}
-          disabled={preview === null || !preview.hasChanges}
-        >
-          Store these changes
+        <Button onClick={onApply} loading={vm.isApplying} disabled={!vm.hasChanges}>
+          {changed.length > 1
+            ? `Store changes for ${changed.length} projects`
+            : "Store these changes"}
         </Button>
       </Group>
     </Modal>
+  );
+}
+
+function ProjectChanges({ preview }: { preview: SyncPreviewResponse }) {
+  return (
+    <Stack gap="sm">
+      <Divider label={preview.projectName} labelPosition="left" />
+
+      {preview.messages.map((message) => (
+        <Alert key={message} color="yellow">
+          {message}
+        </Alert>
+      ))}
+
+      {preview.project.length > 0 && (
+        <Stack gap="xs">
+          <Text fw={600}>Project</Text>
+          <FieldTable fields={preview.project} />
+        </Stack>
+      )}
+
+      {preview.environments
+        .filter(
+          (environment) => environment.change !== "unchanged" || environment.fields.length > 0,
+        )
+        .map((environment) => (
+          <EnvironmentChanges key={environment.stackName} environment={environment} />
+        ))}
+    </Stack>
   );
 }
 
