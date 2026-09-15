@@ -85,7 +85,7 @@ class JobWorkerImpl implements Abstraction.Interface {
    * Claims and launches pending jobs under two limits: a global cap, and one running job per
    * project.
    *
-   * Per-project serialization is what stops a scheduled sync from reading a checkpoint that a
+   * Per-project serialization is what stops a sync from reading a checkpoint that a
    * deploy is halfway through rewriting. Skipped jobs stay `pending` — there is no third status —
    * and carry a label saying why, so a queued job does not look stuck.
    *

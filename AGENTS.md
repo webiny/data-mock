@@ -163,10 +163,9 @@ destroyable or syncable.
 - **Adding a project with a checkout enqueues a sync immediately** — until it runs, the project has
   no version, environments or stack output.
 
-`SyncScheduler` runs at boot (5 s in) and daily, and **only ever enqueues**. Running a sync directly
-would let a tick read a checkpoint a deploy is halfway through rewriting: a valid file with partial
-`resources` and stale outputs, which makes `resource_count` flap. A project that already has a
-`sync-system` job pending or running is skipped. Archived projects are excluded.
+**Nothing syncs on its own.** A sync rewrites the version, environments and stack output stored for
+a project from whatever is on disk, so it is always started by the user, from the Sync from disk
+button, which shows the diff first. There is no boot sync and no periodic one.
 
 ---
 
@@ -230,8 +229,8 @@ Both run as background jobs, through the checkout's own `node_modules/.bin/webin
 ### Job concurrency
 
 `MAX_CONCURRENT_JOBS = 4` globally, and **one running job per project** — which is what stops a
-scheduled sync from reading a checkpoint a deploy is halfway through rewriting. `projectId === null`
-is never blocked. A skipped job stays `pending` with `progressLabel = "waiting: project busy"`,
+sync from reading a checkpoint a deploy is halfway through rewriting. `projectId === null` is never
+blocked. A skipped job stays `pending` with `progressLabel = "waiting: project busy"`,
 cleared on claim. The claim update is guarded on the row still being `pending`.
 
 ---
