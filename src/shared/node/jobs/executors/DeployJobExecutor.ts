@@ -28,6 +28,7 @@ class DeployJobExecutorImpl implements Abstraction.Interface {
       environmentId: config.environmentId,
       apps: config.apps,
       region: config.region,
+      preview: config.preview,
       onLine: context.appendLog,
       // Forwarded so cancelling the job kills the child rather than orphaning a 20-minute pulumi
       // run that keeps writing to the stack.
@@ -38,7 +39,11 @@ class DeployJobExecutorImpl implements Abstraction.Interface {
       throw new Error(result.error.message);
     }
 
-    context.appendLog(`Deployed: ${result.value.apps.join(", ") || "nothing"}.`);
+    context.appendLog(
+      result.value.preview
+        ? `Previewed (nothing was changed): ${result.value.apps.join(", ") || "nothing"}.`
+        : `Deployed: ${result.value.apps.join(", ") || "nothing"}.`,
+    );
   }
 }
 

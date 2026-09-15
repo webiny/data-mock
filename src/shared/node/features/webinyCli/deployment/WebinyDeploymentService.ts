@@ -105,6 +105,7 @@ class WebinyDeploymentServiceImpl implements Abstraction.Interface {
         env: environment.env,
         variant: environment.variant,
         region,
+        preview: input.preview === true,
       });
 
       if (argsResult.isFail()) {
@@ -126,18 +127,25 @@ class WebinyDeploymentServiceImpl implements Abstraction.Interface {
         /**
          * Refresh before returning. A failed deploy is rarely a no-op — pulumi may have created
          * some resources before it stopped — so leaving the stored state untouched would report
-         * infrastructure that exists as absent.
+         * infrastructure that exists as absent. A preview is the exception: it changed nothing,
+         * so there is nothing to re-read.
          */
-        await this.refresh(project.rootPath, environment, detected.apps);
+        if (input.preview !== true) {
+          await this.refresh(project.rootPath, environment, detected.apps);
+        }
         return Result.fail(runResult.error);
       }
 
       completed.push(app);
     }
 
+    if (input.preview === true) {
+      return Result.ok({ apps: completed, preview: true, refreshed: false });
+    }
+
     await this.refresh(project.rootPath, environment, detected.apps);
 
-    return Result.ok({ apps: completed, refreshed: true });
+    return Result.ok({ apps: completed, preview: false, refreshed: true });
   }
 
   /**

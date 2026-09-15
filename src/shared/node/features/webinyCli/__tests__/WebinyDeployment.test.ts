@@ -249,6 +249,27 @@ describe("WebinyDeploymentService", () => {
     expect(environment?.adminUrl).toBeNull();
   });
 
+  it("does not refresh stack state after a preview, which changed nothing", async () => {
+    const result = await service().execute({
+      command: "deploy",
+      projectId,
+      environmentId,
+      apps: ["core"],
+      preview: true,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.preview).toBe(true);
+      expect(result.value.refreshed).toBe(false);
+    }
+
+    expect(runner.calls[0]?.args).toContain("--preview");
+
+    const stacks = await tc.container.resolve(ListStacksRepository).execute({ environmentId });
+    expect(stacks.isOk() && stacks.value).toHaveLength(0);
+  });
+
   it("stops before the next app once the signal aborts", async () => {
     const controller = new AbortController();
     runner.onRun = () => controller.abort();

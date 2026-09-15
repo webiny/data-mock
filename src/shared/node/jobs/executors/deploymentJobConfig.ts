@@ -10,6 +10,8 @@ export const deploymentJobConfigSchema = z.object({
   environmentId: z.string().min(1),
   apps: z.array(z.string().min(1)).optional(),
   region: z.string().min(1).optional(),
+  /** Deploy only: plan the change and create nothing. */
+  preview: z.boolean().optional(),
 });
 
 export type DeploymentJobConfig = z.infer<typeof deploymentJobConfigSchema>;

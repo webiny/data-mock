@@ -84,6 +84,8 @@ export interface IDeploymentDialogVM {
   selectedApps: string[];
   region: string | null;
   regionOptions: Array<{ value: string; label: string }>;
+  /** Deploy only: plan the change and create nothing. */
+  preview: boolean;
   /** What a destroy would tear down, per app. Empty for a deploy. */
   atRisk: Array<{ app: string; resourceCount: number | null; deployed: boolean }>;
   /** Named resources a destroy would take with it, for the review step. */
@@ -261,6 +263,7 @@ export interface IProjectDetailPresenter {
   closeDeploymentDialog(): void;
   toggleDeploymentApp(app: string): void;
   setDeploymentRegion(region: string | null): void;
+  toggleDeploymentPreview(): void;
   /** Moves a destroy from "review" to the typed-name step. Deploy never calls this. */
   reviewDeployment(): void;
   setDeploymentTypedName(value: string): void;

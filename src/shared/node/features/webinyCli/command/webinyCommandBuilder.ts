@@ -22,6 +22,11 @@ export interface IBuildCommandInput {
   /** "" means no variant. */
   variant?: string | undefined;
   region?: string | null | undefined;
+  /**
+   * Deploy only. Pulumi plans the change and creates nothing. Declared on both majors with the
+   * same name and the same `false` default.
+   */
+  preview?: boolean | undefined;
 }
 
 /** Webiny rejects these three variant names outright (`isValidVariantName`). */
@@ -105,6 +110,12 @@ export function buildWebinyCommand(input: IBuildCommandInput): Result<string[], 
   if (input.command === "deploy") {
     args.push("--build");
     args.push(input.versionMajor === 5 ? "--deployment-logs" : "--show-deployment-logs");
+
+    // `--build` stays on for a preview: pulumi plans against the built app code, so skipping the
+    // build would preview a stack shaped by whatever happens to be in the workspace.
+    if (input.preview === true) {
+      args.push("--preview");
+    }
   }
 
   return Result.ok(args);

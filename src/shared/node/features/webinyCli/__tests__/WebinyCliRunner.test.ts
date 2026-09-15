@@ -197,6 +197,37 @@ describe("buildWebinyCommand", () => {
     expect(result.isOk() && result.value).not.toContain("--show-deployment-logs");
   });
 
+  it("adds --preview only on deploy, and keeps --build with it", () => {
+    const deploy = buildWebinyCommand({
+      command: "deploy",
+      versionMajor: 6,
+      app: "core",
+      env: "dev",
+      preview: true,
+    });
+
+    // --build stays on: pulumi plans against the built app code, so skipping it would preview a
+    // stack shaped by whatever happens to be in the workspace.
+    expect(deploy.isOk() && deploy.value).toEqual([
+      "deploy",
+      "core",
+      "--env=dev",
+      "--build",
+      "--show-deployment-logs",
+      "--preview",
+    ]);
+
+    const destroy = buildWebinyCommand({
+      command: "destroy",
+      versionMajor: 6,
+      app: "core",
+      env: "dev",
+      preview: true,
+    });
+
+    expect(destroy.isOk() && destroy.value).toEqual(["destroy", "core", "--env=dev"]);
+  });
+
   it("passes variant and region when given", () => {
     const result = buildWebinyCommand({
       command: "deploy",

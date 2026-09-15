@@ -449,6 +449,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
         onClose={() => presenter.closeDeploymentDialog()}
         onToggleApp={(app) => presenter.toggleDeploymentApp(app)}
         onRegionChange={(region) => presenter.setDeploymentRegion(region)}
+        onTogglePreview={() => presenter.toggleDeploymentPreview()}
         onReview={() => presenter.reviewDeployment()}
         onTypedNameChange={(value) => presenter.setDeploymentTypedName(value)}
         onSubmit={() => void presenter.submitDeployment()}

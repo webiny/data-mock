@@ -115,7 +115,7 @@ class EnvironmentsGatewayImpl implements Abstraction.Interface {
   public async deploy(
     projectId: string,
     environmentId: string,
-    input: { apps?: string[]; region?: string },
+    input: { apps?: string[]; region?: string; preview?: boolean },
   ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(deployEnvironmentRoute, {
       params: { projectId, environmentId },

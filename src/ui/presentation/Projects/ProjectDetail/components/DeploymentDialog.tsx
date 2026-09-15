@@ -20,6 +20,7 @@ interface DeploymentDialogProps {
   onClose: () => void;
   onToggleApp: (app: string) => void;
   onRegionChange: (region: string | null) => void;
+  onTogglePreview: () => void;
   onReview: () => void;
   onTypedNameChange: (value: string) => void;
   onSubmit: () => void;
@@ -35,6 +36,7 @@ export const DeploymentDialog = observer(function DeploymentDialog({
   onClose,
   onToggleApp,
   onRegionChange,
+  onTogglePreview,
   onReview,
   onTypedNameChange,
   onSubmit,
@@ -102,6 +104,15 @@ export const DeploymentDialog = observer(function DeploymentDialog({
               clearable
             />
 
+            {!isDestroy && (
+              <Checkbox
+                label="Preview only"
+                description="Pulumi plans the change and creates nothing"
+                checked={vm.preview}
+                onChange={onTogglePreview}
+              />
+            )}
+
             {isDestroy && <AtRiskPanel vm={vm} />}
 
             <Group justify="flex-end" mt="md">
@@ -114,7 +125,7 @@ export const DeploymentDialog = observer(function DeploymentDialog({
                 </Button>
               ) : (
                 <Button onClick={onSubmit} loading={vm.isSubmitting} disabled={!vm.canConfirm}>
-                  Deploy
+                  {vm.preview ? "Preview" : "Deploy"}
                 </Button>
               )}
             </Group>

@@ -23,7 +23,7 @@ export interface IEnvironmentsGateway {
   deploy(
     projectId: string,
     environmentId: string,
-    input: { apps?: string[]; region?: string },
+    input: { apps?: string[]; region?: string; preview?: boolean },
   ): Promise<Result<Job, HTTPError>>;
   /** `confirmProjectName` must equal the project's name; the server checks it too. */
   destroy(

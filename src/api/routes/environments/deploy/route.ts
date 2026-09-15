@@ -16,6 +16,7 @@ export const deployEnvironment = routeFactory(
         environmentId: params.environmentId,
         ...(body.apps ? { apps: body.apps } : {}),
         ...(body.region ? { region: body.region } : {}),
+        ...(body.preview === true ? { preview: true } : {}),
       },
     });
 

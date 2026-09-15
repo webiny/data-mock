@@ -39,6 +39,7 @@ const deploymentConfig = z.object({
   environmentId: z.string().min(1),
   apps: z.array(z.string().min(1)).optional(),
   region: z.string().min(1).optional(),
+  preview: z.boolean().optional(),
 });
 
 export const JOB_TYPE_DESCRIPTORS = [

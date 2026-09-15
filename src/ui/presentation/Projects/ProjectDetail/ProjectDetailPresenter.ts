@@ -140,6 +140,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _selectedApps: string[] = [];
   private _deploymentRegion: string | null = null;
   private _deploymentTypedName = "";
+  private _deploymentPreview = false;
   private _isSubmittingDeployment = false;
   private _deploymentError: string | null = null;
   private _isSyncingTenants = false;
@@ -549,6 +550,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this._deploymentError = null;
     this._selectedApps = [];
     this._deploymentRegion = null;
+    this._deploymentPreview = false;
     void this.loadDeployableApps();
   };
 
@@ -568,6 +570,10 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
 
   public setDeploymentRegion = (region: string | null): void => {
     this._deploymentRegion = region;
+  };
+
+  public toggleDeploymentPreview = (): void => {
+    this._deploymentPreview = !this._deploymentPreview;
   };
 
   public reviewDeployment = (): void => {
@@ -599,6 +605,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
           ? await this.environmentsGateway.deploy(projectId, environmentId, {
               ...(apps.length > 0 ? { apps } : {}),
               ...(region !== null ? { region } : {}),
+              ...(this._deploymentPreview ? { preview: true } : {}),
             })
           : await this.environmentsGateway.destroy(projectId, environmentId, {
               ...(apps.length > 0 ? { apps } : {}),
@@ -613,7 +620,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         return;
       }
 
-      this.notifications.success(command === "deploy" ? "Deploy started." : "Destroy started.");
+      this.notifications.success(
+        command === "destroy"
+          ? "Destroy started."
+          : this._deploymentPreview
+            ? "Preview started. Nothing will be changed."
+            : "Deploy started.",
+      );
       this.closeDeploymentDialog();
     } finally {
       runInAction(() => {
@@ -1232,6 +1245,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       // Null means "whatever the environment already uses", which is what the backend falls back to.
       region: this._deploymentRegion,
       regionOptions: WEBINY_REGIONS,
+      preview: this._deploymentPreview,
       atRisk,
       atRiskResources: isDestroy ? this.namedResourcesAtRisk(stacks, targeted) : [],
       typedName: this._deploymentTypedName,

@@ -79,6 +79,8 @@ export type UpdateEnvironmentBody = z.infer<typeof updateEnvironmentBodySchema>;
 export const deployEnvironmentBodySchema = z.object({
   apps: z.array(z.string().min(1)).optional(),
   region: z.string().min(1).optional(),
+  /** Plan the change and create nothing. Deploy only — destroy has no preview. */
+  preview: z.boolean().optional(),
 });
 
 export type DeployEnvironmentBody = z.infer<typeof deployEnvironmentBodySchema>;
@@ -87,9 +89,11 @@ export type DeployEnvironmentBody = z.infer<typeof deployEnvironmentBodySchema>;
  * Destroy additionally requires the project's name typed back. The UI asks for it, but the check
  * lives here too: a confirmation that only exists in the browser is not a confirmation.
  */
-export const destroyEnvironmentBodySchema = deployEnvironmentBodySchema.extend({
-  confirmProjectName: z.string().min(1),
-});
+export const destroyEnvironmentBodySchema = deployEnvironmentBodySchema
+  .omit({ preview: true })
+  .extend({
+    confirmProjectName: z.string().min(1),
+  });
 
 export type DestroyEnvironmentBody = z.infer<typeof destroyEnvironmentBodySchema>;
 

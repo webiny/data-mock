@@ -16,6 +16,8 @@ export interface IWebinyDeploymentInput {
   apps?: string[] | undefined;
   /** Overrides the environment's stored region for this run. */
   region?: string | null | undefined;
+  /** Deploy only: plan the change and create nothing. */
+  preview?: boolean | undefined;
   onLine?: ((line: string) => void) | undefined;
   signal?: AbortSignal | undefined;
 }
@@ -23,6 +25,8 @@ export interface IWebinyDeploymentInput {
 export interface IWebinyDeploymentOutput {
   /** Apps that completed, in the order they ran. */
   apps: string[];
+  /** True when nothing was actually changed. */
+  preview: boolean;
   /** True when the stack state on disk was re-read afterwards. */
   refreshed: boolean;
 }
