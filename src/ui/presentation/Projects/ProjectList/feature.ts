@@ -1,5 +1,6 @@
 import { createFeature } from "~/ui/di/createFeature.js";
 import { ProjectsFeature } from "~/ui/features/projects/feature.js";
+import { EnvironmentsFeature } from "~/ui/features/environments/feature.js";
 import { TenantsFeature } from "~/ui/features/tenants/feature.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
 import { ProjectListPresenter as ProjectListPresenterAbstraction } from "./abstractions/ProjectListPresenter.js";
@@ -18,7 +19,7 @@ interface ProjectListExports {
 
 export const ProjectListPresentationFeature = createFeature<void, ProjectListExports>({
   name: "Ui/ProjectListPresentationFeature",
-  dependencies: [ProjectsFeature, TenantsFeature, NotificationsFeature],
+  dependencies: [ProjectsFeature, EnvironmentsFeature, TenantsFeature, NotificationsFeature],
   register(container) {
     container.register(LoadProjectsUseCase);
     container.register(ArchiveProjectUseCase);

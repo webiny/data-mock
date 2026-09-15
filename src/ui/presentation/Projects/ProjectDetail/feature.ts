@@ -1,5 +1,6 @@
 import { createFeature } from "~/ui/di/createFeature.js";
 import { ProjectsFeature } from "~/ui/features/projects/feature.js";
+import { EnvironmentsFeature } from "~/ui/features/environments/feature.js";
 import { TenantsFeature } from "~/ui/features/tenants/feature.js";
 import { ModelsFeature } from "~/ui/features/models/feature.js";
 import { SeedingFeature } from "~/ui/features/seeding/feature.js";
@@ -25,6 +26,7 @@ export const ProjectDetailPresentationFeature = createFeature<void, ProjectDetai
   name: "Ui/ProjectDetailPresentationFeature",
   dependencies: [
     ProjectsFeature,
+    EnvironmentsFeature,
     TenantsFeature,
     ModelsFeature,
     SeedingFeature,
