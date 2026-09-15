@@ -3,15 +3,13 @@ import { GetProjectRepository } from "~/shared/node/features/projects/get/abstra
 import { UpdateProjectRepository } from "~/shared/node/features/projects/update/abstractions/UpdateProjectRepository.js";
 import { ListEnvironmentsRepository } from "~/shared/node/features/environments/list/abstractions/ListEnvironmentsRepository.js";
 import { CreateEnvironmentRepository } from "~/shared/node/features/environments/create/abstractions/CreateEnvironmentRepository.js";
-import { UpdateEnvironmentRepository } from "~/shared/node/features/environments/update/abstractions/UpdateEnvironmentRepository.js";
-import { UpsertStackRepository } from "~/shared/node/features/environments/stacks/abstractions/UpsertStackRepository.js";
 import { WebinyProjectDetector } from "../detect/abstractions/WebinyProjectDetector.js";
 import { PulumiCheckpointReader } from "../checkpoint/abstractions/PulumiCheckpointReader.js";
+import { RefreshEnvironmentStacksService } from "./refresh/abstractions/RefreshEnvironmentStacksService.js";
 import { SyncSystemService as Abstraction } from "./abstractions/SyncSystemService.js";
-import { readAdminUrl, readApiUrl, readRegion } from "~/shared/stackOutput/stackOutputKeyMap.js";
 import { ValidationError } from "~/shared/errors.js";
 import { getStackName } from "~/shared/environments/index.js";
-import type { ProjectEnvironment, SyncStatus } from "~/shared/types.js";
+import type { SyncStatus } from "~/shared/types.js";
 
 class SyncSystemServiceImpl implements Abstraction.Interface {
   public constructor(
@@ -19,8 +17,7 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
     private readonly updateProjectRepository: UpdateProjectRepository.Interface,
     private readonly listEnvironmentsRepository: ListEnvironmentsRepository.Interface,
     private readonly createEnvironmentRepository: CreateEnvironmentRepository.Interface,
-    private readonly updateEnvironmentRepository: UpdateEnvironmentRepository.Interface,
-    private readonly upsertStackRepository: UpsertStackRepository.Interface,
+    private readonly refreshEnvironmentStacksService: RefreshEnvironmentStacksService.Interface,
     private readonly detector: WebinyProjectDetector.Interface,
     private readonly checkpointReader: PulumiCheckpointReader.Interface,
     private readonly logger: Logger.Interface,
@@ -141,18 +138,18 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
     let completed = 0;
 
     for (const environment of toSync) {
-      const summary = await this.syncEnvironment(
-        project.rootPath,
+      const summary = await this.refreshEnvironmentStacksService.execute({
+        rootPath: project.rootPath,
         environment,
-        detected.apps,
-        () => {
+        apps: detected.apps,
+        onApp: () => {
           completed += 1;
           onProgress?.(
             25 + Math.round((completed / totalUnits) * 70),
             `Reading ${getStackName(environment)}...`,
           );
         },
-      );
+      });
 
       stacksRead += summary.read;
       stacksUnknown += summary.unknown;
@@ -182,76 +179,6 @@ class SyncSystemServiceImpl implements Abstraction.Interface {
     });
   }
 
-  private async syncEnvironment(
-    rootPath: string,
-    environment: ProjectEnvironment,
-    apps: string[],
-    onApp: () => void,
-  ): Promise<{ read: number; unknown: number; deployed: boolean }> {
-    let read = 0;
-    let unknown = 0;
-    let anyDeployed = false;
-    let apiUrl: string | null = null;
-    let adminUrl: string | null = null;
-    let region: string | null = null;
-
-    for (const app of apps) {
-      const result = this.checkpointReader.read({
-        rootPath,
-        app,
-        env: environment.env,
-        variant: environment.variant,
-      });
-
-      await this.upsertStackRepository.execute({
-        environmentId: environment.id,
-        app,
-        readState: result.readState,
-        deployed: result.deployed,
-        resourceCount: result.resourceCount,
-        stackOutput: result.outputs,
-      });
-
-      if (result.readState === "unknown") {
-        unknown += 1;
-      } else {
-        read += 1;
-      }
-
-      if (result.deployed) {
-        anyDeployed = true;
-        if (app === "api") {
-          apiUrl = readApiUrl(result.outputs);
-          region = readRegion(result.outputs) ?? region;
-        }
-        if (app === "admin") {
-          adminUrl = readAdminUrl(result.outputs);
-        }
-        if (app === "core" && region === null) {
-          region = readRegion(result.outputs);
-        }
-      }
-
-      onApp();
-    }
-
-    /**
-     * apiUrl and adminUrl are per-app facts: an environment with core deployed but no api app is
-     * deployed, yet has no API to talk to. They are only overwritten when their app was readable,
-     * so an unknown read leaves the last good value in place.
-     */
-    await this.updateEnvironmentRepository.execute({
-      id: environment.id,
-      deployed: anyDeployed,
-      ...(apiUrl !== null || anyDeployed ? { apiUrl } : {}),
-      ...(adminUrl !== null || anyDeployed ? { adminUrl } : {}),
-      ...(region !== null ? { region } : {}),
-      lastSyncedAt: Date.now(),
-    });
-
-    return { read, unknown, deployed: anyDeployed };
-  }
-
   private async stampProject(projectId: string, status: SyncStatus): Promise<void> {
     await this.updateProjectRepository.execute({
       id: projectId,
@@ -268,8 +195,7 @@ export const SyncSystemService = Abstraction.createImplementation({
     UpdateProjectRepository,
     ListEnvironmentsRepository,
     CreateEnvironmentRepository,
-    UpdateEnvironmentRepository,
-    UpsertStackRepository,
+    RefreshEnvironmentStacksService,
     WebinyProjectDetector,
     PulumiCheckpointReader,
     Logger,

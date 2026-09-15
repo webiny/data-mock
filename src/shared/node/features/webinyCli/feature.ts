@@ -4,6 +4,8 @@ import { PulumiCheckpointReader } from "./checkpoint/PulumiCheckpointReader.js";
 import { SyncSystemService } from "./sync/SyncSystemService.js";
 import { SyncScheduler } from "./schedule/SyncScheduler.js";
 import { WebinyCliRunner } from "./runner/WebinyCliRunner.js";
+import { RefreshEnvironmentStacksService } from "./sync/refresh/RefreshEnvironmentStacksService.js";
+import { WebinyDeploymentService } from "./deployment/WebinyDeploymentService.js";
 
 export const WebinyCliFeature = createFeature({
   name: "Shared/WebinyCliFeature",
@@ -13,5 +15,7 @@ export const WebinyCliFeature = createFeature({
     container.register(SyncSystemService).inSingletonScope();
     container.register(SyncScheduler).inSingletonScope();
     container.register(WebinyCliRunner).inSingletonScope();
+    container.register(RefreshEnvironmentStacksService).inSingletonScope();
+    container.register(WebinyDeploymentService).inSingletonScope();
   },
 });

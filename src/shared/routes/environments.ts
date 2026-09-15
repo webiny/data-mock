@@ -5,6 +5,9 @@ import {
   projectStackSchema,
   createEnvironmentBodySchema,
   updateEnvironmentBodySchema,
+  deployEnvironmentBodySchema,
+  destroyEnvironmentBodySchema,
+  deployableAppsSchema,
 } from "../responses/environments.js";
 import { deletionImpactSchema } from "../responses/deletion.js";
 import { jobSchema } from "./jobs.js";
@@ -103,4 +106,40 @@ export const healthCheckEnvironmentRoute = defineOneRoute("health", {
   description: "Check whether an environment's Webiny API is reachable",
   params: z.object({ projectId: z.string(), environmentId: z.string() }),
   item: z.object({ reachable: z.boolean(), error: z.string().nullable() }),
+});
+
+/**
+ * Deploy and destroy are NOT enqueueable through `POST /api/projects/:projectId/jobs`: that route
+ * takes a bare `config` record, so allowing them there would let a plain POST deploy or destroy an
+ * environment with no confirmation at all. They get their own routes, with their own bodies.
+ */
+export const deployEnvironmentRoute = defineOneRoute("job", {
+  method: "POST",
+  path: "/api/projects/:projectId/environments/:environmentId/deploy",
+  description: "Deploy an environment's apps",
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
+  body: deployEnvironmentBodySchema,
+  item: jobSchema,
+});
+
+/** Requires the project name typed back in `confirmProjectName`. */
+export const destroyEnvironmentRoute = defineOneRoute("job", {
+  method: "POST",
+  path: "/api/projects/:projectId/environments/:environmentId/destroy",
+  description: "Destroy an environment's apps",
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
+  body: destroyEnvironmentBodySchema,
+  item: jobSchema,
+});
+
+/**
+ * Which apps this project's version can deploy. v6's set is a fixed constant and v5's is its
+ * `apps/` folder crossed with `appAliases`, so it is a per-version fact the UI cannot derive —
+ * and it is NOT the list of apps that have Pulumi state, which is empty on a fresh checkout.
+ */
+export const listDeployableAppsRoute = defineOneRoute("deployable", {
+  path: "/api/projects/:projectId/deployable-apps",
+  description: "List the apps this project's Webiny version can deploy",
+  params: z.object({ projectId: z.string() }),
+  item: deployableAppsSchema,
 });

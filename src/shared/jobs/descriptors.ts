@@ -34,6 +34,13 @@ export interface JobTypeDescriptor {
 
 const environmentConfig = z.object({ environmentId: z.string().min(1) });
 
+/** Deploy and destroy: which environment, and which of its apps. */
+const deploymentConfig = z.object({
+  environmentId: z.string().min(1),
+  apps: z.array(z.string().min(1)).optional(),
+  region: z.string().min(1).optional(),
+});
+
 export const JOB_TYPE_DESCRIPTORS = [
   {
     type: "seed",
@@ -107,6 +114,28 @@ export const JOB_TYPE_DESCRIPTORS = [
     enqueueable: true,
     scope: "project",
     configSchema: z.object({}).loose(),
+  },
+  {
+    type: "deploy",
+    label: "Deploy",
+    datasets: ["environments", "stacks", "jobs"],
+    /**
+     * Not enqueueable through the generic route. Its body is a bare `config` record, so allowing
+     * it would let a plain POST deploy an environment with no confirmation at all. Deploy is
+     * started only through its own route, behind the confirmation dialog.
+     */
+    enqueueable: false,
+    scope: "environment",
+    configSchema: deploymentConfig,
+  },
+  {
+    type: "destroy",
+    label: "Destroy",
+    datasets: ["environments", "stacks", "jobs"],
+    /** Same reasoning as deploy, and more so: destroy is behind a typed-name confirmation. */
+    enqueueable: false,
+    scope: "environment",
+    configSchema: deploymentConfig,
   },
 ] as const satisfies readonly JobTypeDescriptor[];
 

@@ -71,3 +71,31 @@ export const updateEnvironmentBodySchema = z
   });
 
 export type UpdateEnvironmentBody = z.infer<typeof updateEnvironmentBodySchema>;
+
+/**
+ * Deploy and destroy bodies. `apps` is optional; empty means every deployable app for the
+ * project's version, expanded server-side.
+ */
+export const deployEnvironmentBodySchema = z.object({
+  apps: z.array(z.string().min(1)).optional(),
+  region: z.string().min(1).optional(),
+});
+
+export type DeployEnvironmentBody = z.infer<typeof deployEnvironmentBodySchema>;
+
+/**
+ * Destroy additionally requires the project's name typed back. The UI asks for it, but the check
+ * lives here too: a confirmation that only exists in the browser is not a confirmation.
+ */
+export const destroyEnvironmentBodySchema = deployEnvironmentBodySchema.extend({
+  confirmProjectName: z.string().min(1),
+});
+
+export type DestroyEnvironmentBody = z.infer<typeof destroyEnvironmentBodySchema>;
+
+export const deployableAppsSchema = z.object({
+  apps: z.array(z.string()),
+  versionMajor: z.number().nullable(),
+});
+
+export type DeployableAppsResponse = z.infer<typeof deployableAppsSchema>;

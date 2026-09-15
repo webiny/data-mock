@@ -9,6 +9,9 @@ import { purgeProjectEnvironment } from "./purge/route.js";
 import { getEnvironmentDeletionImpact } from "./impact/route.js";
 import { listEnvironmentStacks } from "./stacks/route.js";
 import { syncProject } from "./sync/route.js";
+import { deployEnvironment } from "./deploy/route.js";
+import { destroyEnvironment } from "./destroy/route.js";
+import { listDeployableApps } from "./deployableApps/route.js";
 import { healthCheckEnvironment } from "./health/route.js";
 
 export async function registerEnvironmentRoutes(app: FastifyInstance): Promise<void> {
@@ -22,5 +25,8 @@ export async function registerEnvironmentRoutes(app: FastifyInstance): Promise<v
   await getEnvironmentDeletionImpact(app);
   await listEnvironmentStacks(app);
   await syncProject(app);
+  await deployEnvironment(app);
+  await destroyEnvironment(app);
+  await listDeployableApps(app);
   await healthCheckEnvironment(app);
 }
