@@ -345,7 +345,7 @@ in the product deletes by default:
 
 ---
 
-## CLI Commands (9)
+## CLI Commands (8)
 
 | Command | Description |
 |---|---|
@@ -695,7 +695,7 @@ export const ProjectsFeature = createFeature({
 ## Testing
 
 - **676 tests** across 57 files (vitest)
-- **Coverage**: v8 provider, ~67% statements, ~55% branches, ~70% functions. Thresholds enforced via `vitest.config.ts`.
+- **Coverage**: v8 provider, ~70% statements, ~59% branches, ~74% functions. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
