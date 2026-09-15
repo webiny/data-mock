@@ -7,6 +7,7 @@ import { projects, projectEnvironments, projectTenants } from "./db/schema.js";
 import { and } from "drizzle-orm";
 import type { DatabaseClient } from "./db/abstractions/DatabaseClient.js";
 import type { EncryptionService } from "./encryption/abstractions/EncryptionService.js";
+import { toProjectName } from "~/shared/projects/projectName.js";
 
 const SEED_FILE_PATH = ".projects.json";
 
@@ -63,7 +64,15 @@ export function seedProjectsFromFile(
   const now = Date.now();
 
   for (const project of parsed.data) {
-    const existing = db.select().from(projects).where(eq(projects.name, project.name)).get();
+    /**
+     * Matched on the RAW name, because that is what is already stored — older entries in
+     * `.projects.json` carry a whole path as their name. Only what gets written is normalised, so
+     * re-seeding renames those rows instead of inserting a duplicate beside them.
+     */
+    const name = toProjectName(project.name);
+    const existing =
+      db.select().from(projects).where(eq(projects.name, project.name)).get() ??
+      db.select().from(projects).where(eq(projects.name, name)).get();
 
     const encryptedToken = encryptionService.encrypt(project.apiToken);
 
@@ -73,6 +82,7 @@ export function seedProjectsFromFile(
       projectId = existing.id;
       db.update(projects)
         .set({
+          name,
           operationsVersion: project.operationsVersion,
           updatedAt: now,
         })
@@ -83,7 +93,7 @@ export function seedProjectsFromFile(
       db.insert(projects)
         .values({
           id: projectId,
-          name: project.name,
+          name,
           rootPath: null,
           operationsVersion: project.operationsVersion,
           createdAt: now,

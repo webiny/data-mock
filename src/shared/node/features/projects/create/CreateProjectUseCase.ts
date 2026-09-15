@@ -6,6 +6,7 @@ import { TenantSyncService } from "~/shared/node/features/tenants/sync/abstracti
 import { VerifyProjectAccessService } from "~/shared/node/features/tenants/verify/abstractions/VerifyProjectAccessService.js";
 import { createProjectBodySchema } from "~/shared/responses/projects.js";
 import { ValidationError } from "~/shared/errors.js";
+import { toProjectName } from "~/shared/projects/projectName.js";
 
 const DEFAULT_ENV = "dev";
 
@@ -30,7 +31,8 @@ class CreateProjectUseCaseImpl implements Abstraction.Interface {
     const body = parsed.data;
 
     const createResult = await this.createProjectRepository.execute({
-      name: body.name,
+      // A path pasted into the name field becomes its last segment — see toProjectName.
+      name: toProjectName(body.name),
       rootPath: body.rootPath ?? null,
       operationsVersion: body.operationsVersion,
       awsProfile: body.awsProfile ?? null,

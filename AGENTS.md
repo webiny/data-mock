@@ -260,6 +260,17 @@ in the product deletes by default:
 
 ---
 
+## Conventions worth knowing
+
+- **`runMigrations` resolves its folder from `import.meta.url`, not `process.cwd()`.** A
+  cwd-relative path fails silently: the database opens, the tables are simply absent, and the first
+  query fails with "no such table" far from the cause.
+- **Project names are normalised through `toProjectName`.** A path pasted into the name field
+  becomes its last segment. Older `.projects.json` entries carry a whole path as their name, which
+  then appears in every list, badge and confirmation dialog.
+
+---
+
 ## CLI Commands (9)
 
 | Command | Description |
