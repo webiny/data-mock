@@ -90,6 +90,20 @@ export class ValidationError extends BaseError {
   }
 }
 
+/**
+ * A `webiny` child process that exited non-zero, or could not be started at all. Carries the tail
+ * of its output: the failing lines are what make a pulumi failure diagnosable, and the full log is
+ * already on the job.
+ */
+export class WebinyCliError extends BaseError<{ exitCode: number; output: string }> {
+  override readonly code = "WebinyCli/CommandFailed" as const;
+  public readonly statusCode = 500;
+
+  public constructor(message: string, exitCode: number, output: string) {
+    super({ message, data: { exitCode, output } });
+  }
+}
+
 export class JobNotFoundError extends BaseError {
   override readonly code = "Job/NotFound" as const;
   public readonly statusCode = 404;
