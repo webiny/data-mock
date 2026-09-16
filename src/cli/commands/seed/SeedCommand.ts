@@ -87,8 +87,10 @@ class SeedCommandImpl implements Command.Interface {
 
     const tenants = tenantsResult.value;
     if (tenants.length === 0) {
+      // There is no tenant-sync command: tenants are discovered when a project is added, and
+      // re-synced from the UI. Naming one that does not exist sends the user to "Unknown command".
       this.ui.log.warn(
-        "No tenants found. Run 'yarn cli sync-tenants' or add-project will auto-sync.",
+        "No tenants found. Tenants are discovered when a project is added — re-add it, or sync it from the UI.",
       );
       return;
     }
