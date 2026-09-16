@@ -22,7 +22,7 @@ class GraphQLClientImpl implements Abstraction.Interface {
 
   public constructor(
     private readonly httpClient: HttpClient.Interface,
-    config: GraphQLConfig.Interface,
+    private readonly config: GraphQLConfig.Interface,
     private readonly logger: Logger.Interface,
   ) {
     this.url = config.url;
@@ -63,9 +63,9 @@ class GraphQLClientImpl implements Abstraction.Interface {
         },
       });
       return this.parse(response, getResult);
-    } catch (err) {
+    } catch (error) {
       return Result.fail(
-        new GraphQLRequestError(err instanceof Error ? err.message : "Query failed", 0),
+        new GraphQLRequestError(error instanceof Error ? error.message : "Query failed", 0),
       );
     }
   }
@@ -93,10 +93,10 @@ class GraphQLClientImpl implements Abstraction.Interface {
         },
       });
       return this.parse(response, getResult);
-    } catch (err) {
+    } catch (error) {
       this.logger.error("Failed to execute mutation.");
       return Result.fail(
-        new GraphQLRequestError(err instanceof Error ? err.message : "Mutation failed", 0),
+        new GraphQLRequestError(error instanceof Error ? error.message : "Mutation failed", 0),
       );
     }
   }
@@ -142,6 +142,7 @@ class GraphQLClientImpl implements Abstraction.Interface {
         ),
       );
     }
+    // "as": JSON parse boundary — response.json() returns unknown, this is the network response shape.
     const json = (await response.json()) as ApiGraphQLResultJson;
     return Result.ok(getResult(json));
   }

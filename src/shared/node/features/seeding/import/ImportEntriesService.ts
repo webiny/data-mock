@@ -22,7 +22,7 @@ interface ListEntriesData {
   meta: { totalCount: number; hasMoreItems: boolean; cursor: string | null };
 }
 
-interface GqlOp {
+interface GraphQLOperation {
   getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
   getVariables?(input: unknown): GenericRecord;
 }
@@ -110,11 +110,13 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
         imported += count;
         modelIndex++;
       }
-    } catch (err) {
-      if (err instanceof GraphQLRequestError) {
-        return Result.fail(err);
+    } catch (error) {
+      if (error instanceof GraphQLRequestError) {
+        return Result.fail(error);
       }
-      return Result.fail(new SeedingError(err instanceof Error ? err : new Error(String(err))));
+      return Result.fail(
+        new SeedingError(error instanceof Error ? error : new Error(String(error))),
+      );
     }
 
     return Result.ok({ imported, models });
@@ -130,7 +132,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     const fieldSelection = createModelFields(model.fields);
     const { pluralApiName } = model;
     const query = buildListEntriesQuery({ pluralApiName, fieldSelection }).query;
-    const listOp = this.operationRegistry.resolve("listContentEntries", operationsVersion);
+    const listOperation = this.operationRegistry.resolve("listContentEntries", operationsVersion);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -145,7 +147,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     this.logger.info(`Importing entries for model "${model.name}"...`);
 
     while (hasMore) {
-      const page = await this.fetchPage(apiUrl, query, headers, listOp, cursor);
+      const page = await this.fetchPage(apiUrl, query, headers, listOperation, cursor);
 
       for (const entry of page.data) {
         const entryId = typeof entry["id"] === "string" ? entry["id"] : "";
@@ -181,10 +183,12 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     apiUrl: string,
     query: string,
     headers: Record<string, string>,
-    op: GqlOp,
+    operation: GraphQLOperation,
     after: string | null,
   ): Promise<ListEntriesData> {
-    const variables = op.getVariables ? op.getVariables({ limit: PAGE_SIZE, after }) : {};
+    const variables = operation.getVariables
+      ? operation.getVariables({ limit: PAGE_SIZE, after })
+      : {};
     const body = JSON.stringify({ query, variables });
     const response = await this.cmsManageClient.post(apiUrl, body, headers);
 
@@ -194,7 +198,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     }
 
     const json = (await response.json()) as ApiGraphQLResultJson;
-    const result = op.getResult(json);
+    const result = operation.getResult(json);
 
     if (result.error) {
       throw new GraphQLRequestError(result.error.message, 200);

@@ -18,7 +18,7 @@ class SeedJobExecutorImpl implements Abstraction.Interface {
     const config = JSON.parse(context.configJson) as SeedService.Input;
     context.appendLog(`Starting seed for project ${environmentId}`);
     context.appendLog(
-      `Models: ${config.models.map((m) => `${m.modelId}(${m.amount})`).join(", ")}`,
+      `Models: ${config.models.map((model) => `${model.modelId}(${model.amount})`).join(", ")}`,
     );
 
     const result = await this.seedService.execute({
@@ -36,8 +36,8 @@ class SeedJobExecutorImpl implements Abstraction.Interface {
       `Completed: ${result.value.created} created, ${result.value.errors.length} errors`,
     );
     if (result.value.errors.length > 0) {
-      for (const err of result.value.errors) {
-        context.appendLog(`  Error (${err.modelId}): ${err.message}`);
+      for (const error of result.value.errors) {
+        context.appendLog(`  Error (${error.modelId}): ${error.message}`);
       }
     }
   }

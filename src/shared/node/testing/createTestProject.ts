@@ -26,10 +26,10 @@ export interface ICreateTestProjectOptions {
  * "/cms/manage" path — so the default has no CMS path on it.
  */
 export async function createTestProject(
-  tc: TestContainer,
+  testContainer: TestContainer,
   options: ICreateTestProjectOptions = {},
 ): Promise<ITestProject> {
-  const useCase = tc.container.resolve(CreateProjectUseCase);
+  const useCase = testContainer.container.resolve(CreateProjectUseCase);
 
   const result = await useCase.execute({
     name: options.name ?? "Test Project",

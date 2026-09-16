@@ -32,6 +32,7 @@ interface ModelSeedContext {
 }
 
 interface EntryMutationRequest {
+  [key: string]: unknown;
   url: string;
   mutation: string;
   variables: Record<string, unknown>;
@@ -47,7 +48,7 @@ interface EntryMutationResult {
   error: string | null;
 }
 
-interface GqlOp {
+interface GraphQLOperation {
   getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
 }
 
@@ -112,7 +113,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     const includeUnpublish = input.includeUnpublish ?? false;
     const batchSize = input.batchSize;
     const onProgress = input.onProgress;
-    const totalRequested = input.models.reduce((sum, m) => sum + m.amount, 0);
+    const totalRequested = input.models.reduce((sum, modelConfig) => sum + modelConfig.amount, 0);
     let totalProcessed = 0;
 
     const reportProgress = (
@@ -155,7 +156,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
       const signal = input.signal;
 
-      for (const ctx of orderedContexts) {
+      for (const context of orderedContexts) {
         if (signal?.aborted) {
           this.logger.info("Job cancelled — stopping before next model.");
           break;
@@ -164,12 +165,12 @@ class SeedServiceImpl implements Abstraction.Interface {
         const modelErrors: string[] = [];
 
         this.logger.info(
-          `${isDryRun ? "[DRY RUN] " : ""}Generating ${ctx.amount} entries for model "${ctx.model.name}"...`,
+          `${isDryRun ? "[DRY RUN] " : ""}Generating ${context.amount} entries for model "${context.model.name}"...`,
         );
 
         if (isDryRun) {
           const dryRunEntries = await this.seedDryRun(
-            ctx,
+            context,
             availableRefs,
             job.id,
             project.id,
@@ -177,15 +178,15 @@ class SeedServiceImpl implements Abstraction.Interface {
             input.tenant,
             filePool,
           );
-          generatedEntries.push({ modelId: ctx.modelId, entries: dryRunEntries });
+          generatedEntries.push({ modelId: context.modelId, entries: dryRunEntries });
           totalCreated += dryRunEntries.length;
           totalProcessed += dryRunEntries.length;
-          reportProgress(ctx.model.name, dryRunEntries.length, ctx.amount);
+          reportProgress(context.model.name, dryRunEntries.length, context.amount);
           continue;
         }
 
-        const fieldSelection = createModelFields(ctx.model.fields);
-        const singularApiName = ctx.model.singularApiName;
+        const fieldSelection = createModelFields(context.model.fields);
+        const singularApiName = context.model.singularApiName;
         const createMutation = buildCreateEntryQuery({ singularApiName, fieldSelection }).query;
         const revisionMutation = buildCreateRevisionQuery({
           singularApiName,
@@ -193,24 +194,33 @@ class SeedServiceImpl implements Abstraction.Interface {
         }).query;
         const publishMutation = buildPublishQuery(singularApiName).query;
         const unpublishMutation = buildUnpublishQuery(singularApiName).query;
-        const createOp = this.operationRegistry.resolve("createContentEntry", operationsVersion);
-        const revisionOp = this.operationRegistry.resolve("createRevision", operationsVersion);
-        const publishOp = this.operationRegistry.resolve("publishEntry", operationsVersion);
-        const unpublishOp = this.operationRegistry.resolve("unpublishEntry", operationsVersion);
+        const createOperation = this.operationRegistry.resolve(
+          "createContentEntry",
+          operationsVersion,
+        );
+        const revisionOperation = this.operationRegistry.resolve(
+          "createRevision",
+          operationsVersion,
+        );
+        const publishOperation = this.operationRegistry.resolve("publishEntry", operationsVersion);
+        const unpublishOperation = this.operationRegistry.resolve(
+          "unpublishEntry",
+          operationsVersion,
+        );
 
         let modelFailed = false;
         for (
           let batchStart = 0;
-          batchStart < ctx.amount && !modelFailed && !signal?.aborted;
+          batchStart < context.amount && !modelFailed && !signal?.aborted;
           batchStart += batchSize
         ) {
-          const batchEnd = Math.min(batchStart + batchSize, ctx.amount);
+          const batchEnd = Math.min(batchStart + batchSize, context.amount);
           const batchEntries: Record<string, unknown>[] = [];
 
           for (let i = batchStart; i < batchEnd; i++) {
             const entry = await createSingleEntryVariables(
               this.generatorRegistry,
-              { fields: ctx.model.fields },
+              { fields: context.model.fields },
               availableRefs,
               filePool,
             );
@@ -224,7 +234,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                 createMutation,
                 { data: { values: entryData } },
                 headers,
-                createOp,
+                createOperation,
               ).then((result) => ({ entryData, result })),
             ),
           );
@@ -241,13 +251,13 @@ class SeedServiceImpl implements Abstraction.Interface {
 
           for (const { entryData, result: created } of failed) {
             modelErrors.push(created.error!);
-            errors.push({ modelId: ctx.modelId, message: created.error! });
+            errors.push({ modelId: context.modelId, message: created.error! });
             await this.logEntry(
               job.id,
               project.id,
               environment.id,
               input.tenant,
-              ctx.modelId,
+              context.modelId,
               entryData,
               created,
             );
@@ -259,9 +269,9 @@ class SeedServiceImpl implements Abstraction.Interface {
 
           for (const { result: created } of succeeded) {
             if (created.entryId) {
-              const refs = availableRefs.get(ctx.model.modelId) ?? [];
+              const refs = availableRefs.get(context.model.modelId) ?? [];
               refs.push(created.entryId);
-              availableRefs.set(ctx.model.modelId, refs);
+              availableRefs.set(context.model.modelId, refs);
             }
           }
 
@@ -272,20 +282,20 @@ class SeedServiceImpl implements Abstraction.Interface {
                 project.id,
                 environment.id,
                 input.tenant,
-                ctx.modelId,
+                context.modelId,
                 entryData,
                 created,
               );
 
               let entryCreatedCount = 1;
               const entryErrors: Abstraction.ModelError[] = [];
-              const revisionCount = resolveRevisionCount(ctx.revisions);
+              const revisionCount = resolveRevisionCount(context.revisions);
               let latestRevisionId = created.entryId;
 
               for (let rev = 1; rev < revisionCount; rev++) {
                 const revEntry = await createSingleEntryVariables(
                   this.generatorRegistry,
-                  { fields: ctx.model.fields },
+                  { fields: context.model.fields },
                   availableRefs,
                   filePool,
                 );
@@ -296,7 +306,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                   revisionMutation,
                   { revision: latestRevisionId, data: { values: revData } },
                   headers,
-                  revisionOp,
+                  revisionOperation,
                 );
 
                 await this.logEntry(
@@ -304,14 +314,14 @@ class SeedServiceImpl implements Abstraction.Interface {
                   project.id,
                   environment.id,
                   input.tenant,
-                  ctx.modelId,
+                  context.modelId,
                   revData,
                   revResult,
                 );
 
                 if (revResult.error) {
                   entryErrors.push({
-                    modelId: ctx.modelId,
+                    modelId: context.modelId,
                     message: `Revision ${rev + 1}: ${revResult.error}`,
                   });
                 } else if (revResult.entryId) {
@@ -325,8 +335,8 @@ class SeedServiceImpl implements Abstraction.Interface {
                 publishMutation,
                 unpublishMutation,
                 headers,
-                publishOp,
-                unpublishOp,
+                publishOperation,
+                unpublishOperation,
                 created.entryId,
                 latestRevisionId,
                 publishStrategy,
@@ -345,11 +355,11 @@ class SeedServiceImpl implements Abstraction.Interface {
 
           const batchCount = batchEnd - batchStart;
           totalProcessed += batchCount;
-          reportProgress(ctx.model.name, batchEnd, ctx.amount);
+          reportProgress(context.model.name, batchEnd, context.amount);
         }
 
         this.logger.info(
-          `Completed model "${ctx.model.name}": ${ctx.amount} attempted, ${modelErrors.length} errors.`,
+          `Completed model "${context.model.name}": ${context.amount} attempted, ${modelErrors.length} errors.`,
         );
       }
 
@@ -366,7 +376,10 @@ class SeedServiceImpl implements Abstraction.Interface {
         status,
         result: {
           created: totalCreated,
-          errors: errors.map((e) => ({ message: e.message, code: "SEED_ERROR" })),
+          errors: errors.map((modelError) => ({
+            message: modelError.message,
+            code: "SEED_ERROR",
+          })),
         },
       });
 
@@ -377,17 +390,21 @@ class SeedServiceImpl implements Abstraction.Interface {
         dryRun: isDryRun,
         generatedEntries: isDryRun ? generatedEntries : undefined,
       });
-    } catch (err) {
+    } catch (error) {
       await this.updateSeedJobRepository.execute({
         id: job.id,
         status: "failed",
         result: {
           created: totalCreated,
-          errors: [{ message: err instanceof Error ? err.message : String(err), code: "FATAL" }],
+          errors: [
+            { message: error instanceof Error ? error.message : String(error), code: "FATAL" },
+          ],
         },
       });
 
-      return Result.fail(new SeedingError(err instanceof Error ? err : new Error(String(err))));
+      return Result.fail(
+        new SeedingError(error instanceof Error ? error : new Error(String(error))),
+      );
     }
   }
 
@@ -397,44 +414,44 @@ class SeedServiceImpl implements Abstraction.Interface {
     errors: Abstraction.ModelError[],
   ): Promise<ModelSeedContext[]> {
     const contexts: ModelSeedContext[] = [];
-    for (const mc of input.models) {
-      const r = await this.getProjectModelRepository.execute({
+    for (const modelConfig of input.models) {
+      const modelResult = await this.getProjectModelRepository.execute({
         environmentId,
-        modelId: mc.modelId,
+        modelId: modelConfig.modelId,
       });
-      if (r.isFail()) {
-        errors.push({ modelId: mc.modelId, message: r.error.message });
+      if (modelResult.isFail()) {
+        errors.push({ modelId: modelConfig.modelId, message: modelResult.error.message });
         continue;
       }
       contexts.push({
-        model: r.value,
-        amount: mc.amount,
-        modelId: mc.modelId,
-        revisions: mc.revisions ?? 1,
+        model: modelResult.value,
+        amount: modelConfig.amount,
+        modelId: modelConfig.modelId,
+        revisions: modelConfig.revisions ?? 1,
       });
     }
     return contexts;
   }
 
   private orderByDependencies(contexts: ModelSeedContext[]): ModelSeedContext[] {
-    const models = contexts.map((c) => c.model);
-    const depResult = this.modelDependencyResolver.execute({ models });
-    if (depResult.isFail()) {
+    const models = contexts.map((context) => context.model);
+    const dependencyResult = this.modelDependencyResolver.execute({ models });
+    if (dependencyResult.isFail()) {
       return contexts;
     }
 
-    if (depResult.value.circular.length > 0) {
-      for (const cycle of depResult.value.circular) {
+    if (dependencyResult.value.circular.length > 0) {
+      for (const cycle of dependencyResult.value.circular) {
         this.logger.warn(
           `Circular dependency detected: ${cycle.join(" → ")}. Self-refs will resolve progressively.`,
         );
       }
     }
 
-    const contextByModelId = new Map(contexts.map((c) => [c.model.modelId, c]));
-    return depResult.value.ordered
-      .map((m) => contextByModelId.get(m.modelId))
-      .filter((c): c is ModelSeedContext => c !== undefined);
+    const contextByModelId = new Map(contexts.map((context) => [context.model.modelId, context]));
+    return dependencyResult.value.ordered
+      .map((model) => contextByModelId.get(model.modelId))
+      .filter((context): context is ModelSeedContext => context !== undefined);
   }
 
   private async sendMutation(
@@ -442,7 +459,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     mutation: string,
     variables: Record<string, unknown>,
     headers: Record<string, string>,
-    op: GqlOp,
+    operation: GraphQLOperation,
   ): Promise<EntryMutationResult> {
     const safeHeaders = { ...headers };
     if (safeHeaders["authorization"]) {
@@ -500,7 +517,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       };
     }
 
-    const result = op.getResult(json);
+    const result = operation.getResult(json);
 
     if (result.error) {
       return {
@@ -532,8 +549,8 @@ class SeedServiceImpl implements Abstraction.Interface {
     publishMutation: string,
     unpublishMutation: string,
     headers: Record<string, string>,
-    publishOp: GqlOp,
-    unpublishOp: GqlOp,
+    publishOperation: GraphQLOperation,
+    unpublishOperation: GraphQLOperation,
     firstRevisionId: string,
     lastRevisionId: string,
     strategy: PublishStrategy,
@@ -575,7 +592,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       publishMutation,
       { revision: revisionToPublish },
       headers,
-      publishOp,
+      publishOperation,
     );
 
     if (includeUnpublish && Math.random() < 0.3) {
@@ -584,7 +601,7 @@ class SeedServiceImpl implements Abstraction.Interface {
         unpublishMutation,
         { revision: revisionToPublish },
         headers,
-        unpublishOp,
+        unpublishOperation,
       );
     }
   }
@@ -647,7 +664,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       modelId,
       entryId: result.entryId,
       entryData,
-      requestData: result.request as unknown as Record<string, unknown>,
+      requestData: result.request,
       responseData: result.responseBody,
       httpStatus: result.httpStatus,
       status: result.status,
@@ -656,7 +673,7 @@ class SeedServiceImpl implements Abstraction.Interface {
   }
 
   private async seedDryRun(
-    ctx: ModelSeedContext,
+    context: ModelSeedContext,
     availableRefs: Map<string, string[]>,
     jobId: string,
     projectId: string,
@@ -665,10 +682,10 @@ class SeedServiceImpl implements Abstraction.Interface {
     filePool: ProjectFile[],
   ): Promise<Record<string, unknown>[]> {
     const entries: Record<string, unknown>[] = [];
-    for (let i = 0; i < ctx.amount; i++) {
+    for (let i = 0; i < context.amount; i++) {
       const entry = await createSingleEntryVariables(
         this.generatorRegistry,
-        { fields: ctx.model.fields },
+        { fields: context.model.fields },
         availableRefs,
         filePool,
       );
@@ -679,7 +696,7 @@ class SeedServiceImpl implements Abstraction.Interface {
         projectId,
         environmentId,
         tenant,
-        modelId: ctx.modelId,
+        modelId: context.modelId,
         entryId: "",
         entryData,
         requestData: null,
@@ -690,7 +707,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       });
     }
     this.logger.info(
-      `[DRY RUN] Generated ${entries.length} entries for model "${ctx.model.name}" (not sent).`,
+      `[DRY RUN] Generated ${entries.length} entries for model "${context.model.name}" (not sent).`,
     );
     return entries;
   }

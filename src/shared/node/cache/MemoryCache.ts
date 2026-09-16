@@ -42,9 +42,9 @@ class MemoryCache implements ICache {
     return value;
   }
 
-  public getOrSet<T>(input: ICacheKeyInput, cb: () => T): T {
+  public getOrSet<T>(input: ICacheKeyInput, callback: () => T): T {
     if (this.disabled) {
-      return cb();
+      return callback();
     }
     const cacheKey = createCacheKey(input);
     const existing = this.get<T>(cacheKey);
@@ -53,7 +53,7 @@ class MemoryCache implements ICache {
     if (existing !== null) {
       return existing;
     }
-    const value = cb();
+    const value = callback();
     return this.set<T>(cacheKey, value);
   }
 

@@ -69,7 +69,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     if (dbFilesResult.isFail()) {
       return Result.fail(dbFilesResult.error);
     }
-    const existingNames = new Set(dbFilesResult.value.files.map((f) => f.fileName));
+    const existingNames = new Set(dbFilesResult.value.files.map((file) => file.fileName));
 
     const localResult = await this.listLocalImagesService.execute({});
     if (localResult.isFail()) {
@@ -77,7 +77,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     }
 
     const toUpload = localResult.value.files.filter(
-      (f) => requestedNames.has(f.fileName) && !existingNames.has(f.fileName),
+      (file) => requestedNames.has(file.fileName) && !existingNames.has(file.fileName),
     );
 
     const uploaded: ProjectFile[] = [];
@@ -103,9 +103,9 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
           this.logger.warn(`Failed to upload "${localFile.fileName}": ${result.error.message}`);
         }
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        failures.push({ fileName: localFile.fileName, error: msg });
-        this.logger.warn(`Failed to upload "${localFile.fileName}": ${msg}`);
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push({ fileName: localFile.fileName, error: message });
+        this.logger.warn(`Failed to upload "${localFile.fileName}": ${message}`);
       }
     }
 

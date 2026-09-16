@@ -14,7 +14,7 @@ import type { ProjectModel, SeedEntry } from "~/shared/types.js";
 
 const PAGE_SIZE = 100;
 
-interface GqlOp {
+interface GraphQLOperation {
   getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
 }
 
@@ -85,7 +85,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
       }
 
       const orderedModels = this.reverseDependencyOrder(resolvedModels);
-      const deleteOp = this.operationRegistry.resolve("deleteEntry", operationsVersion);
+      const deleteOperation = this.operationRegistry.resolve("deleteEntry", operationsVersion);
 
       const modelResults: Abstraction.Output["models"] = [];
       let totalDeleted = 0;
@@ -110,7 +110,13 @@ class CleanupServiceImpl implements Abstraction.Interface {
             "x-tenant": entry.tenant,
           };
 
-          const result = await this.sendDelete(apiUrl, mutation, entry.entryId, headers, deleteOp);
+          const result = await this.sendDelete(
+            apiUrl,
+            mutation,
+            entry.entryId,
+            headers,
+            deleteOperation,
+          );
 
           if (result.success) {
             deleted++;
@@ -144,11 +150,13 @@ class CleanupServiceImpl implements Abstraction.Interface {
       }
 
       return Result.ok({ deleted: totalDeleted, errors: totalErrors, models: modelResults });
-    } catch (err) {
-      if (err instanceof GraphQLRequestError || err instanceof SeedingError) {
-        return Result.fail(err);
+    } catch (error) {
+      if (error instanceof GraphQLRequestError || error instanceof SeedingError) {
+        return Result.fail(error);
       }
-      return Result.fail(new SeedingError(err instanceof Error ? err : new Error(String(err))));
+      return Result.fail(
+        new SeedingError(error instanceof Error ? error : new Error(String(error))),
+      );
     }
   }
 
@@ -191,12 +199,12 @@ class CleanupServiceImpl implements Abstraction.Interface {
       return [];
     }
 
-    const depResult = this.modelDependencyResolver.execute({ models });
-    if (depResult.isFail()) {
+    const dependencyResult = this.modelDependencyResolver.execute({ models });
+    if (dependencyResult.isFail()) {
       return [...models].reverse();
     }
 
-    return [...depResult.value.ordered].reverse();
+    return [...dependencyResult.value.ordered].reverse();
   }
 
   private async sendDelete(
@@ -204,7 +212,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
     mutation: string,
     revision: string,
     headers: Record<string, string>,
-    op: GqlOp,
+    operation: GraphQLOperation,
   ): Promise<DeleteResult> {
     if (!revision) {
       return { success: false, error: "Missing entry revision id" };
@@ -219,7 +227,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
     }
 
     const json = (await response.json()) as ApiGraphQLResultJson;
-    const result = op.getResult(json);
+    const result = operation.getResult(json);
 
     if (result.error) {
       return { success: false, error: result.error.message };

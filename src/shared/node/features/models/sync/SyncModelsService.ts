@@ -101,12 +101,12 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     const syncGroupsResult = await this.syncProjectGroupsRepository.execute({
       projectId: project.id,
       environmentId: environment.id,
-      groups: groups.map((g) => ({
-        slug: g.slug,
-        name: g.name,
-        description: g.description,
-        icon: g.icon ? JSON.stringify(g.icon) : null,
-        remoteId: g.id,
+      groups: groups.map((group) => ({
+        slug: group.slug,
+        name: group.name,
+        description: group.description,
+        icon: group.icon ? JSON.stringify(group.icon) : null,
+        remoteId: group.id,
       })),
     });
 
@@ -114,23 +114,23 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(syncGroupsResult.error);
     }
 
-    const userModels = models.filter((m) => !isExcludedModel(m.modelId));
+    const userModels = models.filter((model) => !isExcludedModel(model.modelId));
 
     onProgress?.(85, "Syncing models...");
 
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,
       environmentId: environment.id,
-      models: userModels.map((m) => ({
-        groupSlug: m.group,
-        modelId: m.modelId,
-        name: m.name,
-        singularApiName: m.singularApiName,
-        pluralApiName: m.pluralApiName,
-        description: m.description ?? null,
-        plugin: m.plugin,
-        fields: m.fields,
-        remoteId: m.modelId,
+      models: userModels.map((model) => ({
+        groupSlug: model.group,
+        modelId: model.modelId,
+        name: model.name,
+        singularApiName: model.singularApiName,
+        pluralApiName: model.pluralApiName,
+        description: model.description ?? null,
+        plugin: model.plugin,
+        fields: model.fields,
+        remoteId: model.modelId,
       })),
     });
 

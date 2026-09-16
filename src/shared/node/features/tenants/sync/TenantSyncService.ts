@@ -85,8 +85,11 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
         });
 
         if (gqlResult.data) {
-          tenants = gqlResult.data.map((t) => ({ tenantId: t.id, name: t.name }));
-          if (!tenants.some((t) => t.tenantId === tenant)) {
+          tenants = gqlResult.data.map((remoteTenant) => ({
+            tenantId: remoteTenant.id,
+            name: remoteTenant.name,
+          }));
+          if (!tenants.some((discoveredTenant) => discoveredTenant.tenantId === tenant)) {
             tenants.unshift({ tenantId: tenant, name: tenant });
           }
           this.logger.info(`Discovered ${tenants.length} tenant(s) for project "${project.name}".`);
@@ -116,18 +119,27 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
     });
 
     const existingTenantIds = new Set(
-      existingResult.isOk() ? existingResult.value.map((t) => t.tenantId) : [],
+      existingResult.isOk()
+        ? existingResult.value.map((existingTenant) => existingTenant.tenantId)
+        : [],
     );
-    const newTenantIds = new Set(tenants.map((t) => t.tenantId));
+    const newTenantIds = new Set(tenants.map((discoveredTenant) => discoveredTenant.tenantId));
 
     const diff: ITenantSyncDiff = {
-      added: tenants.filter((t) => !existingTenantIds.has(t.tenantId)),
+      added: tenants.filter(
+        (discoveredTenant) => !existingTenantIds.has(discoveredTenant.tenantId),
+      ),
       removed: existingResult.isOk()
         ? existingResult.value
-            .filter((t) => !newTenantIds.has(t.tenantId))
-            .map((t) => ({ tenantId: t.tenantId, name: t.name }))
+            .filter((existingTenant) => !newTenantIds.has(existingTenant.tenantId))
+            .map((existingTenant) => ({
+              tenantId: existingTenant.tenantId,
+              name: existingTenant.name,
+            }))
         : [],
-      unchanged: tenants.filter((t) => existingTenantIds.has(t.tenantId)),
+      unchanged: tenants.filter((discoveredTenant) =>
+        existingTenantIds.has(discoveredTenant.tenantId),
+      ),
     };
 
     onProgress?.(70, "Syncing tenants...");

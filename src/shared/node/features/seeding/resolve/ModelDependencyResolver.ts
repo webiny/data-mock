@@ -9,9 +9,9 @@ function extractRefModelIds(fields: ApiCmsModelField[]): string[] {
     for (const field of fieldList) {
       if (field.type === "ref" && field.settings?.models) {
         const models = field.settings.models as Array<{ modelId: string }>;
-        for (const m of models) {
-          if (m.modelId) {
-            refs.push(m.modelId);
+        for (const refModel of models) {
+          if (refModel.modelId) {
+            refs.push(refModel.modelId);
           }
         }
       }
@@ -22,9 +22,9 @@ function extractRefModelIds(fields: ApiCmsModelField[]): string[] {
 
       if (field.type === "dynamicZone" && Array.isArray(field.settings?.templates)) {
         const templates = field.settings.templates as Array<{ fields?: ApiCmsModelField[] }>;
-        for (const tpl of templates) {
-          if (Array.isArray(tpl.fields)) {
-            walk(tpl.fields);
+        for (const template of templates) {
+          if (Array.isArray(template.fields)) {
+            walk(template.fields);
           }
         }
       }
@@ -79,8 +79,8 @@ function topologicalSort(
   circularNodes: Set<string>,
 ): ProjectModel[] {
   const modelMap = new Map<string, ProjectModel>();
-  for (const m of models) {
-    modelMap.set(m.modelId, m);
+  for (const model of models) {
+    modelMap.set(model.modelId, model);
   }
 
   const sorted: ProjectModel[] = [];
@@ -105,13 +105,13 @@ function topologicalSort(
     }
   }
 
-  for (const m of models) {
-    visit(m.modelId);
+  for (const model of models) {
+    visit(model.modelId);
   }
 
-  for (const m of models) {
-    if (!sorted.includes(m)) {
-      sorted.push(m);
+  for (const model of models) {
+    if (!sorted.includes(model)) {
+      sorted.push(model);
     }
   }
 
@@ -121,7 +121,7 @@ function topologicalSort(
 class ModelDependencyResolverImpl implements Abstraction.Interface {
   public execute(input: Abstraction.Input): Result<Abstraction.Output, Abstraction.Error> {
     const { models } = input;
-    const availableModelIds = new Set(models.map((m) => m.modelId));
+    const availableModelIds = new Set(models.map((model) => model.modelId));
 
     const graph = new Map<string, string[]>();
     for (const model of models) {

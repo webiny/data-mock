@@ -169,7 +169,7 @@ class WebinyProjectDetectorImpl implements Abstraction.Interface {
       if (!block?.[1]) {
         continue;
       }
-      return [...block[1].matchAll(/(\w+)\s*:/g)].map((m) => m[1] as string);
+      return [...block[1].matchAll(/(\w+)\s*:/g)].map((match) => match[1] as string);
     }
     return null;
   }

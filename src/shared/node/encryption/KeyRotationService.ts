@@ -98,9 +98,9 @@ class KeyRotationServiceImpl implements Abstraction.Interface {
             .run();
 
           rotated++;
-        } catch (err) {
+        } catch (error) {
           this.logger.error(
-            `Failed to rotate key for environment "${environment.id}": ${err instanceof Error ? err.message : String(err)}`,
+            `Failed to rotate key for environment "${environment.id}": ${error instanceof Error ? error.message : String(error)}`,
           );
           return Result.fail(
             new ProjectPersistenceError(
@@ -114,9 +114,9 @@ class KeyRotationServiceImpl implements Abstraction.Interface {
 
       this.logger.info(`Rotated encryption key for ${rotated} project(s).`);
       return Result.ok({ rotated });
-    } catch (err) {
+    } catch (error) {
       return Result.fail(
-        new ProjectPersistenceError(err instanceof Error ? err : new Error(String(err))),
+        new ProjectPersistenceError(error instanceof Error ? error : new Error(String(error))),
       );
     }
   }

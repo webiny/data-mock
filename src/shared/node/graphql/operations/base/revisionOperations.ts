@@ -19,6 +19,8 @@ function wrapRevisionResult<T>(
   if (result.error) {
     return result;
   }
+  // "as": this helper is shared across schemas that return an object (revision) or a boolean (delete);
+  // T narrows to GenericRecord only for the revision callers, which is asserted here rather than typed.
   return { data: { data: result.data as GenericRecord | null, error: null } };
 }
 

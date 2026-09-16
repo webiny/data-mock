@@ -13,12 +13,13 @@ function pickRef(params: IGeneratorGenerateParams): Ref | null {
     return null;
   }
 
+  // "as": field.settings is a passthrough Zod record (z.any() per field), no stronger type exists at source.
   const models = (field.settings?.models ?? []) as Array<{ modelId: string }>;
-  for (const m of models) {
-    const ids = availableRefs.get(m.modelId);
+  for (const model of models) {
+    const ids = availableRefs.get(model.modelId);
     if (ids && ids.length > 0) {
       const id = faker.helpers.arrayElement(ids);
-      return { modelId: m.modelId, id };
+      return { modelId: model.modelId, id };
     }
   }
 
@@ -42,16 +43,17 @@ export class MultiRefGenerator extends BaseMultiGenerator<Ref> {
       return null;
     }
 
+    // "as": field.settings is a passthrough Zod record (z.any() per field), no stronger type exists at source.
     const models = (field.settings?.models ?? []) as Array<{ modelId: string }>;
     const results: Ref[] = [];
 
-    for (const m of models) {
-      const ids = availableRefs.get(m.modelId);
+    for (const model of models) {
+      const ids = availableRefs.get(model.modelId);
       if (ids && ids.length > 0) {
         const count = faker.number.int({ min: 1, max: Math.min(3, ids.length) });
         const picked = faker.helpers.arrayElements(ids, count);
         for (const id of picked) {
-          results.push({ modelId: m.modelId, id });
+          results.push({ modelId: model.modelId, id });
         }
       }
     }

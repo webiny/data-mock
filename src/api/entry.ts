@@ -41,8 +41,8 @@ if (reaped.killed > 0) {
 await jobWorker.recoverStaleJobs();
 
 const pollTimer = setInterval(() => {
-  jobWorker.processNextJob().catch((err) => {
-    logger.error("Job poll failed", { error: String(err) });
+  jobWorker.processNextJob().catch((error) => {
+    logger.error("Job poll failed", { error: String(error) });
   });
 }, JOB_POLL_INTERVAL_MS);
 

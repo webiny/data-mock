@@ -25,7 +25,7 @@ export const createContentEntry: IGraphQLOperation<CreateEntryInput, CreateEntry
     if (result.error) {
       return result;
     }
-    return { data: { data: result.data as GenericRecord, error: null } };
+    return { data: { data: result.data, error: null } };
   },
   getVariables(input) {
     return input.variables;

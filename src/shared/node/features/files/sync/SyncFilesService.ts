@@ -32,7 +32,7 @@ const LIST_FILES_QUERY = `
   }
 `;
 
-interface IFmFile {
+interface IFileManagerFile {
   id: string;
   name: string;
   key: string;
@@ -52,7 +52,7 @@ interface IListFilesError {
 }
 
 interface IListFilesResult {
-  data: IFmFile[] | null;
+  data: IFileManagerFile[] | null;
   meta: IListFilesMeta | null;
   error: IListFilesError | null;
 }
@@ -85,7 +85,7 @@ class SyncFilesServiceImpl implements Abstraction.Interface {
       "x-tenant": tenant,
     };
 
-    const allFiles: IFmFile[] = [];
+    const allFiles: IFileManagerFile[] = [];
     let cursor: string | null = null;
     let hasMoreItems = true;
 
@@ -168,7 +168,7 @@ function extractListFilesResult(json: Record<string, unknown>): IListFilesResult
   const listFiles = fileManager?.["listFiles"] as Record<string, unknown> | undefined;
 
   return {
-    data: (listFiles?.["data"] as IFmFile[] | undefined) ?? null,
+    data: (listFiles?.["data"] as IFileManagerFile[] | undefined) ?? null,
     meta: (listFiles?.["meta"] as IListFilesMeta | undefined) ?? null,
     error: (listFiles?.["error"] as IListFilesError | undefined) ?? null,
   };

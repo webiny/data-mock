@@ -21,7 +21,7 @@ interface PresignedPostFile {
   key: string;
 }
 
-interface CreatedFmFile {
+interface CreatedFileManagerFile {
   id: string;
   key: string;
   src: string;
@@ -352,7 +352,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     fileName: string,
     fileType: string,
     fileSize: number,
-  ): Promise<Result<CreatedFmFile, GraphQLRequestError>> {
+  ): Promise<Result<CreatedFileManagerFile, GraphQLRequestError>> {
     const mutation = `
       mutation CreateFile($data: FmFileCreateInput!) {
         fileManager {
@@ -412,7 +412,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       return Result.fail(new GraphQLRequestError(error.message, 200, error));
     }
 
-    const fileData = createFile?.["data"] as CreatedFmFile | undefined;
+    const fileData = createFile?.["data"] as CreatedFileManagerFile | undefined;
     if (!fileData) {
       return Result.fail(new GraphQLRequestError("Unexpected response from file manager", 200));
     }
