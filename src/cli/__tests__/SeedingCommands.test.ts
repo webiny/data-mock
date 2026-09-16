@@ -177,6 +177,37 @@ describe("seed command", () => {
     });
   });
 
+  it("reports a template whose name is already taken", async () => {
+    await ready([
+      // First run: no template exists yet, so it goes straight to the model choice.
+      pick("Blog"),
+      pick("root (root)"),
+      pickAll("Article (article)"),
+      "4",
+      false,
+      true,
+      "Nightly",
+      // Second run: a template exists, so the source is asked for first.
+      pick("Blog"),
+      pick("root (root)"),
+      pick("Configure manually"),
+      pickAll("Article (article)"),
+      "4",
+      false,
+      true,
+      "Nightly",
+    ]);
+
+    const command = resolveCommand(tc, "seed");
+    await command.execute();
+    await command.execute();
+
+    // Template names are unique per project. Dropped, the second save tells the user nothing and
+    // they believe the configuration was kept.
+    expect(tc.ui.on("error").join("\n")).toContain("Failed to save template");
+    expect(tc.databaseClient.db.select().from(seedTemplates).all()).toHaveLength(1);
+  });
+
   it("reuses a saved template instead of asking for models again", async () => {
     await ready([pick("Blog"), pick("root (root)"), pick("Template: Nightly"), false]);
 

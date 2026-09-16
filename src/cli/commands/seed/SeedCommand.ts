@@ -192,6 +192,10 @@ class SeedCommandImpl implements Command.Interface {
           });
           if (saveResult.isOk()) {
             this.ui.log.success(`Template "${nameInput}" saved.`);
+          } else {
+            // Template names are unique per project, so a collision lands here. Dropped, the user
+            // is told nothing and believes the configuration was kept.
+            this.ui.log.error(`Failed to save template: ${saveResult.error.message}`);
           }
         }
       }
