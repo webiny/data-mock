@@ -7,7 +7,14 @@ import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { KeyRotationService } from "~/shared/node/encryption/abstractions/KeyRotationService.js";
 import { Command } from "~/cli/abstractions/Command.js";
 
-const ENV_PATH = join(process.cwd(), ".env");
+/**
+ * The .env the CLI reads and writes, resolved when the command runs rather than when the module is
+ * loaded. A constant captured at import time is the wrong file the moment the process changes
+ * directory, and it is the one file here whose contents are not recoverable.
+ */
+function envPath(): string {
+  return join(process.cwd(), ".env");
+}
 
 class RotateKeyCommandImpl implements Command.Interface {
   public readonly name = "rotate-key";
@@ -87,9 +94,10 @@ class RotateKeyCommandImpl implements Command.Interface {
     }
 
     try {
-      const envContent = readFileSync(ENV_PATH, "utf-8");
+      const path = envPath();
+      const envContent = readFileSync(path, "utf-8");
       const updatedContent = envContent.replace(/^ENCRYPTION_KEY=.+$/m, `ENCRYPTION_KEY=${newKey}`);
-      writeFileSync(ENV_PATH, updatedContent, "utf-8");
+      writeFileSync(path, updatedContent, "utf-8");
     } catch {
       spinner.stop("Warning.");
       this.ui.log.warn(
