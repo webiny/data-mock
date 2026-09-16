@@ -3,7 +3,6 @@ import { PinoLoggerFeature, ProcessEnvFeature } from "@webiny/stdlib/node";
 import { createDatabaseClient } from "./db/client.js";
 import { runMigrations } from "./db/migrate.js";
 import { DatabaseFeature } from "./db/feature.js";
-import { CacheFeature } from "./cache/feature.js";
 import { EncryptionFeature } from "./encryption/feature.js";
 import { EncryptionService } from "./encryption/abstractions/EncryptionService.js";
 import { FetchHttpClient } from "./FetchHttpClient.js";
@@ -42,7 +41,6 @@ export const AppFeature = createFeature({
     runMigrations(databaseClient.db);
 
     DatabaseFeature.register(container, { databaseClient });
-    CacheFeature.register(container, {});
     container.register(FetchHttpClient).inSingletonScope();
     GeneratorFeature.register(container);
     OperationsFeature.register(container);

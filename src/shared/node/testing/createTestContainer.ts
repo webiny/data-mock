@@ -4,7 +4,6 @@ import { PinoLoggerFeature, ProcessEnvFeature } from "@webiny/stdlib/node";
 import { createDatabaseClient } from "~/shared/node/db/client.js";
 import { runMigrations } from "~/shared/node/db/migrate.js";
 import { DatabaseFeature } from "~/shared/node/db/feature.js";
-import { CacheFeature } from "~/shared/node/cache/feature.js";
 import { EncryptionFeature } from "~/shared/node/encryption/feature.js";
 import { GeneratorFeature } from "~/shared/node/generators/feature.js";
 import { OperationsFeature } from "~/shared/node/graphql/operations/feature.js";
@@ -48,8 +47,6 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   const databaseClient = createDatabaseClient(":memory:");
   runMigrations(databaseClient.db);
   DatabaseFeature.register(container, { databaseClient });
-
-  CacheFeature.register(container, { cacheDir: "" });
 
   EncryptionFeature.register(container, { encryptionKey: randomBytes(32).toString("hex") });
 

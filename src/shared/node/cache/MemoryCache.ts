@@ -23,13 +23,13 @@ class MemoryCache implements ICache {
   }
 
   public get<T>(input: ICacheKeyInput): T | null {
-    const cacheKey = createCacheKey(input);
-
     if (this.disabled) {
       return null;
     }
-    const key = cacheKey.get();
-    return this._cache.get(key) as T;
+    const key = createCacheKey(input).get();
+    // `Map.get` answers a miss with `undefined`, which this signature promises as `null`. Returned
+    // raw, a caller testing `=== null` reads every miss as a hit.
+    return this._cache.has(key) ? (this._cache.get(key) as T) : null;
   }
 
   public set<T>(input: ICacheKeyInput, value: T): T {
@@ -48,7 +48,9 @@ class MemoryCache implements ICache {
     }
     const cacheKey = createCacheKey(input);
     const existing = this.get<T>(cacheKey);
-    if (existing) {
+    // Not `if (existing)`: a cached `false`, `0` or `""` is a hit, and treating it as a miss
+    // recomputes it on every call for as long as the cache lives.
+    if (existing !== null) {
       return existing;
     }
     const value = cb();
