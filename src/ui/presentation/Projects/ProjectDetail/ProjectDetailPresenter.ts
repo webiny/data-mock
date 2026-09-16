@@ -1,5 +1,4 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { Result } from "@webiny/stdlib";
 import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { SyncPreviewState } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
@@ -37,6 +36,9 @@ import type {
 import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/impactLines.js";
 import { buildSystemInfo, namedResourcesAtRisk, systemInfoNotice } from "./systemInfo.js";
 import { LiveJobLogs } from "./LiveJobLogs.js";
+import { ProjectDatasets } from "./ProjectDatasets.js";
+import type { IDatasetContext } from "./ProjectDatasets.js";
+import { buildProjectDatasets } from "./projectDatasetDefinitions.js";
 import { getStackName } from "~/shared/environments/index.js";
 import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
 import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
@@ -145,8 +147,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _isPullingFiles = false;
   private _showEditDialog = false;
   private _showCleanupDialog = false;
-  private _loadedDatasets = new Set<string>();
-  private _loadingDatasets = new Set<string>();
   private _loadingProjectId: string | null = null;
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
@@ -157,6 +157,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private readonly disposeJobSubscription: () => void;
   private readonly disposeJobLogSubscription: () => void;
   private readonly liveLogs = new LiveJobLogs();
+  private readonly datasets: ProjectDatasets;
   private readonly actionConfirmation = new ActionConfirmation();
   private readonly syncPreviewState: SyncPreviewState;
 
@@ -196,29 +197,61 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         tenant: { type: "dropdown" },
         status: { type: "dropdown" },
       },
-      onChange: () => this.reloadEntries(),
+      onChange: () => this.datasets.reload("entries"),
     });
     this.jobsListState = urlListStateFactory.create({
       filters: {
         jobType: { type: "dropdown" },
         jobStatus: { type: "dropdown" },
       },
-      onChange: () => this.reloadJobs(),
+      onChange: () => this.datasets.reload("jobs"),
     });
     this.syncLogsListState = urlListStateFactory.create({
       filters: {
         logType: { type: "dropdown" },
         logStatus: { type: "dropdown" },
       },
-      onChange: () => this.reloadSyncLogs(),
+      onChange: () => this.datasets.reload("syncLogs"),
     });
     this.seedJobsListState = urlListStateFactory.create({
       filters: {
         seedStatus: { type: "dropdown" },
       },
-      onChange: () => this.reloadSeedJobs(),
+      onChange: () => this.datasets.reload("seedJobs"),
     });
     this.syncPreviewState = new SyncPreviewState(environmentsGateway, jobsGateway, notifications);
+    this.datasets = new ProjectDatasets(
+      buildProjectDatasets({
+        listStates: {
+          entries: this.entriesListState,
+          seedJobs: this.seedJobsListState,
+          syncLogs: this.syncLogsListState,
+          jobs: this.jobsListState,
+        },
+        notifications,
+        environmentsGateway,
+        environmentsRepository,
+        tenantsGateway,
+        tenantsRepository,
+        modelsGateway,
+        modelsRepository,
+        filesGateway,
+        filesRepository,
+        localFilesGateway,
+        localFilesRepository,
+        entriesGateway,
+        entriesRepository,
+        seedingGateway,
+        seedingRepository,
+        templatesGateway,
+        templatesRepository,
+        syncLogsGateway,
+        syncLogsRepository,
+        jobsGateway,
+        jobsRepository,
+      }),
+      () => this.datasetContext,
+    );
     makeAutoObservable(this);
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
     this.disposeJobLogSubscription = eventBridge.on("job:log", this.handleJobLog);
@@ -438,8 +471,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     this._environmentId = null;
     this._environmentError = null;
     this._loadError = null;
-    this._loadedDatasets.clear();
-    this._loadingDatasets.clear();
+    this.datasets.clear();
     this._isLoading = true;
     try {
       const loaded = await this.loadProjectDetailUseCase.execute({ projectId });
@@ -733,11 +765,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!datasets) {
       return;
     }
-    const needed = datasets.filter((d) => !this._loadedDatasets.has(d));
-    if (needed.length === 0) {
-      return;
-    }
-    await Promise.all(needed.map((d) => this.loadDataset(d)));
+    await this.datasets.loadAll(datasets);
   };
 
   public loadEntriesPage = (page: number): void => {
@@ -955,7 +983,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       }
     });
 
-    await this.reloadFiles();
+    await this.datasets.reload("files");
   };
 
   public uploadAllGlobalImages = async (): Promise<void> => {
@@ -1103,67 +1131,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  private buildJobsParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.jobsListState.page };
-    const type = this.jobsListState.get("jobType");
-    const status = this.jobsListState.get("jobStatus");
-    if (type) {
-      params.type = type;
-    }
-    if (status) {
-      params.status = status;
-    }
-    const sort = this.jobsListState.sort;
-    if (sort) {
-      params.sortField = sort.field;
-      params.sortDir = sort.direction;
-    }
-    return params;
-  }
-
-  private buildSeedJobsParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.seedJobsListState.page };
-    const status = this.seedJobsListState.get("seedStatus");
-    if (status) {
-      params.status = status;
-    }
-    return params;
-  }
-
-  private buildSyncLogsParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.syncLogsListState.page };
-    const type = this.syncLogsListState.get("logType");
-    const status = this.syncLogsListState.get("logStatus");
-    if (type) {
-      params.type = type;
-    }
-    if (status) {
-      params.status = status;
-    }
-    return params;
-  }
-
-  private buildEntriesParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.entriesListState.page };
-    const jobId = this.entriesListState.get("jobId");
-    const modelId = this.entriesListState.get("modelId");
-    const tenant = this.entriesListState.get("tenant");
-    const status = this.entriesListState.get("status");
-    if (jobId) {
-      params.jobId = jobId;
-    }
-    if (modelId) {
-      params.modelId = modelId;
-    }
-    if (tenant) {
-      params.tenant = tenant;
-    }
-    if (status) {
-      params.status = status;
-    }
-    return params;
-  }
-
   public loadSeedJobsPage = (page: number): void => {
     this.seedJobsListState.setPage(page);
   };
@@ -1232,7 +1199,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
           this.notifications.error(`Failed to pull files: ${result.error.message}`);
         }
       });
-      await this.reloadFiles();
+      await this.datasets.reload("files");
     } finally {
       runInAction(() => {
         this._isPullingFiles = false;
@@ -1381,8 +1348,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   /**
-   * Archived environments are listed too, so the archived rows stay visible with a Restore next to
-   * them instead of vanishing from the tab that just archived them.
+   * Reads the environment list again and re-points the page when it has nothing selected — after
+   * a purge of the environment the URL addressed, or before one has been resolved at all.
    */
   private reloadEnvironments = async (): Promise<void> => {
     const projectId = this._projectId;
@@ -1390,15 +1357,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
 
-    const result = await this.environmentsGateway.listForProject(projectId, true);
-    if (this.failedDataset("environments", result)) {
-      return;
-    }
+    await this.datasets.reload("environments");
 
     runInAction(() => {
-      this.environmentsRepository.setEnvironments(projectId, result.value);
       if (this._environmentId === null) {
-        this._environmentId = result.value.find((e) => e.archivedAt === null)?.id ?? null;
+        this._environmentId =
+          this.environmentsRepository
+            .getEnvironmentsByProjectId(projectId)
+            .find((environment) => environment.archivedAt === null)?.id ?? null;
       }
     });
   };
@@ -1422,251 +1388,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (datasetsToReload.length === 0) {
       return;
     }
-    runInAction(() => {
-      for (const dataset of datasetsToReload) {
-        this._loadedDatasets.delete(dataset);
-        this._loadingDatasets.delete(dataset);
-      }
-    });
-    void Promise.all(datasetsToReload.map((d) => this.loadDataset(d)));
+    void this.datasets.reloadAll(datasetsToReload);
   };
 
-  private reloadEntries = async (): Promise<void> => {
-    const ref = this.ref;
-    if (!ref) {
-      return;
-    }
-    const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
-    if (this.failedDataset("entries", result)) {
-      return;
-    }
-    runInAction(() => {
-      this.entriesRepository.setEntries(result.value.entries, result.value.total);
-      this._loadedDatasets.add("entries");
-    });
-  };
-
-  /**
-   * Loads one tab's data, once.
-   *
-   * A dataset is marked loaded only when it actually loaded. Marking a failed read as done left
-   * the tab empty with no explanation for the rest of the session, because nothing would ask for
-   * it again — an outage of a second turned into a blank Models tab until the page was reloaded.
-   */
-  private loadDataset = async (dataset: string): Promise<void> => {
-    const ref = this.ref;
-    if (!ref || this._loadedDatasets.has(dataset) || this._loadingDatasets.has(dataset)) {
-      return;
-    }
-    this._loadingDatasets.add(dataset);
-
-    try {
-      switch (dataset) {
-        case "tenants": {
-          const result = await this.tenantsGateway.listForProject(ref);
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.tenantsRepository.setTenants(ref.environmentId, result.value);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "models": {
-          const result = await this.modelsGateway.listModels(ref);
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.modelsRepository.setModels(result.value);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "files": {
-          const [filesResult, localFilesResult] = await Promise.all([
-            this.filesGateway.list(ref),
-            this.localFilesGateway.list(),
-          ]);
-          if (
-            this.failedDataset(dataset, filesResult) ||
-            this.failedDataset(dataset, localFilesResult)
-          ) {
-            return;
-          }
-          runInAction(() => {
-            this.filesRepository.setFiles(filesResult.value);
-            this.localFilesRepository.setFiles(localFilesResult.value);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "entries": {
-          const result = await this.entriesGateway.list(ref, this.buildEntriesParams());
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.entriesRepository.setEntries(result.value.entries, result.value.total);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "seedJobs": {
-          const result = await this.seedingGateway.listSeedJobs(ref, this.buildSeedJobsParams());
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "templates": {
-          const result = await this.templatesGateway.listForProject(ref.projectId);
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.templatesRepository.setTemplates(result.value);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "syncLogs": {
-          const result = await this.syncLogsGateway.list(ref, this.buildSyncLogsParams());
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "stacks": {
-          const result = await this.environmentsGateway.listStacks(
-            ref.projectId,
-            ref.environmentId,
-          );
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.environmentsRepository.setStacks(ref.environmentId, result.value);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "environments": {
-          // A sync can add, remove or redeploy environments, so the list itself is reloaded — not
-          // just the stacks hanging off the one currently selected.
-          const result = await this.environmentsGateway.listForProject(ref.projectId, true);
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.environmentsRepository.setEnvironments(ref.projectId, result.value);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-        case "jobs": {
-          const result = await this.jobsGateway.list(ref.projectId, this.buildJobsParams());
-          if (this.failedDataset(dataset, result)) {
-            return;
-          }
-          runInAction(() => {
-            this.jobsRepository.setJobs(result.value.jobs, result.value.total);
-            this._loadedDatasets.add(dataset);
-          });
-          break;
-        }
-      }
-    } finally {
-      this._loadingDatasets.delete(dataset);
-    }
-  };
-
-  /**
-   * Reports a dataset that could not be read, and says whether that happened. The dataset stays
-   * unloaded, so opening the tab again tries once more.
-   */
-  private failedDataset<TValue, TError extends { message: string }>(
-    dataset: string,
-    result: Result<TValue, TError>,
-  ): boolean {
-    if (!result.isFail()) {
-      return false;
-    }
-    this.notifications.error(`Could not load ${dataset}: ${result.error.message}`);
-    return true;
+  private get datasetContext(): IDatasetContext | null {
+    const projectId = this._projectId;
+    return projectId === null ? null : { projectId, ref: this.ref };
   }
-
-  private reloadSeedJobs = async (): Promise<void> => {
-    const ref = this.ref;
-    if (!ref) {
-      return;
-    }
-    const result = await this.seedingGateway.listSeedJobs(ref, this.buildSeedJobsParams());
-    if (this.failedDataset("seedJobs", result)) {
-      return;
-    }
-    runInAction(() => {
-      this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
-      this._loadedDatasets.add("seedJobs");
-    });
-  };
-
-  private reloadJobs = async (): Promise<void> => {
-    const ref = this.ref;
-    if (!ref) {
-      return;
-    }
-    const result = await this.jobsGateway.list(ref.projectId, this.buildJobsParams());
-    if (this.failedDataset("jobs", result)) {
-      return;
-    }
-    runInAction(() => {
-      this.jobsRepository.setJobs(result.value.jobs, result.value.total);
-      this._loadedDatasets.add("jobs");
-    });
-  };
-
-  private reloadSyncLogs = async (): Promise<void> => {
-    const ref = this.ref;
-    if (!ref) {
-      return;
-    }
-    const result = await this.syncLogsGateway.list(ref, this.buildSyncLogsParams());
-    if (this.failedDataset("syncLogs", result)) {
-      return;
-    }
-    runInAction(() => {
-      this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
-    });
-  };
-
-  private reloadFiles = async (): Promise<void> => {
-    const ref = this.ref;
-    if (!ref) {
-      return;
-    }
-    const [filesResult, localFilesResult] = await Promise.all([
-      this.filesGateway.list(ref),
-      this.localFilesGateway.list(),
-    ]);
-    if (this.failedDataset("files", filesResult) || this.failedDataset("files", localFilesResult)) {
-      return;
-    }
-    runInAction(() => {
-      this.filesRepository.setFiles(filesResult.value);
-      this.localFilesRepository.setFiles(localFilesResult.value);
-      this._loadedDatasets.add("files");
-    });
-  };
 
   private currentTenant = (): string => {
     return this.currentEnvironment?.tenant ?? "root";
