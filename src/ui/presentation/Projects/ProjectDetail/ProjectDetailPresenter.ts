@@ -757,10 +757,15 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     await this.reloadEnvironments();
   };
 
+  /**
+   * Loads what a tab needs, per dataset rather than per view.
+   *
+   * There is no environment guard here: `ProjectDatasets` skips the datasets that address one
+   * stack until an environment is resolved, and lets the project-scoped ones through. Guarding the
+   * whole view left Jobs and Templates permanently blank on a project that has no environment —
+   * a remote-only one, or one whose sync found no stacks — even though neither reads a stack.
+   */
   public activateView = async (view: string): Promise<void> => {
-    if (!this.ref) {
-      return;
-    }
     const datasets = VIEW_DATASETS[view];
     if (!datasets) {
       return;

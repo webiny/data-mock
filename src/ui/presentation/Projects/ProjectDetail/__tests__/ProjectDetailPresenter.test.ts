@@ -428,6 +428,26 @@ describe("ProjectDetailPresenter", () => {
       expect(http.callsTo(JOBS_PATH).length).toBeGreaterThan(1);
     });
 
+    it("reads the project's jobs even when it has no environment at all", async () => {
+      // A remote-only project, or one whose sync found no stacks. Jobs hang off the project, so
+      // guarding the whole view on a resolved environment left the tab permanently blank.
+      http.data.set(ENVIRONMENTS_PATH, []);
+      const p = await loaded();
+
+      await p.activateView("jobs");
+
+      expect(http.callsTo(JOBS_PATH)).toHaveLength(1);
+    });
+
+    it("still waits for an environment before reading anything that addresses a stack", async () => {
+      http.data.set(ENVIRONMENTS_PATH, []);
+      const p = await loaded();
+
+      await p.activateView("system");
+
+      expect(http.callsTo(STACKS_PATH)).toHaveLength(0);
+    });
+
     it("reads a tab only once when it succeeds", async () => {
       const p = await loaded();
       await p.activateView("system");
