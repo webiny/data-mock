@@ -46,7 +46,7 @@ src/
 │       │   ├── client.ts               # createDatabaseClient()
 │       │   ├── migrate.ts              # runMigrations()
 │       │   └── migrations/             # SQL migrations (drizzle-kit)
-│       ├── cache/                       # FileCache + MemoryCache + CacheKey
+│       ├── cache/                       # MemoryCache + CacheKey (no DI: constructed where used)
 │       ├── encryption/                  # AES-256-GCM EncryptionService + KeyRotationService
 │       ├── graphql/                     # GraphQLClient (retry, batching)
 │       │   ├── endpoints/              # DI endpoint clients (CmsManage, CmsRead, CmsPreview, GraphQL)
@@ -696,8 +696,8 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **795 tests** across 64 files (vitest)
-- **Coverage**: v8 provider, ~82% statements, ~70% branches, ~85% functions. Thresholds enforced via `vitest.config.ts`.
+- **806 tests** across 64 files (vitest)
+- **Coverage**: v8 provider, ~83% statements, ~71% branches, ~85% functions. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
