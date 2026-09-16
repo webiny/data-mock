@@ -77,7 +77,8 @@ src/
 │   ├── entry.ts                        # Bootstrap + command dispatch
 │   ├── feature.ts                      # CliFeature
 │   ├── abstractions/                   # Prompts, UI, Command
-│   └── commands/                       # 9 commands (see below)
+│   ├── testing/                        # createCliTestContainer + Prompts/UI stubs
+│   └── commands/                       # 8 commands (see below)
 │
 ├── api/                                 # Fastify API server (localhost:4000)
 │   ├── entry.ts                        # Bootstrap + listen
@@ -104,6 +105,7 @@ src/
     │   ├── Projects/
     │   │   ├── ProjectList/            # List page + use cases (load, delete, sync tenants/models)
     │   │   ├── ProjectDetail/          # Detail page (sidebar: environments, system info, tenants, models, history)
+    │   │   │                           #   ProjectDatasets + projectDatasetDefinitions: per-tab loading
     │   │   └── AddProject/             # Scan / Browse / Path / Remote tabs + use case
     │   └── Seeding/
     │       ├── SeedConfig/             # Seed configuration page
@@ -694,8 +696,8 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **676 tests** across 57 files (vitest)
-- **Coverage**: v8 provider, ~70% statements, ~59% branches, ~74% functions. Thresholds enforced via `vitest.config.ts`.
+- **795 tests** across 64 files (vitest)
+- **Coverage**: v8 provider, ~82% statements, ~70% branches, ~85% functions. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
@@ -706,10 +708,21 @@ export const ProjectsFeature = createFeature({
   underneath, which keeps the gateways and repositories real — they are where the shapes a
   presenter reads come from. Its list-state stub calls `onChange` like the real one; without that
   no test reaches a filter or pagination path.
+- **CLI commands are tested through `createCliTestContainer()`** (`src/cli/testing/`). Only
+  `Prompts` and `UI` are replaced: the prompt stub answers from a script in the order the command
+  asks, and the UI stub records what was printed and on which channel. Everything below those two
+  is production code, because a command's job is to turn answers into those calls. A select is
+  answered by the label the command printed — `pick("Blog")` — since the values it offers are rows
+  it has just read and the test has no handle on them.
+- **Job executors are tested against a stub execution context** (`src/shared/node/jobs/__tests__/`)
+  rather than through the worker. What an executor owns is its guard clauses, its config parsing
+  and the mapping from a service Result to logs and to a thrown error; running the queue to reach
+  that would prove the queue instead.
 - **The child-process tests spawn real processes.** `ChildProcessTracker` is about killing process
   groups, which a fake cannot demonstrate: they start detached `node` processes, some with children
   of their own, and assert the whole group is gone.
-- **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing — only business logic is measured.
+- **Coverage excludes**: abstractions, feature.ts, index.ts, types, schemas, UI, routing, and the
+  two @clack adapters (`src/cli/Prompts.ts`, `src/cli/UI.ts`) — only business logic is measured.
 - **`createTestContainer()`** — fully-wired DI container for tests. In-memory SQLite (`:memory:`), real generators, real cache. Mock only HttpClient.
 - Pass `{ httpClient: mockHttpClient }` to override HTTP. Everything else is production code.
 - API integration tests use `app.inject()` (Fastify's built-in).
