@@ -51,7 +51,9 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const files = poolResult.value.filePool;
     const uploaded = Math.max(0, files.length - beforeCount);
 
-    return Result.ok({ uploaded, files });
+    // The pool service uploads in bulk and does not say which names it could not take, so this
+    // path reports none rather than inventing them.
+    return Result.ok({ uploaded, failures: [], files });
   }
 
   private async uploadSelected(
@@ -79,6 +81,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     );
 
     const uploaded: ProjectFile[] = [];
+    const failures: Abstraction.Failure[] = [];
     let uploadIndex = 0;
     for (const localFile of toUpload) {
       uploadIndex++;
@@ -96,16 +99,18 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
         if (result.isOk()) {
           uploaded.push(result.value.file);
         } else {
+          failures.push({ fileName: localFile.fileName, error: result.error.message });
           this.logger.warn(`Failed to upload "${localFile.fileName}": ${result.error.message}`);
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
+        failures.push({ fileName: localFile.fileName, error: msg });
         this.logger.warn(`Failed to upload "${localFile.fileName}": ${msg}`);
       }
     }
 
     const allFiles = [...dbFilesResult.value.files, ...uploaded];
-    return Result.ok({ uploaded: uploaded.length, files: allFiles });
+    return Result.ok({ uploaded: uploaded.length, failures, files: allFiles });
   }
 }
 

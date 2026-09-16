@@ -29,7 +29,19 @@ class UploadFilesJobExecutorImpl implements Abstraction.Interface {
       throw new Error(result.error.message);
     }
 
-    context.appendLog(`Uploaded ${result.value.uploaded} file(s).`);
+    const { uploaded, failures } = result.value;
+
+    // Named on the job, not only in the server log. The job log is what the user reads, and a bare
+    // success count over a run that mostly failed reads as a clean run.
+    for (const failure of failures) {
+      context.appendLog(`  Failed "${failure.fileName}": ${failure.error}`);
+    }
+
+    context.appendLog(
+      failures.length === 0
+        ? `Uploaded ${uploaded} file(s).`
+        : `Uploaded ${uploaded} file(s), ${failures.length} failed.`,
+    );
   }
 }
 

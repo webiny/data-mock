@@ -322,7 +322,7 @@ describe("Seeding job executors", () => {
       const executor = stubUploadService(async (input) => {
         calls.push(input);
         input.onProgress?.(50, "uploading");
-        return Result.ok({ uploaded: 2, files: [] });
+        return Result.ok({ uploaded: 2, failures: [], files: [] });
       });
 
       const context = createExecutionContext({ config: uploadConfig, environmentId: "env-5" });
@@ -338,6 +338,27 @@ describe("Seeding job executors", () => {
         "Uploading global images to environment env-5",
         "Uploaded 2 file(s).",
       ]);
+    });
+
+    it("names every file it could not upload, and counts them", async () => {
+      const executor = stubUploadService(async () =>
+        Result.ok({
+          uploaded: 1,
+          failures: [
+            { fileName: "b.png", error: "413 Payload Too Large" },
+            { fileName: "c.png", error: "network reset" },
+          ],
+          files: [],
+        }),
+      );
+
+      const context = createExecutionContext({ config: uploadConfig });
+      await executor.execute(context);
+
+      // A bare "Uploaded 1 file(s)." over two failures reads as a clean run.
+      expect(context.logs).toContain('  Failed "b.png": 413 Payload Too Large');
+      expect(context.logs).toContain('  Failed "c.png": network reset');
+      expect(context.logs).toContain("Uploaded 1 file(s), 2 failed.");
     });
 
     it("fails the job when the upload service fails", async () => {
