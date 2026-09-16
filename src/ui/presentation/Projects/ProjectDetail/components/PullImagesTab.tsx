@@ -10,7 +10,7 @@ interface PullImagesTabProps {
 }
 
 export function PullImagesTab({ logs, isPulling, onPull, onDeleteLog }: PullImagesTabProps) {
-  const imageLogs = logs.filter((l) => l.type === "upload-file" || l.type === "pull-files");
+  const imageLogs = logs.filter((log) => log.type === "upload-file" || log.type === "pull-files");
 
   return (
     <Stack gap="md">

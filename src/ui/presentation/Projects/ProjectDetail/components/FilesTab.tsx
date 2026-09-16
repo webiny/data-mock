@@ -31,11 +31,11 @@ export function FilesTab({
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const projectFileCount = mergedFiles.filter((f) => f.source === "project").length;
-  const globalFiles = mergedFiles.filter((f) => f.source === "global");
+  const projectFileCount = mergedFiles.filter((file) => file.source === "project").length;
+  const globalFiles = mergedFiles.filter((file) => file.source === "global");
   const globalFileCount = globalFiles.length;
-  const previewFile = mergedFiles.find((f) => f.id === previewFileId) ?? null;
-  const selectedGlobalCount = globalFiles.filter((f) => selectedIds.has(f.id)).length;
+  const previewFile = mergedFiles.find((file) => file.id === previewFileId) ?? null;
+  const selectedGlobalCount = globalFiles.filter((file) => selectedIds.has(file.id)).length;
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -50,7 +50,9 @@ export function FilesTab({
   };
 
   const handleUploadSelected = () => {
-    const fileNames = globalFiles.filter((f) => selectedIds.has(f.id)).map((f) => f.fileName);
+    const fileNames = globalFiles
+      .filter((file) => selectedIds.has(file.id))
+      .map((file) => file.fileName);
     if (fileNames.length > 0) {
       onUploadSelected(fileNames);
       setSelectedIds(new Set());

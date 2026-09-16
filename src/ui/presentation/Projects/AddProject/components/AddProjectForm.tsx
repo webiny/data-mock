@@ -35,8 +35,8 @@ export const AddProjectForm = observer(function AddProjectForm({
     void presenter.loadScanRoots();
   }, [presenter]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     const success = await presenter.submit();
     if (success) {
       onSuccess();
@@ -44,7 +44,7 @@ export const AddProjectForm = observer(function AddProjectForm({
   };
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)}>
+    <form onSubmit={(event) => void handleSubmit(event)}>
       <Stack gap="sm">
         {vm.error && (
           <Alert color="red" variant="light">
@@ -77,7 +77,7 @@ export const AddProjectForm = observer(function AddProjectForm({
               description="Absolute path to a Webiny checkout"
               placeholder="/Users/you/work/my-webiny-project"
               value={vm.rootPath}
-              onChange={(e) => presenter.setRootPath(e.currentTarget.value)}
+              onChange={(event) => presenter.setRootPath(event.currentTarget.value)}
             />
           </Tabs.Panel>
 
@@ -91,27 +91,27 @@ export const AddProjectForm = observer(function AddProjectForm({
                 label="API URL"
                 placeholder="https://your-webiny-api.com"
                 value={vm.apiUrl}
-                onChange={(e) => presenter.setApiUrl(e.currentTarget.value)}
+                onChange={(event) => presenter.setApiUrl(event.currentTarget.value)}
               />
               <TextInput
                 label="API Token"
                 placeholder="your-api-token"
                 type="password"
                 value={vm.apiToken}
-                onChange={(e) => presenter.setApiToken(e.currentTarget.value)}
+                onChange={(event) => presenter.setApiToken(event.currentTarget.value)}
               />
               <TextInput
                 label="Tenant"
                 placeholder="root"
                 value={vm.tenant}
-                onChange={(e) => presenter.setTenant(e.currentTarget.value)}
+                onChange={(event) => presenter.setTenant(event.currentTarget.value)}
               />
               <TextInput
                 label="Webiny Version"
                 description="Drives which GraphQL operations are used"
                 placeholder="6.0.0"
                 value={vm.webinyVersion}
-                onChange={(e) => presenter.setWebinyVersion(e.currentTarget.value)}
+                onChange={(event) => presenter.setWebinyVersion(event.currentTarget.value)}
               />
             </Stack>
           </Tabs.Panel>
@@ -138,7 +138,7 @@ export const AddProjectForm = observer(function AddProjectForm({
             label="Name"
             placeholder="My Webiny Project"
             value={vm.name}
-            onChange={(e) => presenter.setName(e.currentTarget.value)}
+            onChange={(event) => presenter.setName(event.currentTarget.value)}
             required
           />
         )}
@@ -201,7 +201,7 @@ const ScanPanel = observer(function ScanPanel({ presenter }: PanelProps) {
           size="xs"
           placeholder="/Users/you/work"
           value={vm.newScanRootPath}
-          onChange={(e) => presenter.setNewScanRootPath(e.currentTarget.value)}
+          onChange={(event) => presenter.setNewScanRootPath(event.currentTarget.value)}
         />
         <Button size="xs" variant="light" onClick={() => void presenter.addScanRoot()}>
           Add root

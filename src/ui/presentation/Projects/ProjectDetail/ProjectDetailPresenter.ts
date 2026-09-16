@@ -187,8 +187,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     private readonly jobsGateway: JobsGateway.Interface,
     private readonly jobsRepository: JobsRepository.Interface,
     private readonly notifications: NotificationService.Interface,
-    urlListStateFactory: URLListStateFactory.Interface,
-    eventBridge: EventBridge.Interface,
+    private readonly urlListStateFactory: URLListStateFactory.Interface,
+    private readonly eventBridge: EventBridge.Interface,
   ) {
     this.entriesListState = urlListStateFactory.create({
       filters: {
@@ -260,15 +260,20 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   public get vm(): IProjectDetailVM {
     const environmentId = this._environmentId;
     const project = this._projectId
-      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
+      ? (this.projectsRepository.projects.find((candidate) => candidate.id === this._projectId) ??
+        null)
       : null;
     const allEnvironmentVMs = (
       this._projectId ? this.environmentsRepository.getEnvironmentsByProjectId(this._projectId) : []
     ).map((environment) => toEnvironmentVM(environment));
     // The selector and every environment-scoped action see only the active ones; the Environments
     // tab reads `archivedEnvironments` to offer Restore.
-    const environmentVMs = allEnvironmentVMs.filter((e) => e.archivedAt === null);
-    const archivedEnvironmentVMs = allEnvironmentVMs.filter((e) => e.archivedAt !== null);
+    const environmentVMs = allEnvironmentVMs.filter(
+      (environment) => environment.archivedAt === null,
+    );
+    const archivedEnvironmentVMs = allEnvironmentVMs.filter(
+      (environment) => environment.archivedAt !== null,
+    );
     const currentEnvironmentVM =
       environmentVMs.find((environment) => environment.id === environmentId) ?? null;
 
@@ -347,56 +352,56 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       showEnvironmentSelector: environmentVMs.length > 1,
       environmentError: this._environmentError,
       loadError: this._loadError,
-      tenants: tenants.map((t) => ({
-        tenantId: t.tenantId,
-        name: t.name,
-        discoveredAt: t.discoveredAt,
+      tenants: tenants.map((tenant) => ({
+        tenantId: tenant.tenantId,
+        name: tenant.name,
+        discoveredAt: tenant.discoveredAt,
       })),
       groups: Array.from(groupMap.values()),
-      models: models.map((m) => ({
-        modelId: m.modelId,
-        name: m.name,
-        groupSlug: m.groupSlug,
-        fieldCount: m.fields.length,
-        fields: m.fields,
-        syncedAt: m.syncedAt,
+      models: models.map((model) => ({
+        modelId: model.modelId,
+        name: model.name,
+        groupSlug: model.groupSlug,
+        fieldCount: model.fields.length,
+        fields: model.fields,
+        syncedAt: model.syncedAt,
       })),
-      seedJobs: seedJobs.map((j) => ({
-        id: j.id,
-        status: j.status,
-        modelCount: j.config.models.length,
-        entriesCreated: j.result?.created ?? 0,
-        errorCount: j.result?.errors.length ?? 0,
-        createdAt: j.createdAt,
+      seedJobs: seedJobs.map((seedJob) => ({
+        id: seedJob.id,
+        status: seedJob.status,
+        modelCount: seedJob.config.models.length,
+        entriesCreated: seedJob.result?.created ?? 0,
+        errorCount: seedJob.result?.errors.length ?? 0,
+        createdAt: seedJob.createdAt,
       })),
       seedJobsTotalCount: this._projectId ? this.seedingRepository.totalSeedJobs : 0,
       seedJobsPage: this.seedJobsListState.page,
       seedJobsStatusFilter: this.seedJobsListState.get("seedStatus") || null,
-      templates: templates.map((t) => ({
-        id: t.id,
-        name: t.name,
-        config: t.config,
+      templates: templates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        config: template.config,
       })),
-      files: files.map((f) => ({
-        id: f.id,
-        fileName: f.fileName,
-        fileType: f.fileType,
-        fileSize: f.fileSize,
-        tenant: f.tenant,
-        uploadedAt: f.uploadedAt,
+      files: files.map((file) => ({
+        id: file.id,
+        fileName: file.fileName,
+        fileType: file.fileType,
+        fileSize: file.fileSize,
+        tenant: file.tenant,
+        uploadedAt: file.uploadedAt,
       })),
       mergedFiles,
-      entries: entries.map((e) => ({
-        id: e.id,
-        modelId: e.modelId,
-        tenant: e.tenant,
-        status: e.status,
-        entryId: e.entryId,
-        entryData: e.entryData,
-        requestData: e.requestData,
-        responseData: e.responseData,
-        error: e.error,
-        createdAt: e.createdAt,
+      entries: entries.map((entry) => ({
+        id: entry.id,
+        modelId: entry.modelId,
+        tenant: entry.tenant,
+        status: entry.status,
+        entryId: entry.entryId,
+        entryData: entry.entryData,
+        requestData: entry.requestData,
+        responseData: entry.responseData,
+        error: entry.error,
+        createdAt: entry.createdAt,
       })),
       entriesTotalCount: environmentId ? this.entriesRepository.totalEntries : 0,
       entriesPage: this.entriesListState.page,
@@ -404,14 +409,14 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       entriesModelFilter: this.entriesListState.get("modelId") || null,
       entriesTenantFilter: this.entriesListState.get("tenant") || null,
       entriesStatusFilter: this.entriesListState.get("status") || null,
-      syncLog: syncLogs.map((l) => ({
-        id: l.id,
-        type: l.type,
-        status: l.status,
-        message: l.message,
-        request: l.request,
-        response: l.response,
-        createdAt: l.createdAt,
+      syncLog: syncLogs.map((log) => ({
+        id: log.id,
+        type: log.type,
+        status: log.status,
+        message: log.message,
+        request: log.request,
+        response: log.response,
+        createdAt: log.createdAt,
       })),
       syncLogsTotalCount: environmentId ? this.syncLogsRepository.totalLogs : 0,
       syncLogsPage: this.syncLogsListState.page,
@@ -1270,7 +1275,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return null;
     }
     return (
-      this.projectsRepository.projects.find((p) => p.id === this._projectId)?.versionMajor ?? null
+      this.projectsRepository.projects.find((project) => project.id === this._projectId)
+        ?.versionMajor ?? null
     );
   }
 
@@ -1409,27 +1415,27 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     projectFiles: ProjectFile[],
     localFiles: ILocalFileVM[],
   ): IMergedFileVM[] => {
-    const projectFileNames = new Set(projectFiles.map((f) => f.fileName));
+    const projectFileNames = new Set(projectFiles.map((file) => file.fileName));
 
-    const projectMerged: IMergedFileVM[] = projectFiles.map((f) => ({
-      id: f.id,
-      fileName: f.fileName,
-      fileType: f.fileType,
-      fileSize: f.fileSize,
+    const projectMerged: IMergedFileVM[] = projectFiles.map((file) => ({
+      id: file.id,
+      fileName: file.fileName,
+      fileType: file.fileType,
+      fileSize: file.fileSize,
       source: "project",
-      thumbnailUrl: f.fileUrl,
+      thumbnailUrl: file.fileUrl,
       badges: [{ label: "project", color: "blue" }],
     }));
 
     const globalMerged: IMergedFileVM[] = localFiles
-      .filter((f) => !projectFileNames.has(f.fileName))
-      .map((f) => ({
-        id: f.fileName,
-        fileName: f.fileName,
-        fileType: f.fileType,
-        fileSize: f.fileSize,
+      .filter((file) => !projectFileNames.has(file.fileName))
+      .map((file) => ({
+        id: file.fileName,
+        fileName: file.fileName,
+        fileType: file.fileType,
+        fileSize: file.fileSize,
         source: "global",
-        thumbnailUrl: `/api/files/local/${encodeURIComponent(f.fileName)}/content`,
+        thumbnailUrl: `/api/files/local/${encodeURIComponent(file.fileName)}/content`,
         badges: [{ label: "global", color: "gray" }],
       }));
 

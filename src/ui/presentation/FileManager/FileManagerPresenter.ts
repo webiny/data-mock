@@ -29,7 +29,7 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
     private readonly localFilesGateway: LocalFilesGateway.Interface,
     private readonly localFilesRepository: LocalFilesRepository.Interface,
     private readonly notifications: NotificationService.Interface,
-    eventBridge: EventBridge.Interface,
+    private readonly eventBridge: EventBridge.Interface,
   ) {
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
     makeAutoObservable(this);

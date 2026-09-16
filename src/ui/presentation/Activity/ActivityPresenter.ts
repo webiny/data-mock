@@ -30,8 +30,8 @@ class ActivityPresenterImpl implements Abstraction.Interface {
   public constructor(
     private readonly jobsGateway: JobsGateway.Interface,
     private readonly notifications: NotificationService.Interface,
-    urlListStateFactory: URLListStateFactory.Interface,
-    eventBridge: EventBridge.Interface,
+    private readonly urlListStateFactory: URLListStateFactory.Interface,
+    private readonly eventBridge: EventBridge.Interface,
   ) {
     this.listState = urlListStateFactory.create({
       filters: {

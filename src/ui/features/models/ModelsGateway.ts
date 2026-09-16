@@ -20,6 +20,7 @@ class ModelsGatewayImpl implements Abstraction.Interface {
 
     const models: ProjectModel[] = result.value.models.items.map((item) => ({
       ...item,
+      // Boundary cast: the shared response schema does not type `plugin`/`fields` this precisely.
       plugin: (item as Record<string, unknown>).plugin === true,
       fields: item.fields as ApiCmsModelField[],
     }));

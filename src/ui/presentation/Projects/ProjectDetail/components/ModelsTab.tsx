@@ -26,7 +26,7 @@ export const ModelsTab = observer(function ModelsTab({ groups, models }: ModelsT
     <Stack gap="sm">
       <Accordion variant="separated">
         {pageGroups.map((group) => {
-          const groupModels = models.filter((m) => m.groupSlug === group.slug);
+          const groupModels = models.filter((model) => model.groupSlug === group.slug);
           return (
             <Accordion.Item key={group.slug} value={group.slug}>
               <Accordion.Control>
@@ -39,8 +39,8 @@ export const ModelsTab = observer(function ModelsTab({ groups, models }: ModelsT
               </Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="xs">
-                  {groupModels.map((m) => (
-                    <ModelItem key={m.modelId} model={m} onSelect={setSelectedModel} />
+                  {groupModels.map((model) => (
+                    <ModelItem key={model.modelId} model={model} onSelect={setSelectedModel} />
                   ))}
                 </Stack>
               </Accordion.Panel>

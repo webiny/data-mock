@@ -37,7 +37,8 @@ export const TemplatesTab = observer(function TemplatesTab({
                 </Badge>
                 <Text size="xs" c="dimmed">
                   {template.config.models.length} models,{" "}
-                  {template.config.models.reduce((sum, m) => sum + m.amount, 0)} total entries
+                  {template.config.models.reduce((sum, model) => sum + model.amount, 0)} total
+                  entries
                 </Text>
               </Group>
             </Stack>

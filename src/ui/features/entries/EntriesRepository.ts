@@ -24,12 +24,12 @@ class EntriesRepositoryImpl implements Abstraction.Interface {
   }
 
   public clearEntries(environmentId: string): void {
-    this._entries = this._entries.filter((e) => e.environmentId !== environmentId);
+    this._entries = this._entries.filter((entry) => entry.environmentId !== environmentId);
     this._total = 0;
   }
 
   public getEntriesByEnvironmentId(environmentId: string): SeedEntry[] {
-    return this._entries.filter((e) => e.environmentId === environmentId);
+    return this._entries.filter((entry) => entry.environmentId === environmentId);
   }
 }
 

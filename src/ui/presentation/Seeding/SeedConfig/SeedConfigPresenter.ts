@@ -73,7 +73,9 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
    * here, so "select all" cannot reach one by another route.
    */
   private get seedableStates(): ModelState[] {
-    return this._modelStates.filter((ms) => !ms.model.modelId.startsWith(SYSTEM_MODEL_PREFIX));
+    return this._modelStates.filter(
+      (modelState) => !modelState.model.modelId.startsWith(SYSTEM_MODEL_PREFIX),
+    );
   }
 
   public get vm(): ISeedConfigVM {
@@ -81,37 +83,37 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
 
     const groupMap = new Map<string, { slug: string; name: string; models: ModelState[] }>();
 
-    for (const ms of seedableStates) {
-      const slug = ms.model.groupSlug;
+    for (const modelState of seedableStates) {
+      const slug = modelState.model.groupSlug;
       const existing = groupMap.get(slug);
       if (existing) {
-        existing.models.push(ms);
+        existing.models.push(modelState);
       } else {
-        groupMap.set(slug, { slug, name: slug, models: [ms] });
+        groupMap.set(slug, { slug, name: slug, models: [modelState] });
       }
     }
 
-    const groups: IGroupConfigVM[] = Array.from(groupMap.values()).map((g) => ({
-      slug: g.slug,
-      name: g.name,
-      allSelected: g.models.every((ms) => ms.selected),
-      models: g.models.map((ms): IModelConfigVM => ({
-        modelId: ms.model.modelId,
-        name: ms.model.name,
-        groupSlug: ms.model.groupSlug,
-        selected: ms.selected,
-        plugin: ms.model.plugin,
-        amount: ms.hasOverride ? ms.amount : null,
-        revisions: ms.hasOverride ? ms.revisions : null,
-        hasOverride: ms.hasOverride,
+    const groups: IGroupConfigVM[] = Array.from(groupMap.values()).map((group) => ({
+      slug: group.slug,
+      name: group.name,
+      allSelected: group.models.every((modelState) => modelState.selected),
+      models: group.models.map((modelState): IModelConfigVM => ({
+        modelId: modelState.model.modelId,
+        name: modelState.model.name,
+        groupSlug: modelState.model.groupSlug,
+        selected: modelState.selected,
+        plugin: modelState.model.plugin,
+        amount: modelState.hasOverride ? modelState.amount : null,
+        revisions: modelState.hasOverride ? modelState.revisions : null,
+        hasOverride: modelState.hasOverride,
       })),
     }));
 
     return {
       project: this._projectId ? { id: this._projectId, name: this._projectName ?? "" } : null,
-      tenants: this._tenants.map((t) => ({
-        tenantId: t.tenantId,
-        name: t.name,
+      tenants: this._tenants.map((tenant) => ({
+        tenantId: tenant.tenantId,
+        name: tenant.name,
       })),
       groups,
       selectedTenant: this._selectedTenant,
@@ -148,9 +150,9 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
 
         this._projectName = result.value.projectName;
         this._tenants = result.value.tenants;
-        this._modelStates = result.value.models.map((m) => ({
-          model: m,
-          selected: !m.modelId.startsWith(SYSTEM_MODEL_PREFIX),
+        this._modelStates = result.value.models.map((model) => ({
+          model,
+          selected: !model.modelId.startsWith(SYSTEM_MODEL_PREFIX),
           amount: null,
           revisions: null,
           hasOverride: false,
@@ -168,29 +170,31 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   public toggleModel = (modelId: string): void => {
-    const state = this._modelStates.find((ms) => ms.model.modelId === modelId);
+    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.selected = !state.selected;
     }
   };
 
   public toggleGroup = (groupSlug: string): void => {
-    const groupModels = this._modelStates.filter((ms) => ms.model.groupSlug === groupSlug);
-    const allSelected = groupModels.every((ms) => ms.selected);
-    for (const ms of groupModels) {
-      ms.selected = !allSelected;
+    const groupModels = this._modelStates.filter(
+      (modelState) => modelState.model.groupSlug === groupSlug,
+    );
+    const allSelected = groupModels.every((modelState) => modelState.selected);
+    for (const modelState of groupModels) {
+      modelState.selected = !allSelected;
     }
   };
 
   public selectAll = (): void => {
-    for (const ms of this.seedableStates) {
-      ms.selected = true;
+    for (const modelState of this.seedableStates) {
+      modelState.selected = true;
     }
   };
 
   public deselectAll = (): void => {
-    for (const ms of this.seedableStates) {
-      ms.selected = false;
+    for (const modelState of this.seedableStates) {
+      modelState.selected = false;
     }
   };
 
@@ -203,7 +207,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   public toggleModelOverride = (modelId: string): void => {
-    const state = this._modelStates.find((ms) => ms.model.modelId === modelId);
+    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.hasOverride = !state.hasOverride;
       if (state.hasOverride) {
@@ -217,14 +221,14 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   public setAmount = (modelId: string, amount: number): void => {
-    const state = this._modelStates.find((ms) => ms.model.modelId === modelId);
+    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.amount = Math.max(1, amount);
     }
   };
 
   public setRevisions = (modelId: string, value: string): void => {
-    const state = this._modelStates.find((ms) => ms.model.modelId === modelId);
+    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.revisions = value;
     }
@@ -278,11 +282,11 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
     }
 
     const selectedModels = this.seedableStates
-      .filter((ms) => ms.selected)
-      .map((ms) => ({
-        modelId: ms.model.modelId,
-        amount: ms.amount ?? this._globalAmount,
-        revisions: parseRevisions(ms.revisions ?? this._globalRevisions),
+      .filter((modelState) => modelState.selected)
+      .map((modelState) => ({
+        modelId: modelState.model.modelId,
+        amount: modelState.amount ?? this._globalAmount,
+        revisions: parseRevisions(modelState.revisions ?? this._globalRevisions),
       }));
 
     if (selectedModels.length === 0) {

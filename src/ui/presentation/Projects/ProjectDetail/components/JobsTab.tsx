@@ -14,6 +14,7 @@ import {
   Title,
 } from "@mantine/core";
 import { Editor } from "@monaco-editor/react";
+import type { OnMount } from "@monaco-editor/react";
 import type { Job } from "~/shared/types.js";
 import { JOB_TYPE_OPTIONS, getJobTypeLabel } from "~/shared/jobs/descriptors.js";
 
@@ -76,7 +77,7 @@ export const JobsTab = observer(function JobsTab({
           placeholder="Type"
           data={[...JOB_TYPE_OPTIONS]}
           value={typeFilter}
-          onChange={(v) => onFilterChange("jobType", v)}
+          onChange={(value) => onFilterChange("jobType", value)}
           clearable
           size="xs"
           w={160}
@@ -85,7 +86,7 @@ export const JobsTab = observer(function JobsTab({
           placeholder="Status"
           data={STATUS_OPTIONS}
           value={statusFilter}
-          onChange={(v) => onFilterChange("jobStatus", v)}
+          onChange={(value) => onFilterChange("jobStatus", value)}
           clearable
           size="xs"
           w={140}
@@ -339,7 +340,7 @@ const JobDetail = observer(function JobDetail({
  * scrolled back through without being yanked to the bottom.
  */
 function LogViewer({ value, follow }: { value: string; follow: boolean }) {
-  const editorRef = useRef<{ revealLine: (line: number) => void } | null>(null);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   useEffect(() => {
     if (!follow || editorRef.current === null) {
@@ -355,7 +356,7 @@ function LogViewer({ value, follow }: { value: string; follow: boolean }) {
       value={value}
       theme="vs-dark"
       onMount={(editor) => {
-        editorRef.current = editor as unknown as { revealLine: (line: number) => void };
+        editorRef.current = editor;
       }}
       options={{
         readOnly: true,

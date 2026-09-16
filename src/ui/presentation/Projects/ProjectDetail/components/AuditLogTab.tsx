@@ -85,8 +85,8 @@ export function AuditLogTab({
 
   const hasFilters = jobFilter || modelFilter || tenantFilter || statusFilter;
 
-  const modelOptions = models.map((m) => ({ value: m.modelId, label: m.name }));
-  const tenantOptions = tenants.map((t) => ({ value: t.tenantId, label: t.name }));
+  const modelOptions = models.map((model) => ({ value: model.modelId, label: model.name }));
+  const tenantOptions = tenants.map((tenant) => ({ value: tenant.tenantId, label: tenant.name }));
 
   return (
     <Stack gap="md">
@@ -106,7 +106,7 @@ export function AuditLogTab({
           placeholder="Model"
           data={modelOptions}
           value={modelFilter}
-          onChange={(v) => onFilterChange("modelId", v)}
+          onChange={(value) => onFilterChange("modelId", value)}
           clearable
           size="xs"
           w={180}
@@ -115,7 +115,7 @@ export function AuditLogTab({
           placeholder="Tenant"
           data={tenantOptions}
           value={tenantFilter}
-          onChange={(v) => onFilterChange("tenant", v)}
+          onChange={(value) => onFilterChange("tenant", value)}
           clearable
           size="xs"
           w={150}
@@ -124,7 +124,7 @@ export function AuditLogTab({
           placeholder="Status"
           data={STATUS_OPTIONS}
           value={statusFilter}
-          onChange={(v) => onFilterChange("status", v)}
+          onChange={(value) => onFilterChange("status", value)}
           clearable
           size="xs"
           w={130}

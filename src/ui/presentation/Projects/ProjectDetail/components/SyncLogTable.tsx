@@ -27,6 +27,7 @@ interface ViewerState {
 
 function extractArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) {
+    // Parse boundary: `value` is raw JSON stored on the sync log, display-only from here.
     return value as T[];
   }
   return [];
@@ -85,12 +86,20 @@ export function SyncLogTable({
   const showFilters = onFilterChange !== undefined;
   const hasFilters = typeFilter || statusFilter;
 
-  const showRequest = (req: RequestEntry) => {
-    setViewer({ title: `Request — ${req.name}`, value: formatJson(req), language: "json" });
+  const showRequest = (request: RequestEntry) => {
+    setViewer({
+      title: `Request — ${request.name}`,
+      value: formatJson(request),
+      language: "json",
+    });
   };
 
-  const showResponse = (resp: ResponseEntry) => {
-    setViewer({ title: `Response — ${resp.name}`, value: formatJson(resp), language: "json" });
+  const showResponse = (response: ResponseEntry) => {
+    setViewer({
+      title: `Response — ${response.name}`,
+      value: formatJson(response),
+      language: "json",
+    });
   };
 
   const showFullDetail = (log: ISyncLogVM) => {
@@ -116,7 +125,7 @@ export function SyncLogTable({
             placeholder="Type"
             data={TYPE_OPTIONS}
             value={typeFilter ?? null}
-            onChange={(v) => onFilterChange!("logType", v)}
+            onChange={(value) => onFilterChange!("logType", value)}
             clearable
             size="xs"
             w={160}
@@ -125,7 +134,7 @@ export function SyncLogTable({
             placeholder="Status"
             data={STATUS_OPTIONS}
             value={statusFilter ?? null}
-            onChange={(v) => onFilterChange!("logStatus", v)}
+            onChange={(value) => onFilterChange!("logStatus", value)}
             clearable
             size="xs"
             w={130}
@@ -179,14 +188,14 @@ export function SyncLogTable({
                     <Table.Td>
                       {requestOps.length > 0 ? (
                         <Stack gap={4}>
-                          {requestOps.map((req) => (
+                          {requestOps.map((request) => (
                             <Button
-                              key={req.name}
+                              key={request.name}
                               variant="light"
                               size="compact-xs"
-                              onClick={() => showRequest(req)}
+                              onClick={() => showRequest(request)}
                             >
-                              {req.name}
+                              {request.name}
                             </Button>
                           ))}
                         </Stack>
@@ -207,14 +216,14 @@ export function SyncLogTable({
                     <Table.Td>
                       {responseOps.length > 0 ? (
                         <Stack gap={4}>
-                          {responseOps.map((resp) => (
+                          {responseOps.map((response) => (
                             <Button
-                              key={resp.name}
+                              key={response.name}
                               variant="light"
                               size="compact-xs"
-                              onClick={() => showResponse(resp)}
+                              onClick={() => showResponse(response)}
                             >
-                              {resp.name}
+                              {response.name}
                             </Button>
                           ))}
                         </Stack>

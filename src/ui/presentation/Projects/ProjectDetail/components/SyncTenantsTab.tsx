@@ -10,7 +10,7 @@ interface SyncTenantsTabProps {
 }
 
 export function SyncTenantsTab({ logs, isSyncing, onSync, onDeleteLog }: SyncTenantsTabProps) {
-  const tenantLogs = logs.filter((l) => l.type === "tenants");
+  const tenantLogs = logs.filter((log) => log.type === "tenants");
 
   return (
     <Stack gap="md">

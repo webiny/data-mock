@@ -10,7 +10,7 @@ interface SyncModelsTabProps {
 }
 
 export function SyncModelsTab({ logs, isSyncing, onSync, onDeleteLog }: SyncModelsTabProps) {
-  const modelLogs = logs.filter((l) => l.type === "models");
+  const modelLogs = logs.filter((log) => log.type === "models");
 
   return (
     <Stack gap="md">

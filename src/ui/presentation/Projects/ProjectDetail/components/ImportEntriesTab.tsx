@@ -19,7 +19,7 @@ export function ImportEntriesTab({
     tenants.length > 0 ? tenants[0]!.tenantId : "",
   );
   const [selectedModels, setSelectedModels] = useState<Set<string>>(
-    new Set(models.map((m) => m.modelId)),
+    new Set(models.map((model) => model.modelId)),
   );
   const toggleModel = (modelId: string) => {
     setSelectedModels((prev) => {
@@ -34,7 +34,7 @@ export function ImportEntriesTab({
   };
 
   const selectAll = () => {
-    setSelectedModels(new Set(models.map((m) => m.modelId)));
+    setSelectedModels(new Set(models.map((model) => model.modelId)));
   };
 
   const deselectAll = () => {
@@ -55,9 +55,9 @@ export function ImportEntriesTab({
       {tenants.length > 0 && (
         <Select
           label="Tenant"
-          data={tenants.map((t) => ({
-            value: t.tenantId,
-            label: `${t.name} (${t.tenantId})`,
+          data={tenants.map((tenant) => ({
+            value: tenant.tenantId,
+            label: `${tenant.name} (${tenant.tenantId})`,
           }))}
           value={selectedTenant}
           onChange={(value) => {

@@ -29,17 +29,17 @@ export const TenantsTab = observer(function TenantsTab({ tenants }: TenantsTabPr
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {pageItems.map((t) => (
-            <Table.Tr key={t.tenantId}>
+          {pageItems.map((tenant) => (
+            <Table.Tr key={tenant.tenantId}>
               <Table.Td>
                 <Badge variant="outline" size="sm">
-                  {t.tenantId}
+                  {tenant.tenantId}
                 </Badge>
               </Table.Td>
-              <Table.Td>{t.name}</Table.Td>
+              <Table.Td>{tenant.name}</Table.Td>
               <Table.Td>
                 <Text size="sm" c="dimmed">
-                  {new Date(t.discoveredAt).toLocaleString()}
+                  {new Date(tenant.discoveredAt).toLocaleString()}
                 </Text>
               </Table.Td>
             </Table.Tr>

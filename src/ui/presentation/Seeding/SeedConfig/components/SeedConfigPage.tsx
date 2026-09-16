@@ -56,7 +56,7 @@ export const SeedConfigPage = observer(function SeedConfigPage({
   }
 
   const selectedCount = vm.groups.reduce(
-    (acc, g) => acc + g.models.filter((m) => m.selected).length,
+    (total, group) => total + group.models.filter((model) => model.selected).length,
     0,
   );
 
@@ -65,9 +65,9 @@ export const SeedConfigPage = observer(function SeedConfigPage({
       {vm.tenants.length > 0 && (
         <Select
           label="Target Tenant"
-          data={vm.tenants.map((t) => ({
-            value: t.tenantId,
-            label: `${t.name} (${t.tenantId})`,
+          data={vm.tenants.map((tenant) => ({
+            value: tenant.tenantId,
+            label: `${tenant.name} (${tenant.tenantId})`,
           }))}
           value={vm.selectedTenant}
           onChange={(value) => {
@@ -93,7 +93,7 @@ export const SeedConfigPage = observer(function SeedConfigPage({
         <TextInput
           label="Revisions"
           value={vm.globalRevisions}
-          onChange={(e) => presenter.setGlobalRevisions(e.currentTarget.value)}
+          onChange={(event) => presenter.setGlobalRevisions(event.currentTarget.value)}
           placeholder="1 or 1-5"
           w={120}
           size="sm"
@@ -110,8 +110,8 @@ export const SeedConfigPage = observer(function SeedConfigPage({
 
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
-              {selectedCount} of {vm.groups.reduce((acc, g) => acc + g.models.length, 0)} models
-              selected
+              {selectedCount} of{" "}
+              {vm.groups.reduce((total, group) => total + group.models.length, 0)} models selected
             </Text>
             <Group gap="xs">
               <Button variant="subtle" size="compact-xs" onClick={() => presenter.selectAll()}>
@@ -123,7 +123,11 @@ export const SeedConfigPage = observer(function SeedConfigPage({
             </Group>
           </Group>
 
-          <Accordion variant="separated" multiple defaultValue={vm.groups.map((g) => g.slug)}>
+          <Accordion
+            variant="separated"
+            multiple
+            defaultValue={vm.groups.map((group) => group.slug)}
+          >
             {vm.groups.map((group) => (
               <Accordion.Item key={group.slug} value={group.slug}>
                 <Accordion.Control>
@@ -136,7 +140,7 @@ export const SeedConfigPage = observer(function SeedConfigPage({
                       <Checkbox
                         checked={group.allSelected}
                         onChange={() => presenter.toggleGroup(group.slug)}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
                         size="xs"
                       />
                     </Group>
@@ -150,8 +154,8 @@ export const SeedConfigPage = observer(function SeedConfigPage({
                         model={model}
                         onToggle={() => presenter.toggleModel(model.modelId)}
                         onToggleOverride={() => presenter.toggleModelOverride(model.modelId)}
-                        onAmountChange={(v) => presenter.setAmount(model.modelId, v)}
-                        onRevisionsChange={(v) => presenter.setRevisions(model.modelId, v)}
+                        onAmountChange={(value) => presenter.setAmount(model.modelId, value)}
+                        onRevisionsChange={(value) => presenter.setRevisions(model.modelId, value)}
                       />
                     ))}
                   </Stack>
@@ -204,7 +208,7 @@ export const SeedConfigPage = observer(function SeedConfigPage({
           label="Include unpublish cycles"
           description="Some entries get published then unpublished (simulates real lifecycle)"
           checked={vm.includeUnpublish}
-          onChange={(e) => presenter.setIncludeUnpublish(e.currentTarget.checked)}
+          onChange={(event) => presenter.setIncludeUnpublish(event.currentTarget.checked)}
         />
       )}
 
@@ -214,7 +218,7 @@ export const SeedConfigPage = observer(function SeedConfigPage({
         label="Dry run"
         description="Generate entries without sending them to Webiny"
         checked={vm.dryRun}
-        onChange={(e) => presenter.setDryRun(e.currentTarget.checked)}
+        onChange={(event) => presenter.setDryRun(event.currentTarget.checked)}
       />
 
       {vm.error && (
@@ -287,7 +291,7 @@ export const SeedConfigPage = observer(function SeedConfigPage({
                 label="Batch size"
                 description="Concurrent mutations per batch"
                 value={vm.batchSize}
-                onChange={(v) => presenter.setBatchSize(typeof v === "number" ? v : 1)}
+                onChange={(value) => presenter.setBatchSize(typeof value === "number" ? value : 1)}
                 min={1}
                 max={50}
                 size="sm"
@@ -382,7 +386,7 @@ function ModelConfigRow({
           <TextInput
             label="Revisions"
             value={model.revisions ?? "1"}
-            onChange={(e) => onRevisionsChange(e.currentTarget.value)}
+            onChange={(event) => onRevisionsChange(event.currentTarget.value)}
             placeholder="1 or 1-5"
             w={90}
             size="xs"

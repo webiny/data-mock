@@ -39,7 +39,7 @@ class SyncLogsGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok({
-      logs: result.value.syncLogs.items as SyncLog[],
+      logs: result.value.syncLogs.items,
       total: result.value.syncLogs.total,
     });
   }

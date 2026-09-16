@@ -18,11 +18,14 @@ class LocalFilesRepositoryImpl implements Abstraction.Interface {
   }
 
   public addFile(file: ILocalFileVM): void {
-    this._files = [file, ...this._files.filter((f) => f.fileName !== file.fileName)];
+    this._files = [
+      file,
+      ...this._files.filter((existingFile) => existingFile.fileName !== file.fileName),
+    ];
   }
 
   public removeFile(fileName: string): void {
-    this._files = this._files.filter((f) => f.fileName !== fileName);
+    this._files = this._files.filter((file) => file.fileName !== fileName);
   }
 }
 

@@ -18,7 +18,7 @@ class ModelsRepositoryImpl implements Abstraction.Interface {
   }
 
   public getModelsByEnvironmentId(environmentId: string): ProjectModel[] {
-    return this._models.filter((m) => m.environmentId === environmentId);
+    return this._models.filter((model) => model.environmentId === environmentId);
   }
 }
 

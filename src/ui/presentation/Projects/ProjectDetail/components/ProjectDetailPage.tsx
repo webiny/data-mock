@@ -365,8 +365,8 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 models={vm.models}
                 tenants={vm.tenants}
                 isClearing={isClearingEntries}
-                onPageChange={(p) => void presenter.loadEntriesPage(p)}
-                onFilterChange={(k, v) => void presenter.setEntriesFilter(k, v)}
+                onPageChange={(page) => void presenter.loadEntriesPage(page)}
+                onFilterChange={(key, value) => void presenter.setEntriesFilter(key, value)}
                 onClearFilter={() => void presenter.clearEntriesFilter()}
                 onClear={() => void presenter.clearEntries()}
               />
@@ -377,8 +377,8 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 totalCount={vm.seedJobsTotalCount}
                 page={vm.seedJobsPage}
                 statusFilter={vm.seedJobsStatusFilter}
-                onPageChange={(p) => presenter.loadSeedJobsPage(p)}
-                onFilterChange={(k, v) => presenter.setSeedJobsFilter(k, v)}
+                onPageChange={(page) => presenter.loadSeedJobsPage(page)}
+                onFilterChange={(key, value) => presenter.setSeedJobsFilter(key, value)}
                 onClearFilter={() => presenter.clearSeedJobsFilter()}
                 onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
               />
@@ -390,8 +390,8 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 page={vm.jobsPage}
                 typeFilter={vm.jobsTypeFilter}
                 statusFilter={vm.jobsStatusFilter}
-                onPageChange={(p) => presenter.loadJobsPage(p)}
-                onFilterChange={(k, v) => presenter.setJobsFilter(k, v)}
+                onPageChange={(page) => presenter.loadJobsPage(page)}
+                onFilterChange={(key, value) => presenter.setJobsFilter(key, value)}
                 onClearFilter={() => presenter.clearJobsFilter()}
                 onCancel={(jobId) => void presenter.cancelJob(jobId)}
                 liveLogsFor={(jobId) => presenter.liveLogsFor(jobId)}
@@ -404,8 +404,8 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 page={vm.syncLogsPage}
                 typeFilter={vm.syncLogsTypeFilter}
                 statusFilter={vm.syncLogsStatusFilter}
-                onPageChange={(p) => presenter.loadSyncLogsPage(p)}
-                onFilterChange={(k, v) => presenter.setSyncLogsFilter(k, v)}
+                onPageChange={(page) => presenter.loadSyncLogsPage(page)}
+                onFilterChange={(key, value) => presenter.setSyncLogsFilter(key, value)}
                 onClearFilter={() => presenter.clearSyncLogsFilter()}
                 onDelete={(id) => void presenter.deleteSyncLog(id)}
               />

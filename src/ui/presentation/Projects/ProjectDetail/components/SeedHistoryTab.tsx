@@ -57,7 +57,7 @@ export const SeedHistoryTab = observer(function SeedHistoryTab({
           placeholder="Status"
           data={STATUS_OPTIONS}
           value={statusFilter}
-          onChange={(v) => onFilterChange("seedStatus", v)}
+          onChange={(value) => onFilterChange("seedStatus", value)}
           clearable
           size="xs"
           w={140}

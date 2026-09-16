@@ -44,7 +44,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     private readonly environmentsGateway: EnvironmentsGateway.Interface,
     private readonly environmentsRepository: EnvironmentsRepository.Interface,
     private readonly notificationService: NotificationService.Interface,
-    jobsGateway: JobsGateway.Interface,
+    private readonly jobsGateway: JobsGateway.Interface,
   ) {
     this.syncPreviewState = new SyncPreviewState(
       environmentsGateway,
@@ -55,7 +55,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   }
 
   public get vm(): ProjectListVM {
-    const all = this.projectsRepository.projects.map((p) => this.toItem(p));
+    const all = this.projectsRepository.projects.map((project) => this.toItem(project));
     const projects = all.filter((project) => project.archivedAt === null);
     const archivedProjects = all.filter((project) => project.archivedAt !== null);
 
@@ -99,7 +99,9 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         return;
       }
       const projects = this.projectsRepository.projects;
-      const loaded = await Promise.all(projects.map((p) => this.loadEnvironments(p.id)));
+      const loaded = await Promise.all(
+        projects.map((project) => this.loadEnvironments(project.id)),
+      );
 
       /**
        * Reported once for the whole pass rather than per project: a server that is down fails

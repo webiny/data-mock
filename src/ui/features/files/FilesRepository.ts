@@ -22,11 +22,11 @@ class FilesRepositoryImpl implements Abstraction.Interface {
   };
 
   public removeFile = (id: string): void => {
-    this._files = this._files.filter((f) => f.id !== id);
+    this._files = this._files.filter((file) => file.id !== id);
   };
 
   public getFilesByEnvironmentId = (environmentId: string): ProjectFile[] => {
-    return this._files.filter((f) => f.environmentId === environmentId);
+    return this._files.filter((file) => file.environmentId === environmentId);
   };
 }
 

@@ -16,8 +16,8 @@ class FetchHTTPClientImpl implements HTTPClient.Interface {
   ): Promise<Result<TResponse, HTTPError>> {
     const stringParams: Record<string, string> = {};
     if ("params" in args && args.params) {
-      for (const [k, v] of Object.entries(args.params)) {
-        stringParams[k] = String(v);
+      for (const [key, value] of Object.entries(args.params)) {
+        stringParams[key] = String(value);
       }
     }
     const path = interpolatePath(route.path, stringParams);
@@ -25,13 +25,13 @@ class FetchHTTPClientImpl implements HTTPClient.Interface {
 
     if ("query" in args && args.query) {
       const search = new URLSearchParams();
-      for (const [k, v] of Object.entries(args.query as Record<string, string | string[]>)) {
-        if (Array.isArray(v)) {
-          for (const item of v) {
-            search.append(k, item);
+      for (const [key, value] of Object.entries(args.query as Record<string, string | string[]>)) {
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            search.append(key, item);
           }
         } else {
-          search.set(k, v);
+          search.set(key, value);
         }
       }
       const qs = search.toString();
@@ -83,6 +83,7 @@ class FetchHTTPClientImpl implements HTTPClient.Interface {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
+        // Parse boundary: raw JSON error body from the API.
         const errorData = errorBody as {
           error?: { code?: string; message?: string; data?: unknown };
         };
@@ -96,11 +97,16 @@ class FetchHTTPClientImpl implements HTTPClient.Interface {
         );
       }
 
+      // Parse boundary: raw JSON response body from the API.
       const data = (await response.json()) as T;
       return Result.ok(data);
-    } catch (err) {
+    } catch (error) {
       return Result.fail(
-        new HTTPError(err instanceof Error ? err.message : "Network error", 0, "HTTP/NetworkError"),
+        new HTTPError(
+          error instanceof Error ? error.message : "Network error",
+          0,
+          "HTTP/NetworkError",
+        ),
       );
     }
   }
