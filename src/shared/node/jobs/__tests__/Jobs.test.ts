@@ -15,10 +15,13 @@ import type { FastifyInstance } from "fastify";
 describe("Jobs System", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
-    projectId = (await createTestProject(tc)).projectId;
+    const project = await createTestProject(tc);
+    projectId = project.projectId;
+    environmentId = project.environmentId;
   });
 
   afterEach(() => {
@@ -167,6 +170,27 @@ describe("Jobs System", () => {
       expect(job!.config).toBe(JSON.stringify(config));
     });
 
+    it("narrows a list to one environment, leaving the project's other jobs out", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      const scoped = await worker.enqueue({ projectId, environmentId, type: "seed" });
+      await worker.enqueue({ projectId, type: "sync-system" });
+
+      const result = await worker.listJobs({ environmentId });
+
+      expect(result.total).toBe(1);
+      expect(result.jobs.map((job) => job.id)).toEqual([scoped]);
+    });
+
+    it("reads a job whose result is not valid JSON as having none", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      const id = await worker.enqueue({ projectId, type: "sync-preview" });
+      // Written by an older build, or hand-edited: it must not take the whole row down.
+      tc.databaseClient.db.update(jobs).set({ result: "{not json" }).where(eq(jobs.id, id)).run();
+
+      const job = await worker.getJob(id);
+      expect(job!.result).toBeNull();
+    });
+
     it("should recover stale jobs on startup", async () => {
       const worker = tc.container.resolve(JobWorker);
       const id1 = await worker.enqueue({ projectId, type: "seed" });
@@ -186,46 +210,26 @@ describe("Jobs System", () => {
   });
 
   describe("JobExecutorRegistry", () => {
-    it("should resolve seed executor", () => {
+    it("resolves every job type to the executor that declares it", () => {
       const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("seed");
-      expect(executor.type).toBe("seed");
-    });
 
-    it("should resolve pull-tenants executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("pull-tenants");
-      expect(executor.type).toBe("pull-tenants");
-    });
+      const types = [
+        "seed",
+        "pull-tenants",
+        "pull-models",
+        "cleanup",
+        "import",
+        "upload-files",
+        "pull-picsum",
+        "sync-system",
+        "sync-preview",
+        "deploy",
+        "destroy",
+      ];
 
-    it("should resolve pull-models executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("pull-models");
-      expect(executor.type).toBe("pull-models");
-    });
-
-    it("should resolve cleanup executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("cleanup");
-      expect(executor.type).toBe("cleanup");
-    });
-
-    it("should resolve import executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("import");
-      expect(executor.type).toBe("import");
-    });
-
-    it("should resolve upload-files executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("upload-files");
-      expect(executor.type).toBe("upload-files");
-    });
-
-    it("should resolve pull-picsum executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("pull-picsum");
-      expect(executor.type).toBe("pull-picsum");
+      for (const type of types) {
+        expect(registry.getExecutor(type).type).toBe(type);
+      }
     });
 
     it("should throw for unknown executor type", () => {

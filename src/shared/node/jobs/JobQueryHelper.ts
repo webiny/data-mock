@@ -3,10 +3,7 @@ import type { SQL } from "drizzle-orm";
 import type { JobWorker } from "./abstractions/JobWorker.js";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { jobs } from "~/shared/node/db/schema.js";
-import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
 import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
-
-const JOB_WAIT_POLL_INTERVAL_MS = 200;
 
 const JOB_SORT_COLUMNS = {
   createdAt: jobs.createdAt,
@@ -96,36 +93,5 @@ export class JobQueryHelper {
       .all();
 
     return { jobs: rows.map(toJob), total };
-  }
-
-  public async waitForJob(jobId: string, signal?: AbortSignal): Promise<JobWorker.Job> {
-    while (true) {
-      if (signal?.aborted) {
-        throw new Error("Job wait aborted");
-      }
-      const job = await this.getJob(jobId);
-      if (!job) {
-        throw new Error(`Job not found: ${jobId}`);
-      }
-      if (TERMINAL_JOB_STATUSES.has(job.status)) {
-        return job;
-      }
-      await new Promise<void>((resolve, reject) => {
-        let onAbort: (() => void) | undefined;
-        const timer = setTimeout(() => {
-          if (signal && onAbort) {
-            signal.removeEventListener("abort", onAbort);
-          }
-          resolve();
-        }, JOB_WAIT_POLL_INTERVAL_MS);
-        if (signal) {
-          onAbort = (): void => {
-            clearTimeout(timer);
-            reject(new Error("Job wait aborted"));
-          };
-          signal.addEventListener("abort", onAbort, { once: true });
-        }
-      });
-    }
   }
 }
