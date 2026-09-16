@@ -263,7 +263,6 @@ export const jobs = sqliteTable("jobs", {
   result: text("result"),
   progress: integer("progress"),
   progressLabel: text("progress_label"),
-  parentJobId: text("parent_job_id"),
   startedAt: integer("started_at"),
   completedAt: integer("completed_at"),
   createdAt: integer("created_at").notNull(),

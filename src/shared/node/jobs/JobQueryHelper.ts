@@ -32,7 +32,6 @@ function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
     result: row.result === null ? null : safeParse(row.result),
     progress: row.progress,
     progressLabel: row.progressLabel,
-    parentJobId: row.parentJobId,
     startedAt: row.startedAt,
     completedAt: row.completedAt,
     createdAt: row.createdAt,

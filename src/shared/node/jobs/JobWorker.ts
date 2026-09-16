@@ -54,7 +54,6 @@ class JobWorkerImpl implements Abstraction.Interface {
         type: input.type,
         status: "pending",
         config: input.config ? JSON.stringify(input.config) : null,
-        parentJobId: input.parentJobId ?? null,
         createdAt: Date.now(),
       })
       .run();

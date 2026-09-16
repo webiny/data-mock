@@ -295,7 +295,6 @@ export interface Job {
   result: unknown;
   progress: number | null;
   progressLabel: string | null;
-  parentJobId: string | null;
   startedAt: number | null;
   completedAt: number | null;
   createdAt: number;

@@ -13,7 +13,6 @@ export interface IJob {
   result: unknown;
   progress: number | null;
   progressLabel: string | null;
-  parentJobId: string | null;
   startedAt: number | null;
   completedAt: number | null;
   createdAt: number;
@@ -28,7 +27,6 @@ export interface ICreateJobInput {
   environmentId?: string;
   type: JobType;
   config?: Record<string, unknown>;
-  parentJobId?: string;
 }
 
 export interface IListJobsInput {

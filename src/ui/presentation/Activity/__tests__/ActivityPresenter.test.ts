@@ -23,7 +23,6 @@ function makeJob(overrides: Record<string, unknown> = {}) {
     result: null,
     progress: null,
     progressLabel: null,
-    parentJobId: null,
     startedAt: null,
     completedAt: null,
     createdAt: 1,

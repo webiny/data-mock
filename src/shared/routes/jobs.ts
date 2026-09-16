@@ -13,7 +13,6 @@ export const jobSchema = z.object({
   result: z.unknown().nullable(),
   progress: z.number().nullable(),
   progressLabel: z.string().nullable(),
-  parentJobId: z.string().nullable(),
   startedAt: z.number().nullable(),
   completedAt: z.number().nullable(),
   createdAt: z.number(),
