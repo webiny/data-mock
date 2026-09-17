@@ -255,9 +255,8 @@ describe("Seeding Feature", () => {
 
     it("should handle HTTP errors gracefully", async () => {
       const mockHttpClient = createMockHttpClient();
-      vi.mocked(mockHttpClient.post).mockResolvedValue(
-        createMockResponse(500, "Internal Server Error"),
-      );
+      // 400, not 500: a 5xx is retried, and this test is about reporting rather than retrying.
+      vi.mocked(mockHttpClient.post).mockResolvedValue(createMockResponse(400, "Bad Request"));
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
@@ -277,6 +276,77 @@ describe("Seeding Feature", () => {
           expect(result.value.created).toBe(0);
         }
       } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("sends the entry again after a gateway error, and keeps the entry it got", async () => {
+      const mockHttpClient = createMockHttpClient();
+      const created = createMockResponse(200, {
+        data: {
+          createArticle: {
+            data: { id: "entry-1", entryId: "entry-1", title: "Test", count: 42 },
+            error: null,
+          },
+        },
+      });
+      vi.mocked(mockHttpClient.post)
+        .mockResolvedValueOnce(createMockResponse(503, "Service Unavailable"))
+        .mockResolvedValue(created);
+
+      vi.useFakeTimers();
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const pending = tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
+        });
+
+        // Walk past the backoff rather than waiting it out.
+        await vi.advanceTimersByTimeAsync(2000);
+        const result = await pending;
+
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.created).toBe(1);
+        expect(result.isOk() && result.value.errors).toHaveLength(0);
+      } finally {
+        vi.useRealTimers();
+        tc.cleanup();
+      }
+    });
+
+    it("fails one entry, not the whole run, when the connection drops", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockRejectedValue(new Error("socket hang up"));
+
+      vi.useFakeTimers();
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const pending = tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
+        });
+
+        await vi.advanceTimersByTimeAsync(20000);
+        const result = await pending;
+
+        /**
+         * A thrown request used to escape sendMutation entirely: the batch's Promise.all rejected,
+         * the outer catch marked the run FATAL, and one dropped socket ended a seed of ten
+         * thousand entries.
+         */
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.errors[0]?.message).toContain("socket hang up");
+      } finally {
+        vi.useRealTimers();
         tc.cleanup();
       }
     });
@@ -314,9 +384,7 @@ describe("Seeding Feature", () => {
 
     it("says how far it got when the first failure ends a model", async () => {
       const mockHttpClient = createMockHttpClient();
-      vi.mocked(mockHttpClient.post).mockResolvedValue(
-        createMockResponse(500, "Internal Server Error"),
-      );
+      vi.mocked(mockHttpClient.post).mockResolvedValue(createMockResponse(400, "Bad Request"));
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {

@@ -49,13 +49,27 @@ interface EntryMutationResult {
   entryId: string;
   request: EntryMutationRequest;
   responseBody: string | null;
-  httpStatus: number;
+  /** Null when the request never got an answer at all — a dropped connection, a refused socket. */
+  httpStatus: number | null;
   status: "created" | "failed";
   error: string | null;
 }
 
 interface GraphQLOperation {
   getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
+}
+
+const MUTATION_MAX_RETRIES = 3;
+
+/**
+ * Statuses worth sending the same entry again for: a rate limit, and the gateway errors a CMS
+ * emits while it is restarting or under load. A 4xx other than 429 is the request's own fault and
+ * will fail identically every time, so retrying it only slows the run down.
+ */
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function isRetryableStatus(status: number): boolean {
+  return RETRYABLE_STATUSES.has(status);
 }
 
 function resolveRevisionCount(revisions: Revisions): number {
@@ -515,23 +529,50 @@ class SeedServiceImpl implements Abstraction.Interface {
     };
     const body = JSON.stringify({ query: mutation, variables });
 
-    let response: IHttpResponse;
-    let rawBody: string;
-    const maxRetries = 3;
+    let response: IHttpResponse | null = null;
+    let rawBody = "";
+    let thrown: Error | null = null;
 
     for (let attempt = 0; ; attempt++) {
-      response = await this.cmsManageClient.post(apiUrl, body, headers);
-      rawBody = await response.text().catch(() => "");
+      thrown = null;
 
-      if (response.status === 429 && attempt < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
-        this.logger.warn(
-          `HTTP ${response.status} on attempt ${attempt + 1}, retrying in ${delay}ms...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
+      try {
+        response = await this.cmsManageClient.post(apiUrl, body, headers);
+        rawBody = await response.text().catch(() => "");
+      } catch (error) {
+        /**
+         * A dropped connection used to escape this method entirely: the batch's `Promise.all`
+         * rejected, the outer catch marked the whole run FATAL, and one bad socket ended a seed of
+         * ten thousand entries. It is now retried like any other transient failure, and if it
+         * keeps failing it fails this entry alone.
+         */
+        response = null;
+        thrown = error instanceof Error ? error : new Error(String(error));
       }
-      break;
+
+      const retryable =
+        thrown !== null || (response !== null && isRetryableStatus(response.status));
+      if (!retryable || attempt >= MUTATION_MAX_RETRIES) {
+        break;
+      }
+
+      const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+      this.logger.warn(
+        `${thrown === null ? `HTTP ${response?.status}` : thrown.message} on attempt ${attempt + 1}, retrying in ${delay}ms...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    if (response === null) {
+      const message = thrown?.message ?? "the request could not be sent";
+      return {
+        entryId: "",
+        request,
+        responseBody: "",
+        httpStatus: null,
+        status: "failed",
+        error: `Request failed: ${message}`,
+      };
     }
 
     if (response.status !== 200) {
