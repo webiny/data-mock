@@ -169,9 +169,19 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onCheck={() => void presenter.checkHealth()}
               />
             </Group>
+            {/*
+              Both, not one or the other. The API URL used to replace the checkout path, so the
+              directory a project lives in — the thing that says which of several checkouts this
+              is — disappeared the moment an environment was deployed.
+            */}
             <Text size="sm" c="dimmed">
-              {vm.currentEnvironment?.apiUrl ?? project.rootPath ?? "no local checkout"}
+              {project.rootPath ?? "no local checkout"}
             </Text>
+            {vm.currentEnvironment?.apiUrl && (
+              <Text size="sm" c="dimmed">
+                {vm.currentEnvironment.apiUrl}
+              </Text>
+            )}
             {vm.environmentError && (
               <Text size="sm" c="orange">
                 {vm.environmentError}
