@@ -75,25 +75,25 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@clack/core@npm:1.5.0":
-  version: 1.5.0
-  resolution: "@clack/core@npm:1.5.0"
+"@clack/core@npm:1.5.1":
+  version: 1.5.1
+  resolution: "@clack/core@npm:1.5.1"
   dependencies:
     fast-wrap-ansi: "npm:^0.2.0"
     sisteransi: "npm:^1.0.5"
-  checksum: 10/637aa6044481c43a4ac5170bb889c5cfb48e6930e34ddbdd0990186ed30e096de6afbdcc66dde292d62844268c3da030a019527109c58a286ccfbcafabe35983
+  checksum: 10/2bd9f8ae5b756e13ee73da37b7afe29987aa43ffc0b892669eed46194a708ccc3f368a41067bf09a8072ffac5ff8ca5f074a6a3d067543e1cbf8edc4ee6e1581
   languageName: node
   linkType: hard
 
-"@clack/prompts@npm:^1.8.0":
-  version: 1.8.0
-  resolution: "@clack/prompts@npm:1.8.0"
+"@clack/prompts@npm:^1.8.1":
+  version: 1.8.1
+  resolution: "@clack/prompts@npm:1.8.1"
   dependencies:
-    "@clack/core": "npm:1.5.0"
+    "@clack/core": "npm:1.5.1"
     fast-string-width: "npm:^3.0.2"
     fast-wrap-ansi: "npm:^0.2.0"
     sisteransi: "npm:^1.0.5"
-  checksum: 10/78c56f5f736564d51ebf472950ceafad72d84654746c8f4ece0f05d560494fdaac0045e48cbdbbc7d18726074e1f114439206d980b188043ec7f843f38cf1ac4
+  checksum: 10/fb4f920dc0caf054f4fa3d611dc82979e80518c09dd961996cab7aec5866bcf5359b63e60881506c84089c4ede8686965946db6195116d41ed8cba3fdfdabc8a
   languageName: node
   linkType: hard
 
@@ -1510,11 +1510,11 @@ __metadata:
   linkType: hard
 
 "@tybys/wasm-util@npm:^0.10.3":
-  version: 0.10.3
-  resolution: "@tybys/wasm-util@npm:0.10.3"
+  version: 0.10.4
+  resolution: "@tybys/wasm-util@npm:0.10.4"
   dependencies:
     tslib: "npm:^2.4.0"
-  checksum: 10/6cf39f7a2926b1c8bc6fe3f9f03318a33dd6dae81bdbd059983f9c6ee22d10a827f12564d648c05a2d4926e03c86cbe2799fb20609ee65e9efc39603039b4765
+  checksum: 10/da910a0439afad49a6427e4d16fcd5a52199cb471e07c262e1dd5ed7664908e6f142f4dca1b09895c53f4ca4402663042d760f41c9fa7ff33f76c662739646df
   languageName: node
   linkType: hard
 
@@ -2244,7 +2244,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "data-mock@workspace:."
   dependencies:
-    "@clack/prompts": "npm:^1.8.0"
+    "@clack/prompts": "npm:^1.8.1"
     "@faker-js/faker": "npm:^10.6.0"
     "@fastify/websocket": "npm:^11.3.0"
     "@mantine/core": "npm:^9.6.1"
@@ -2280,7 +2280,7 @@ __metadata:
     typescript: "npm:7.0.2"
     vite: "npm:^8.3.0"
     vitest: "npm:^5.0.0"
-    zod: "npm:^4.6.2"
+    zod: "npm:^4.6.5"
   languageName: unknown
   linkType: soft
 
@@ -3420,13 +3420,13 @@ __metadata:
   linkType: hard
 
 "js-yaml@npm:^5.2.2":
-  version: 5.4.1
-  resolution: "js-yaml@npm:5.4.1"
+  version: 5.4.2
+  resolution: "js-yaml@npm:5.4.2"
   dependencies:
     argparse: "npm:^2.0.1"
   bin:
     js-yaml: bin/js-yaml.mjs
-  checksum: 10/6fff9ee00bd59aeb7e1484b4281f5e927b117cbfbf3ffa6c0fef0c58519317eb61527e93c4aa70f417709229bc1eeed63cba773913577a64405975a72fba7180
+  checksum: 10/f2461abd1d6268fb226733f0a0e0aa48004bb824116e3dfa75f1a1279001936343b672066dfecdb852ac3ca883452706c383a760aa90430cb68ba395aa2cbc84
   languageName: node
   linkType: hard
 
@@ -5566,9 +5566,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.25 || ^4.0, zod@npm:^4.5.4, zod@npm:^4.6.2":
-  version: 4.6.2
-  resolution: "zod@npm:4.6.2"
-  checksum: 10/5a89e9c364cb9982fe198736235039ea2438c7c9b9cafd639e0cb895eb30ce9ce7485d82fc940e483a048f1f9966eb3fa2a4181a1f07c17ef18a3e5c73757823
+"zod@npm:^3.25 || ^4.0, zod@npm:^4.5.4, zod@npm:^4.6.5":
+  version: 4.6.5
+  resolution: "zod@npm:4.6.5"
+  checksum: 10/db004952e4dc6eab38b70f0cdef9251a65da84f5d08c5a0ef85e2590cfa9c477544ce734161ff5c05f89a15f0967137607a7feb16716195e04965f030db47213
   languageName: node
   linkType: hard
