@@ -4,6 +4,7 @@ import { projects } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { ListProjectsRepository as Abstraction } from "./abstractions/ListProjectsRepository.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
+import { readSeededProjectNames } from "~/shared/node/seedProjects.js";
 import { toProject, toProjectError } from "../toProject.js";
 import type { Project } from "~/shared/types.js";
 
@@ -19,7 +20,9 @@ class ListProjectsRepositoryImpl implements Abstraction.Interface {
           ? query.all()
           : query.where(isNull(projects.archivedAt)).all();
 
-      return Result.ok(rows.map(toProject));
+      // Read once for the whole page rather than once per project.
+      const seededNames = readSeededProjectNames();
+      return Result.ok(rows.map((row) => toProject(row, seededNames)));
     } catch (error) {
       return Result.fail(new ProjectPersistenceError(toProjectError(error)));
     }

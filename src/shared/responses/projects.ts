@@ -32,6 +32,11 @@ export const projectSchema = z.object({
   lastSyncedAt: z.number().nullable(),
   lastSyncStatus: syncStatusSchema.nullable(),
   archivedAt: z.number().nullable(),
+  /**
+   * True when `.projects.json` names this project. The seed file recreates it on every boot, so it
+   * cannot be deleted while the entry is there.
+   */
+  seeded: z.boolean(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

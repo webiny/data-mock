@@ -44,6 +44,41 @@ const projectSchema = z
 
 const seedFileSchema = z.array(projectSchema);
 
+/**
+ * The project names `.projects.json` currently asks to exist, raw and normalised.
+ *
+ * A project the seed file names is recreated on every boot, so deleting one destroys its data and
+ * hands back an empty project of the same name. Read at call time rather than recorded at seed
+ * time: removing an entry from the file must make that project deletable immediately, without a
+ * restart.
+ */
+export function readSeededProjectNames(seedFilePath: string = SEED_FILE_PATH): Set<string> {
+  const filePath = path.resolve(seedFilePath);
+  if (!fs.existsSync(filePath)) {
+    return new Set();
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch {
+    return new Set();
+  }
+
+  const parsed = seedFileSchema.safeParse(raw);
+  if (!parsed.success) {
+    return new Set();
+  }
+
+  const names = new Set<string>();
+  for (const project of parsed.data) {
+    // Matched the same two ways the seeder matches, or a project it renames would look unseeded.
+    names.add(project.name);
+    names.add(toProjectName(project.name));
+  }
+  return names;
+}
+
 export function seedProjectsFromFile(
   databaseClient: DatabaseClient.Interface,
   encryptionService: EncryptionService.Interface,

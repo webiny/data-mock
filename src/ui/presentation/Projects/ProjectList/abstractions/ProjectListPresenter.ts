@@ -31,6 +31,12 @@ export interface ProjectItemVM {
   /** False for a remote-only project, which has nothing on disk to sync. */
   syncable: boolean;
   /**
+   * True when `.projects.json` names this project. It is recreated on every boot, so deleting it
+   * would destroy its history and hand back an empty project of the same name — the delete is
+   * refused, and not offered.
+   */
+  seeded: boolean;
+  /**
    * Whether any active environment has an API to talk to. Seeding and seed history both address
    * one, so with none there is nothing for those buttons to open.
    */
@@ -62,6 +68,8 @@ export interface DeleteConfirmationVM {
   /** Rows a purge would destroy. Empty when the project has no data hanging off it. */
   impact: DeletionImpactLineVM[];
   impactTotal: number;
+  /** A seeded project can be archived but not deleted, so the permanent step is not offered. */
+  seeded: boolean;
 }
 
 export interface ProjectListVM {

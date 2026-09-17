@@ -29,6 +29,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   private _deleteProjectId: string | null = null;
   private _deleteProjectName: string | null = null;
   private _deleteMode: "archive" | "purge" = "archive";
+  private _deleteProjectSeeded = false;
   private _impact: DeletionImpact | null = null;
   private _isLoadingImpact = false;
   private _loadError: string | null = null;
@@ -75,6 +76,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         isLoadingImpact: this._isLoadingImpact,
         impact: this.impactLines,
         impactTotal: this.impactTotal,
+        seeded: this._deleteProjectSeeded,
       },
       syncPreview: this.syncPreviewState.vm,
     };
@@ -144,7 +146,13 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
 
     this._deleteProjectId = projectId;
     this._deleteProjectName = projectName;
-    this._deleteMode = project?.archivedAt === null || project === undefined ? "archive" : "purge";
+    this._deleteProjectSeeded = project?.seeded === true;
+    /**
+     * A seeded project can be archived but never deleted, so it opens on the reversible step
+     * whatever its state — the permanent delete it would otherwise land on is refused.
+     */
+    this._deleteMode =
+      project === undefined || project.archivedAt === null || project.seeded ? "archive" : "purge";
     this._impact = null;
     void this.loadImpact(projectId);
   };
@@ -152,6 +160,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
   public cancelDelete = (): void => {
     this._deleteProjectId = null;
     this._deleteProjectName = null;
+    this._deleteProjectSeeded = false;
     this._deleteMode = "archive";
     this._impact = null;
   };
@@ -277,6 +286,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       deployedCount: environments.filter((environment) => environment.deployed).length,
       lastSyncedAt: project.lastSyncedAt,
       archivedAt: project.archivedAt,
+      seeded: project.seeded,
       syncable: project.rootPath !== null,
       seedable: this.reachableEnvironments(environments).length > 0,
       isSyncing: this.isReadingDiffFor(project.id),

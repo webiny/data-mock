@@ -30,6 +30,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     lastSyncedAt: null,
     lastSyncStatus: null,
     archivedAt: null,
+    seeded: false,
     createdAt: 1,
     updatedAt: 1,
     ...overrides,

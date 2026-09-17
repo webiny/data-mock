@@ -228,10 +228,17 @@ export const ProjectListPage = observer(function ProjectListPage({
             </Text>
           )}
 
+          {deleteConfirmation.seeded && (
+            <Text size="sm" c="dimmed">
+              This project is listed in <code>.projects.json</code>, which recreates it every time
+              the server starts, so it cannot be deleted. Remove it from that file first.
+            </Text>
+          )}
+
           <DeletionImpactPanel confirmation={deleteConfirmation} isPurge={isPurge} />
 
           <Group justify="space-between" mt="md">
-            {isPurge ? (
+            {isPurge || deleteConfirmation.seeded ? (
               <Button variant="default" onClick={() => presenter.cancelDelete()}>
                 Cancel
               </Button>
@@ -246,7 +253,7 @@ export const ProjectListPage = observer(function ProjectListPage({
               </Button>
             )}
             <Group gap="xs">
-              {!isPurge && (
+              {!isPurge && !deleteConfirmation.seeded && (
                 <Button variant="default" onClick={() => presenter.cancelDelete()}>
                   Cancel
                 </Button>
@@ -393,14 +400,22 @@ const ArchivedProjectCard = observer(function ArchivedProjectCard({
           <Button variant="light" size="xs" onClick={() => void presenter.restore(project.id)}>
             Restore
           </Button>
-          <Button
-            variant="subtle"
-            color="red"
-            size="xs"
-            onClick={() => presenter.confirmDelete(project.id, project.name)}
-          >
-            Delete
-          </Button>
+          {project.seeded ? (
+            <Tooltip label="Listed in .projects.json, which recreates it on every start. Remove it from that file to delete it.">
+              <Text size="xs" c="dimmed">
+                seeded
+              </Text>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="subtle"
+              color="red"
+              size="xs"
+              onClick={() => presenter.confirmDelete(project.id, project.name)}
+            >
+              Delete
+            </Button>
+          )}
         </Group>
       </Group>
     </Card>

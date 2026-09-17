@@ -38,6 +38,12 @@ export interface Project {
   lastSyncedAt: number | null;
   lastSyncStatus: SyncStatus | null;
   archivedAt: number | null;
+  /**
+   * True when `.projects.json` names this project. Derived from that file on every read, not
+   * stored: the seed file recreates the project on each boot, so it cannot be deleted while the
+   * entry is there, and removing the entry makes it deletable without a restart.
+   */
+  seeded: boolean;
   createdAt: number;
   updatedAt: number;
 }

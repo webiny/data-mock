@@ -332,6 +332,11 @@ in the product deletes by default:
 - **Project names are normalised through `toProjectName`.** A path pasted into the name field
   becomes its last segment. Older `.projects.json` entries carry a whole path as their name, which
   then appears in every list, badge and confirmation dialog.
+- **A project named by `.projects.json` cannot be deleted.** The seed file recreates it on every
+  boot, so a purge would destroy its jobs, logs, entries and models and hand back an empty project
+  of the same name. `Project.seeded` is derived from that file on every read rather than stored, so
+  removing an entry makes the project deletable immediately — no restart. Archiving is still
+  allowed: it is reversible and destroys nothing.
 - **`.projects.json` can carry `rootPath`.** Without it the seeded project is remote-only: it can
   be seeded, but not deployed, destroyed or synced from disk, and Deploy/Destroy are hidden for it.
   A re-seed never clears a `rootPath` registered through the UI, and skips an entry whose checkout
@@ -701,7 +706,7 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **964 tests** across 73 files (vitest)
+- **976 tests** across 74 files (vitest)
 - **Coverage**: v8 provider, ~86% statements, ~76% branches, ~88% functions. Generators are held near 100%: every bug found in them so far was a legal CMS field configuration that made seeding throw. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a

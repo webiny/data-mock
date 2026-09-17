@@ -11,6 +11,13 @@ import type { DeletionImpact, Project } from "~/shared/types.js";
 
 type Action = "archive" | "restore" | "purge";
 
+function hintFor(project: Project): string {
+  if (project.seeded) {
+    return project.archivedAt !== null ? "archived, seeded" : "seeded from .projects.json";
+  }
+  return project.archivedAt !== null ? "archived" : (project.rootPath ?? "remote only");
+}
+
 /**
  * Removing defaults to archiving. A hard delete cascades through every child table, so it is a
  * separate choice and is confirmed against the row counts it would destroy.
@@ -49,7 +56,7 @@ class RemoveProjectCommandImpl implements Command.Interface {
       options: projects.map((p) => ({
         value: p,
         label: p.name,
-        hint: p.archivedAt !== null ? "archived" : (p.rootPath ?? "remote only"),
+        hint: hintFor(p),
       })),
     });
 
@@ -88,11 +95,18 @@ class RemoveProjectCommandImpl implements Command.Interface {
       options.push({ value: "restore", label: "Restore", hint: "put it back in the list" });
     }
 
-    options.push({
-      value: "purge",
-      label: "Delete permanently",
-      hint: "destroys the project and everything listed above",
-    });
+    /**
+     * A project named by `.projects.json` is recreated on the next start, so deleting it would
+     * destroy its history and hand back an empty project of the same name. The use case refuses
+     * it; offering the choice here would only lead to that refusal.
+     */
+    if (!project.seeded) {
+      options.push({
+        value: "purge",
+        label: "Delete permanently",
+        hint: "destroys the project and everything listed above",
+      });
+    }
 
     return options;
   }
