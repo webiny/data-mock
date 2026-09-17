@@ -706,12 +706,18 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **979 tests** across 75 files (vitest)
+- **987 tests** across 76 files (vitest)
 - **Coverage**: v8 provider, ~86% statements, ~76% branches, ~88% functions. Generators are held near 100%: every bug found in them so far was a legal CMS field configuration that made seeding throw. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
   The route tests enqueue jobs and never run the queue, so nothing reaches a live CMS either.
+- **React owns when data is fetched; the presenter owns how.** A tab's effect depends on the
+  resolved environment as well as the view, because every tab reads environment-scoped data and the
+  environment resolves asynchronously. A presenter that remembered which tab was open, so it could
+  re-fetch for itself, was the wrong answer: the component knows when it is on screen, and a
+  dataset skipped for want of an environment is deliberately left unloaded so the next activation
+  fetches it.
 - **A presenter test must observe, or it proves nothing about staleness.** `vm` is a MobX computed:
   with no observer it recomputes on every read, so a test that only reads `presenter.vm` passes
   whether or not the view would update. `__tests__/reactivity.test.ts` wraps the reads in `autorun`,

@@ -67,17 +67,24 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
   subPath,
 }: ProjectDetailPageProps) {
   const activeView = resolveView(subPath);
+  const vm = presenter.vm;
+  const currentEnvironmentId = vm.currentEnvironment?.id ?? null;
 
   useEffect(() => {
     void presenter.load(projectId, envName);
     return () => presenter.dispose();
   }, [presenter, projectId, envName]);
 
+  /**
+   * Depends on the environment, not only on the view. Every tab reads data scoped to one, and the
+   * load above resolves it asynchronously — so on a first visit this runs once with none, fetches
+   * nothing, and would never run again if the environment were not a dependency. The tab stayed
+   * empty until the page was left and re-entered.
+   */
   useEffect(() => {
     void presenter.activateView(activeView);
-  }, [presenter, activeView]);
+  }, [presenter, activeView, currentEnvironmentId]);
 
-  const vm = presenter.vm;
   const {
     project,
     tenants,

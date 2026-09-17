@@ -107,13 +107,15 @@ describe("what an observer sees", () => {
     const presenter = container.resolve(ProjectDetailPresenter);
 
     /**
-     * The page runs two effects: one loads the project, the other activates the view. The second
-     * does not wait for the first, so the tab is opened while the environment is still being
-     * resolved — and everything it needs is scoped to that environment.
+     * What the page does: one effect loads the project, another activates the view without waiting
+     * for it, so the tab is opened while the environment is still being resolved. The second
+     * effect depends on the resolved environment, so it runs again once there is one — this is
+     * that second run.
      */
     const pending = presenter.load(PROJECT_ID, "dev");
     await presenter.activateView("environments");
     await pending;
+    await presenter.activateView("environments");
     await flush();
 
     expect(presenter.vm.stacks).toHaveLength(1);

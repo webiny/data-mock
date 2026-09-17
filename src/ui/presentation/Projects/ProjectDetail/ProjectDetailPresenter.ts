@@ -154,8 +154,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
    * `_envName`, which are set before the read so the error state has something to render.
    */
   private _loadedKey: string | null = null;
-  /** The tab that is open, so its data can be fetched once an environment exists to fetch it for. */
-  private _activeView: string | null = null;
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
   private _selectedJob: Job | null = null;
@@ -514,16 +512,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         this._loadedKey = key;
       });
       await this.resolveEnvironment(projectId, envName);
-
-      /**
-       * The page activates a view without waiting for this, so the tab was opened while there was
-       * still no environment — and everything it needs is scoped to one. Nothing asked again,
-       * because neither effect's inputs change when the environment finally resolves: the tab sat
-       * empty until the page was left and re-entered.
-       */
-      if (this._activeView !== null) {
-        await this.activateView(this._activeView);
-      }
     } finally {
       runInAction(() => {
         this._loadingProjectId = null;
@@ -807,8 +795,6 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
    * a remote-only one, or one whose sync found no stacks — even though neither reads a stack.
    */
   public activateView = async (view: string): Promise<void> => {
-    this._activeView = view;
-
     const datasets = VIEW_DATASETS[view];
     if (!datasets) {
       return;
