@@ -701,8 +701,8 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **874 tests** across 68 files (vitest)
-- **Coverage**: v8 provider, ~85% statements, ~74% branches, ~87% functions. Thresholds enforced via `vitest.config.ts`.
+- **964 tests** across 73 files (vitest)
+- **Coverage**: v8 provider, ~86% statements, ~76% branches, ~88% functions. Generators are held near 100%: every bug found in them so far was a legal CMS field configuration that made seeding throw. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
