@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1789388731574,
-      "tag": "0000_big_sandman",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1789419012917,
-      "tag": "0001_nice_thing",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1789454261744,
-      "tag": "0002_youthful_purple_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1789457415464,
-      "tag": "0003_square_reaper",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1789546192485,
-      "tag": "0004_smiling_spyke",
+      "when": 1789652096338,
+      "tag": "0000_volatile_blob",
       "breakpoints": true
     }
   ]

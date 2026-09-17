@@ -1,3 +1,13 @@
+CREATE TABLE `child_processes` (
+	`id` text PRIMARY KEY NOT NULL,
+	`pid` integer NOT NULL,
+	`owner_pid` integer NOT NULL,
+	`job_id` text,
+	`command` text NOT NULL,
+	`cwd` text NOT NULL,
+	`started_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `jobs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text,
@@ -6,9 +16,9 @@ CREATE TABLE `jobs` (
 	`status` text NOT NULL,
 	`config` text,
 	`logs` text,
+	`result` text,
 	`progress` integer,
 	`progress_label` text,
-	`parent_job_id` text,
 	`started_at` integer,
 	`completed_at` integer,
 	`created_at` integer NOT NULL,
@@ -28,6 +38,7 @@ CREATE TABLE `project_environments` (
 	`api_token` text,
 	`tenant` text DEFAULT 'root' NOT NULL,
 	`last_synced_at` integer,
+	`archived_at` integer,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade
@@ -125,6 +136,7 @@ CREATE TABLE `projects` (
 	`aws_region` text,
 	`last_synced_at` integer,
 	`last_sync_status` text,
+	`archived_at` integer,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
