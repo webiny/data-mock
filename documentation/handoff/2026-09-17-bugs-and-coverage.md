@@ -85,7 +85,8 @@ seven unused CLI abstractions. Migrations squashed to one baseline.
 
 - Branch: `bruno/feat/system-management`, PR #4 open against `main`, body rewritten
 - Build: passing — 987 tests, 0 type errors, 0 lint warnings, format clean, `adio` clean, UI builds
-- Unpushed commits: 0 (the branch pushes as it goes; `origin` is level with `HEAD`)
+- Unpushed commits: 4 at the time of writing (this handoff and the three fixes before it).
+  The branch normally pushes as it goes, so check `git status -sb` rather than assuming.
 - The local database was deleted with the migration squash. Projects re-added; only
   `webiny-js-6.5` returns from `.projects.json` — and that is the one project that can no longer
   be deleted.
