@@ -22,8 +22,6 @@ import { FilesFeature } from "~/shared/node/features/files/feature.js";
 import { SyncLogsFeature } from "~/shared/node/features/syncLogs/feature.js";
 import { WebSocketBroadcaster } from "~/shared/node/websocket/abstractions/WebSocketBroadcaster.js";
 import { JobsFeature } from "~/shared/node/jobs/feature.js";
-import { GraphQLConfig } from "~/shared/node/graphql/abstractions/GraphQLConfig.js";
-import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { EndpointsFeature } from "~/shared/node/graphql/endpoints/feature.js";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
@@ -76,16 +74,6 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   }
 
   EndpointsFeature.register(container);
-
-  container.registerInstance(GraphQLConfig, {
-    url: "http://localhost:0",
-    token: "test-token",
-    tenant: "root",
-    retries: 0,
-    retryMinTimeout: 0,
-  });
-
-  container.register(GraphQLClientImpl).inSingletonScope();
 
   return {
     container,
