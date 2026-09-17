@@ -96,26 +96,27 @@ describe("what an observer sees", () => {
     });
 
     await presenter.load(PROJECT_ID, "dev");
-    await presenter.activateView("environments");
+    await presenter.loadStacks();
     await flush();
     dispose();
 
     expect(seen[seen.length - 1]).toBe(1);
   });
 
-  it("loads the open tab's data when the environment resolves after it was opened", async () => {
+  it("reads the stacks when the environment resolves after the view was opened", async () => {
     const presenter = container.resolve(ProjectDetailPresenter);
 
     /**
-     * What the page does: one effect loads the project, another activates the view without waiting
-     * for it, so the tab is opened while the environment is still being resolved. The second
-     * effect depends on the resolved environment, so it runs again once there is one — this is
-     * that second run.
+     * What the page does: one effect loads the project, another asks for the stacks without
+     * waiting for it, so the view is on screen while the environment is still being resolved. The
+     * second effect depends on the resolved environment, so it runs again once there is one —
+     * this is that second run. A read skipped for want of an environment is deliberately not
+     * recorded, which is what makes the second one read.
      */
     const pending = presenter.load(PROJECT_ID, "dev");
-    await presenter.activateView("environments");
+    await presenter.loadStacks();
     await pending;
-    await presenter.activateView("environments");
+    await presenter.loadStacks();
     await flush();
 
     expect(presenter.vm.stacks).toHaveLength(1);

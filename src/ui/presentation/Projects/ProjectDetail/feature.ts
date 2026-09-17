@@ -1,22 +1,24 @@
 import { createFeature } from "~/ui/di/createFeature.js";
 import { ProjectsFeature } from "~/ui/features/projects/feature.js";
 import { EnvironmentsFeature } from "~/ui/features/environments/feature.js";
-import { TenantsFeature } from "~/ui/features/tenants/feature.js";
-import { ModelsFeature } from "~/ui/features/models/feature.js";
-import { SeedingFeature } from "~/ui/features/seeding/feature.js";
-import { TemplatesFeature } from "~/ui/features/templates/feature.js";
-import { FilesFeature } from "~/ui/features/files/feature.js";
-import { LocalFilesFeature } from "~/ui/features/localFiles/feature.js";
-import { EntriesFeature } from "~/ui/features/entries/feature.js";
-import { SyncLogsFeature } from "~/ui/features/syncLogs/feature.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
-import { URLListStateFeature } from "~/ui/features/router/URLListStateFeature.js";
 import { EventsFeature } from "~/ui/infrastructure/events/feature.js";
 import { JobsFeature } from "~/ui/features/jobs/feature.js";
+import { TenantsTabFeature } from "./tabs/Tenants/feature.js";
+import { ModelsTabFeature } from "./tabs/Models/feature.js";
+import { FilesTabFeature } from "./tabs/Files/feature.js";
+import { EntriesTabFeature } from "./tabs/Entries/feature.js";
+import { SeedHistoryTabFeature } from "./tabs/SeedHistory/feature.js";
+import { TemplatesTabFeature } from "./tabs/Templates/feature.js";
+import { JobsTabFeature } from "./tabs/Jobs/feature.js";
+import { ActivityTabFeature } from "./tabs/Activity/feature.js";
+import { PullTenantsTabFeature } from "./tabs/PullTenants/feature.js";
+import { PullModelsTabFeature } from "./tabs/PullModels/feature.js";
+import { PullImagesTabFeature } from "./tabs/PullImages/feature.js";
+import { ImportEntriesTabFeature } from "./tabs/ImportEntries/feature.js";
 import { ProjectDetailPresenter as ProjectDetailPresenterAbstraction } from "./abstractions/ProjectDetailPresenter.js";
 import { ProjectDetailPresenter } from "./ProjectDetailPresenter.js";
 import { LoadProjectDetailUseCase } from "./useCases/LoadProjectDetail/LoadProjectDetailUseCase.js";
-import { DeleteTemplateUseCase } from "./useCases/DeleteTemplate/DeleteTemplateUseCase.js";
 
 interface ProjectDetailExports {
   presenter: ProjectDetailPresenterAbstraction.Interface;
@@ -27,22 +29,27 @@ export const ProjectDetailPresentationFeature = createFeature<void, ProjectDetai
   dependencies: [
     ProjectsFeature,
     EnvironmentsFeature,
-    TenantsFeature,
-    ModelsFeature,
-    SeedingFeature,
-    TemplatesFeature,
-    FilesFeature,
-    LocalFilesFeature,
-    EntriesFeature,
-    SyncLogsFeature,
     NotificationsFeature,
-    URLListStateFeature,
     EventsFeature,
     JobsFeature,
+    // Each tab owns its own presenter and its own data. They are registered here so that a tab
+    // component can resolve its feature the moment it mounts, without the page knowing which tabs
+    // exist.
+    TenantsTabFeature,
+    ModelsTabFeature,
+    FilesTabFeature,
+    EntriesTabFeature,
+    SeedHistoryTabFeature,
+    TemplatesTabFeature,
+    JobsTabFeature,
+    ActivityTabFeature,
+    PullTenantsTabFeature,
+    PullModelsTabFeature,
+    PullImagesTabFeature,
+    ImportEntriesTabFeature,
   ],
   register(container) {
     container.register(LoadProjectDetailUseCase);
-    container.register(DeleteTemplateUseCase);
     container.register(ProjectDetailPresenter);
   },
   resolve(container) {

@@ -270,7 +270,28 @@ class JobWorkerImpl implements Abstraction.Interface {
       updateFields["progress"] = 100;
       updateFields["progressLabel"] = null;
     }
-    this.databaseClient.db.update(jobs).set(updateFields).where(eq(jobs.id, job.id)).run();
+
+    try {
+      this.databaseClient.db.update(jobs).set(updateFields).where(eq(jobs.id, job.id)).run();
+    } catch (error) {
+      this.logger.error(`Failed to write terminal status for job ${job.id} (${job.type})`, {
+        error: String(error),
+      });
+      try {
+        // The full write may have failed on account of what it carries — a huge log, a result
+        // that does not fit — rather than the row itself. A bare status flip is what stops the
+        // row from reading "running" forever; everything else is best-effort from here.
+        this.databaseClient.db
+          .update(jobs)
+          .set({ status, completedAt: Date.now() })
+          .where(eq(jobs.id, job.id))
+          .run();
+      } catch (fallbackError) {
+        this.logger.error(`Fallback status write also failed for job ${job.id} (${job.type})`, {
+          error: String(fallbackError),
+        });
+      }
+    }
 
     this.webSocketBroadcaster.broadcast("job:status", {
       jobId: job.id,

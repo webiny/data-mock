@@ -72,8 +72,6 @@ const ENVIRONMENTS_PATH = "/api/projects/:projectId/environments";
 const STACKS_PATH = "/api/projects/:projectId/environments/:environmentId/stacks";
 // The jobs gateway builds this URL itself, query string and all.
 const JOBS_PATH = `/api/projects/${PROJECT_ID}/jobs`;
-const JOB_PATH = "/api/projects/:projectId/jobs/:jobId";
-const MODELS_PATH = "/api/projects/:projectId/environments/:environmentId/models";
 const DEPLOYABLE_PATH = "/api/projects/:projectId/deployable-apps";
 const DEPLOY_PATH = "/api/projects/:projectId/environments/:environmentId/deploy";
 const DESTROY_PATH = "/api/projects/:projectId/environments/:environmentId/destroy";
@@ -95,7 +93,6 @@ const EMPTY_IMPACT = {
   seedTemplates: 0,
 };
 const HEALTH_PATH = "/api/projects/:projectId/environments/:environmentId/health";
-const TENANT_PULL_PATH = "/api/projects/:projectId/environments/:environmentId/tenants/pull";
 
 describe("ProjectDetailPresenter", () => {
   let container: Container;
@@ -225,7 +222,7 @@ describe("ProjectDetailPresenter", () => {
       ]);
 
       const p = await loaded();
-      await p.activateView("system");
+      await p.loadStacks();
       p.openDeploymentDialog("destroy");
       await flush();
       p.toggleDeploymentApp("core");
@@ -322,58 +319,12 @@ describe("ProjectDetailPresenter", () => {
     });
   });
 
-  describe("live logs", () => {
-    it("collects the lines of a running job in order", async () => {
-      const p = await loaded();
-      const bridge = container.resolve(EventBridge);
-
-      bridge.emit("job:log", { jobId: "j1", projectId: PROJECT_ID, line: "first" });
-      bridge.emit("job:log", { jobId: "j1", projectId: PROJECT_ID, line: "second" });
-
-      expect(p.liveLogsFor("j1")).toBe("first\nsecond");
-    });
-
-    it("keeps each job's lines apart", async () => {
-      const p = await loaded();
-      const bridge = container.resolve(EventBridge);
-
-      bridge.emit("job:log", { jobId: "j1", projectId: PROJECT_ID, line: "from one" });
-      bridge.emit("job:log", { jobId: "j2", projectId: PROJECT_ID, line: "from two" });
-
-      expect(p.liveLogsFor("j1")).toBe("from one");
-      expect(p.liveLogsFor("j2")).toBe("from two");
-    });
-
-    it("ignores a job belonging to another project", async () => {
-      const p = await loaded();
-      const bridge = container.resolve(EventBridge);
-
-      bridge.emit("job:log", { jobId: "j1", projectId: "other", line: "not ours" });
-
-      expect(p.liveLogsFor("j1")).toBe("");
-    });
-
-    it("keeps only the tail of a long deploy", async () => {
-      const p = await loaded();
-      const bridge = container.resolve(EventBridge);
-
-      for (let index = 0; index < 2500; index++) {
-        bridge.emit("job:log", { jobId: "j1", projectId: PROJECT_ID, line: `line ${index}` });
-      }
-
-      const lines = p.liveLogsFor("j1").split("\n");
-      expect(lines).toHaveLength(2000);
-      // The tail is kept, not the head: the end of a deploy is what matters.
-      expect(lines[lines.length - 1]).toBe("line 2499");
-    });
-  });
-
   describe("system info", () => {
     it("says why the panel is thin when the environment has never been synced", async () => {
       http.data.set(STACKS_PATH, []);
 
       const p = await loaded();
-      await p.activateView("system");
+      await p.loadStacks();
 
       expect(p.vm.systemInfoNotice).toContain("never been synced");
       // The CMS endpoints are derived from the environment's own URL, so they survive with no
@@ -399,7 +350,7 @@ describe("ProjectDetailPresenter", () => {
       ]);
 
       const p = await loaded();
-      await p.activateView("system");
+      await p.loadStacks();
 
       const values = p.vm.systemInfo.flatMap((section) => section.items.map((item) => item.value));
       expect(values).toContain("wby-core-dev");
@@ -412,122 +363,9 @@ describe("ProjectDetailPresenter", () => {
       ]);
 
       const p = await loaded();
-      await p.activateView("system");
+      await p.loadStacks();
 
       expect(p.vm.stacks[0]?.stateLabel).toBe("Could not read");
-    });
-  });
-
-  describe("loading a tab", () => {
-    it("tries again after a read that failed", async () => {
-      http.failures.set(MODELS_PATH, "gateway timeout");
-
-      const p = await loaded();
-      await p.activateView("models");
-
-      expect(http.callsTo(MODELS_PATH)).toHaveLength(1);
-
-      // Marking a failed read as loaded left the tab empty for the rest of the session.
-      http.failures.delete(MODELS_PATH);
-      http.data.set(MODELS_PATH, [
-        {
-          id: "m1",
-          projectId: PROJECT_ID,
-          environmentId: ENVIRONMENT_ID,
-          modelId: "article",
-          name: "Article",
-          groupSlug: "content",
-          singularApiName: "Article",
-          pluralApiName: "Articles",
-          description: null,
-          fields: [],
-          plugin: false,
-          remoteId: null,
-          syncedAt: null,
-          createdAt: 1,
-          updatedAt: 1,
-        },
-      ]);
-      await p.activateView("models");
-
-      expect(http.callsTo(MODELS_PATH)).toHaveLength(2);
-      expect(p.vm.models).toHaveLength(1);
-    });
-
-    it("keeps what is on screen when a filtered reload fails", async () => {
-      const p = await loaded();
-      await p.activateView("jobs");
-      expect(http.callsTo(JOBS_PATH)).toHaveLength(1);
-
-      http.failures.set(JOBS_PATH, "gateway timeout");
-      p.setJobsFilter("jobStatus", "failed");
-      await flush();
-
-      // The dataset must not be left marked as loaded, or the tab never asks again.
-      http.failures.delete(JOBS_PATH);
-      p.setJobsFilter("jobStatus", null);
-      await flush();
-
-      expect(http.callsTo(JOBS_PATH).length).toBeGreaterThan(1);
-    });
-
-    it("fetches a job's log only when its panel is opened", async () => {
-      const p = await loaded();
-      await p.activateView("jobs");
-      expect(http.callsTo(JOB_PATH)).toHaveLength(0);
-
-      http.data.set(JOB_PATH, {
-        id: "job-1",
-        projectId: PROJECT_ID,
-        environmentId: null,
-        type: "deploy",
-        status: "completed",
-        config: null,
-        logs: "Deploying core...",
-        result: null,
-        progress: null,
-        progressLabel: null,
-        startedAt: 1,
-        completedAt: 2,
-        createdAt: 1,
-      });
-
-      await p.openJob("job-1");
-
-      // The list carries no logs, so the panel has to ask for the one job it is showing.
-      expect(http.callsTo(JOB_PATH)).toHaveLength(1);
-      expect(p.vm.selectedJob?.logs).toBe("Deploying core...");
-
-      p.closeJob();
-      expect(p.vm.selectedJob).toBeNull();
-    });
-
-    it("reads the project's jobs even when it has no environment at all", async () => {
-      // A remote-only project, or one whose sync found no stacks. Jobs hang off the project, so
-      // guarding the whole view on a resolved environment left the tab permanently blank.
-      http.data.set(ENVIRONMENTS_PATH, []);
-      const p = await loaded();
-
-      await p.activateView("jobs");
-
-      expect(http.callsTo(JOBS_PATH)).toHaveLength(1);
-    });
-
-    it("still waits for an environment before reading anything that addresses a stack", async () => {
-      http.data.set(ENVIRONMENTS_PATH, []);
-      const p = await loaded();
-
-      await p.activateView("system");
-
-      expect(http.callsTo(STACKS_PATH)).toHaveLength(0);
-    });
-
-    it("reads a tab only once when it succeeds", async () => {
-      const p = await loaded();
-      await p.activateView("system");
-      await p.activateView("system");
-
-      expect(http.callsTo(STACKS_PATH)).toHaveLength(1);
     });
   });
 
@@ -612,32 +450,6 @@ describe("ProjectDetailPresenter", () => {
 
       expect(http.callsTo(RESTORE_PATH)).toHaveLength(1);
       expect(p.vm.archivedEnvironments).toEqual([]);
-    });
-  });
-
-  describe("confirmations", () => {
-    it("pulls no tenants until the confirmation is accepted", async () => {
-      const p = await loaded();
-
-      p.pullTenants();
-
-      expect(p.vm.confirmation.isOpen).toBe(true);
-      expect(http.callsTo(TENANT_PULL_PATH)).toHaveLength(0);
-
-      await p.confirmAction();
-
-      expect(http.callsTo(TENANT_PULL_PATH)).toHaveLength(1);
-      expect(p.vm.confirmation.isOpen).toBe(false);
-    });
-
-    it("pulls nothing when the confirmation is dismissed", async () => {
-      const p = await loaded();
-
-      p.pullTenants();
-      p.cancelAction();
-      await p.confirmAction();
-
-      expect(http.callsTo(TENANT_PULL_PATH)).toHaveLength(0);
     });
   });
 });

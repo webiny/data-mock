@@ -5,7 +5,6 @@ import {
   Select,
   Badge,
   Box,
-  Button,
   Divider,
   Group,
   Loader,
@@ -18,7 +17,6 @@ import {
   Tooltip,
 } from "@mantine/core";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
-import { ConfirmDialog } from "~/ui/components/ConfirmDialog.js";
 import { SyncPreviewDialog } from "~/ui/components/SyncPreviewDialog.js";
 import { useFeature } from "~/ui/di/useFeature.js";
 import { SeedConfigPresentationFeature } from "~/ui/presentation/Seeding/SeedConfig/feature.js";
@@ -26,19 +24,20 @@ import { SeedConfigPage } from "~/ui/presentation/Seeding/SeedConfig/components/
 import { EnvironmentsTab } from "./EnvironmentsTab.js";
 import { DeploymentDialog } from "./DeploymentDialog.js";
 import { SystemInfoTab } from "./SystemInfoTab.js";
-import { TenantsTab } from "./TenantsTab.js";
-import { ModelsTab } from "./ModelsTab.js";
-import { SeedHistoryTab } from "./SeedHistoryTab.js";
-import { TemplatesTab } from "./TemplatesTab.js";
-import { FilesTab } from "./FilesTab.js";
-import { AuditLogTab } from "./AuditLogTab.js";
-import { SyncTenantsTab } from "./SyncTenantsTab.js";
-import { SyncModelsTab } from "./SyncModelsTab.js";
-import { PullImagesTab } from "./PullImagesTab.js";
-import { SyncLogTable } from "./SyncLogTable.js";
-import { ImportEntriesTab } from "./ImportEntriesTab.js";
-import { JobsTab } from "./JobsTab.js";
 import { EditProjectForm } from "./EditProjectForm.js";
+import type { ProjectDetailTabContext } from "../tabs/abstractions/ProjectDetailTabContext.js";
+import { TenantsTab } from "../tabs/Tenants/components/TenantsTab.js";
+import { ModelsTab } from "../tabs/Models/components/ModelsTab.js";
+import { FilesTab } from "../tabs/Files/components/FilesTab.js";
+import { EntriesTab } from "../tabs/Entries/components/EntriesTab.js";
+import { SeedHistoryTab } from "../tabs/SeedHistory/components/SeedHistoryTab.js";
+import { TemplatesTab } from "../tabs/Templates/components/TemplatesTab.js";
+import { JobsTab } from "../tabs/Jobs/components/JobsTab.js";
+import { ActivityTab } from "../tabs/Activity/components/ActivityTab.js";
+import { PullTenantsTab } from "../tabs/PullTenants/components/PullTenantsTab.js";
+import { PullModelsTab } from "../tabs/PullModels/components/PullModelsTab.js";
+import { PullImagesTab } from "../tabs/PullImages/components/PullImagesTab.js";
+import { ImportEntriesTab } from "../tabs/ImportEntries/components/ImportEntriesTab.js";
 import { navigate } from "~/ui/features/router/Router.js";
 import type { EnvironmentRef } from "~/shared/types.js";
 import { AppRoutes } from "~/ui/features/router/routePaths.js";
@@ -76,35 +75,30 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
   }, [presenter, projectId, envName]);
 
   /**
-   * Depends on the environment, not only on the view. Every tab reads data scoped to one, and the
-   * load above resolves it asynchronously — so on a first visit this runs once with none, fetches
-   * nothing, and would never run again if the environment were not a dependency. The tab stayed
-   * empty until the page was left and re-entered.
+   * The two views this page draws itself — Environments and System Info — both read the selected
+   * environment's stacks. The presenter reads them once per environment; asking here is what makes
+   * the read happen when one of those views is on screen and not before.
    */
   useEffect(() => {
-    void presenter.activateView(activeView);
+    if (activeView === "environments" || activeView === "system") {
+      void presenter.loadStacks();
+    }
   }, [presenter, activeView, currentEnvironmentId]);
 
-  const {
-    project,
-    tenants,
-    groups,
-    models,
-    seedJobs,
-    templates,
-    entries,
-    syncLog,
-    isLoading,
-    isSyncingTenants,
-    isSyncingModels,
-    isImporting,
-    isClearingEntries,
-    isCleaningUp,
-    isUploadingGlobal,
-    showEditDialog,
-    showCleanupDialog,
-    loadError,
-  } = vm;
+  /**
+   * What every tab needs to know about the page it is mounted on. Each tab owns its own presenter
+   * and asks for its own data; this page no longer loads anything on their behalf. The environment
+   * resolves asynchronously, so a tab first mounts with `ref: null`, reads nothing, and reads for
+   * real when this value changes.
+   */
+  const tabContext: ProjectDetailTabContext = {
+    projectId,
+    ref: currentEnvironmentId === null ? null : { projectId, environmentId: currentEnvironmentId },
+    envName: vm.currentEnvironment?.stackName ?? envName,
+    tenant: vm.currentEnvironment?.tenant ?? "root",
+  };
+
+  const { project, isLoading, showEditDialog, loadError } = vm;
 
   if (isLoading) {
     return (
@@ -309,12 +303,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onClick={() => goTo("import")}
               />
               <NavLink
-                label="Cleanup Seeded Data"
-                disabled={isCleaningUp}
-                description={isCleaningUp ? "Cleaning..." : undefined}
-                onClick={() => presenter.openCleanupDialog()}
-              />
-              <NavLink
                 label="Sync from disk"
                 description={vm.isSyncing ? "Starting..." : undefined}
                 disabled={vm.isSyncing || project.rootPath === null}
@@ -355,125 +343,21 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             {activeView === "system" && (
               <SystemInfoTab sections={vm.systemInfo} notice={vm.systemInfoNotice} />
             )}
-            {activeView === "tenants" && <TenantsTab tenants={tenants} />}
-            {activeView === "models" && <ModelsTab groups={groups} models={models} />}
-            {activeView === "files" && (
-              <FilesTab
-                mergedFiles={vm.mergedFiles}
-                onUploadFiles={(files) => void presenter.uploadFilesToProject(files)}
-                onUploadAllGlobal={() => void presenter.uploadAllGlobalImages()}
-                onUploadSelected={(names) => void presenter.uploadSelectedGlobalImages(names)}
-                onPullFiles={() => void presenter.pullFiles()}
-                onDelete={(id) => void presenter.deleteFile(id)}
-                isUploadingGlobal={isUploadingGlobal}
-                isPullingFiles={vm.isPullingFiles}
-                selectedTenant={vm.currentEnvironment?.tenant ?? "root"}
-              />
-            )}
-            {activeView === "entries" && (
-              <AuditLogTab
-                entries={entries}
-                totalCount={vm.entriesTotalCount}
-                page={vm.entriesPage}
-                jobFilter={vm.entriesJobFilter}
-                modelFilter={vm.entriesModelFilter}
-                tenantFilter={vm.entriesTenantFilter}
-                statusFilter={vm.entriesStatusFilter}
-                models={vm.models}
-                tenants={vm.tenants}
-                isClearing={isClearingEntries}
-                onPageChange={(page) => void presenter.loadEntriesPage(page)}
-                onFilterChange={(key, value) => void presenter.setEntriesFilter(key, value)}
-                onClearFilter={() => void presenter.clearEntriesFilter()}
-                onClear={() => void presenter.clearEntries()}
-              />
-            )}
-            {activeView === "history" && (
-              <SeedHistoryTab
-                seedJobs={seedJobs}
-                totalCount={vm.seedJobsTotalCount}
-                page={vm.seedJobsPage}
-                statusFilter={vm.seedJobsStatusFilter}
-                onPageChange={(page) => presenter.loadSeedJobsPage(page)}
-                onFilterChange={(key, value) => presenter.setSeedJobsFilter(key, value)}
-                onClearFilter={() => presenter.clearSeedJobsFilter()}
-                onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
-                onResume={(seedJobId) => presenter.resumeSeedJob(seedJobId)}
-              />
-            )}
-            {activeView === "jobs" && (
-              <JobsTab
-                jobs={vm.jobs}
-                selectedJob={vm.selectedJob}
-                isLoadingSelectedJob={vm.isLoadingSelectedJob}
-                onOpenJob={(jobId) => void presenter.openJob(jobId)}
-                onCloseJob={() => presenter.closeJob()}
-                totalCount={vm.jobsTotalCount}
-                page={vm.jobsPage}
-                typeFilter={vm.jobsTypeFilter}
-                statusFilter={vm.jobsStatusFilter}
-                onPageChange={(page) => presenter.loadJobsPage(page)}
-                onFilterChange={(key, value) => presenter.setJobsFilter(key, value)}
-                onClearFilter={() => presenter.clearJobsFilter()}
-                onCancel={(jobId) => void presenter.cancelJob(jobId)}
-                liveLogsFor={(jobId) => presenter.liveLogsFor(jobId)}
-              />
-            )}
-            {activeView === "activity" && (
-              <SyncLogTable
-                logs={syncLog}
-                totalCount={vm.syncLogsTotalCount}
-                page={vm.syncLogsPage}
-                typeFilter={vm.syncLogsTypeFilter}
-                statusFilter={vm.syncLogsStatusFilter}
-                onPageChange={(page) => presenter.loadSyncLogsPage(page)}
-                onFilterChange={(key, value) => presenter.setSyncLogsFilter(key, value)}
-                onClearFilter={() => presenter.clearSyncLogsFilter()}
-                onDelete={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
-            {activeView === "templates" && (
-              <TemplatesTab
-                templates={templates}
-                onLoad={(id) => presenter.loadTemplate(id)}
-                onDelete={(id) => void presenter.deleteTemplate(id)}
-              />
-            )}
-            {activeView === "pull-tenants" && (
-              <SyncTenantsTab
-                logs={syncLog}
-                isSyncing={isSyncingTenants}
-                onSync={() => void presenter.pullTenants()}
-                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
-            {activeView === "pull-models" && (
-              <SyncModelsTab
-                logs={syncLog}
-                isSyncing={isSyncingModels}
-                onSync={() => void presenter.pullModels()}
-                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
-            {activeView === "pull-images" && (
-              <PullImagesTab
-                logs={syncLog}
-                isPulling={vm.isPullingFiles}
-                onPull={() => void presenter.pullFiles()}
-                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
+            {activeView === "tenants" && <TenantsTab context={tabContext} />}
+            {activeView === "models" && <ModelsTab context={tabContext} />}
+            {activeView === "files" && <FilesTab context={tabContext} />}
+            {activeView === "entries" && <EntriesTab context={tabContext} />}
+            {activeView === "history" && <SeedHistoryTab context={tabContext} />}
+            {activeView === "jobs" && <JobsTab context={tabContext} />}
+            {activeView === "activity" && <ActivityTab context={tabContext} />}
+            {activeView === "templates" && <TemplatesTab context={tabContext} />}
+            {activeView === "pull-tenants" && <PullTenantsTab context={tabContext} />}
+            {activeView === "pull-models" && <PullModelsTab context={tabContext} />}
+            {activeView === "pull-images" && <PullImagesTab context={tabContext} />}
             {activeView === "seed" && vm.currentEnvironment && (
               <EmbeddedSeedConfig envRef={{ projectId, environmentId: vm.currentEnvironment.id }} />
             )}
-            {activeView === "import" && (
-              <ImportEntriesTab
-                tenants={tenants}
-                models={models}
-                isImporting={isImporting}
-                onImport={(tenant, modelIds) => void presenter.importEntries(tenant, modelIds)}
-              />
-            )}
+            {activeView === "import" && <ImportEntriesTab context={tabContext} />}
           </Box>
         </Group>
       </Stack>
@@ -495,12 +379,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
         onClose={() => presenter.closeSyncPreview()}
       />
 
-      <ConfirmDialog
-        vm={vm.confirmation}
-        onConfirm={() => void presenter.confirmAction()}
-        onCancel={() => presenter.cancelAction()}
-      />
-
       <Modal
         opened={showEditDialog}
         onClose={() => presenter.closeEditDialog()}
@@ -512,26 +390,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           onSubmit={(input) => presenter.submitEdit(input)}
           onCancel={() => presenter.closeEditDialog()}
         />
-      </Modal>
-
-      <Modal
-        opened={showCleanupDialog}
-        onClose={() => presenter.closeCleanupDialog()}
-        title="Cleanup Seeded Data"
-        centered
-      >
-        <Text>
-          Delete all seeded entries from Webiny? This removes entries created by this tool from the
-          target CMS instance. Entries are deleted in reverse dependency order.
-        </Text>
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={() => presenter.closeCleanupDialog()}>
-            Cancel
-          </Button>
-          <Button color="red" onClick={() => void presenter.confirmCleanup()}>
-            Delete All Seeded Entries
-          </Button>
-        </Group>
       </Modal>
     </>
   );

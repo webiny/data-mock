@@ -1,7 +1,5 @@
 import { createAbstraction } from "@webiny/stdlib";
-import type { SeedTemplateConfig, SeedEntryStatus, Job, StackReadState } from "~/shared/types.js";
-import type { JobSummary } from "~/ui/features/jobs/abstractions/JobsGateway.js";
-import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
+import type { StackReadState } from "~/shared/types.js";
 import type { ISyncPreviewVM } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 
 export interface IProjectVM {
@@ -100,97 +98,17 @@ export interface IDeploymentDialogVM {
   error: string | null;
 }
 
-export interface ITenantVM {
-  tenantId: string;
-  name: string;
-  discoveredAt: number;
-}
-
-export interface IGroupVM {
-  slug: string;
-  name: string;
-  modelCount: number;
-}
-
-export interface IModelVM {
-  modelId: string;
-  name: string;
-  groupSlug: string;
-  fieldCount: number;
-  fields: unknown[];
-  syncedAt: number | null;
-}
-
-export interface ISeedJobVM {
-  id: string;
-  status: string;
-  /** True for a run that stopped early and still has entries left to create. */
-  resumable: boolean;
-  modelCount: number;
-  entriesCreated: number;
-  errorCount: number;
-  createdAt: number;
-}
-
-export interface ITemplateVM {
-  id: string;
-  name: string;
-  config: SeedTemplateConfig;
-}
-
-export interface IFileVM {
-  id: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number | null;
-  tenant: string;
-  uploadedAt: number;
-}
-
-export interface IFileBadgeVM {
-  label: string;
-  color: string;
-}
-
-export interface IMergedFileVM {
-  id: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number | null;
-  source: "project" | "global";
-  thumbnailUrl: string;
-  badges: IFileBadgeVM[];
-}
-
-export interface IEntryVM {
-  id: string;
-  modelId: string;
-  tenant: string;
-  status: SeedEntryStatus;
-  entryId: string;
-  entryData: Record<string, unknown>;
-  requestData: Record<string, unknown> | null;
-  responseData: string | null;
-  error: string | null;
-  createdAt: number;
-}
-
-export interface ISyncLogVM {
-  id: string;
-  type: "tenants" | "models" | "upload-file" | "pull-files";
-  status: "success" | "error";
-  message: string;
-  request: unknown;
-  response: unknown;
-  createdAt: number;
-}
-
 export interface IEditProjectInput {
   name?: string;
   rootPath?: string | null;
   operationsVersion?: string;
 }
 
+/**
+ * What the page frame around the tabs shows. Every tab owns its own presenter and its own data;
+ * this one owns the project, the environment the page is pointed at, and the actions that change
+ * either — which is why they stayed together rather than becoming a fifteenth tab.
+ */
 export interface IProjectDetailVM {
   project: IProjectVM | null;
   environments: IEnvironmentVM[];
@@ -208,51 +126,11 @@ export interface IProjectDetailVM {
   environmentError: string | null;
   /** Why the page is blank, when the project itself could not be read. */
   loadError: string | null;
-  tenants: ITenantVM[];
-  groups: IGroupVM[];
-  models: IModelVM[];
-  seedJobs: ISeedJobVM[];
-  seedJobsTotalCount: number;
-  seedJobsPage: number;
-  seedJobsStatusFilter: string | null;
-  templates: ITemplateVM[];
-  files: IFileVM[];
-  mergedFiles: IMergedFileVM[];
-  entries: IEntryVM[];
-  entriesTotalCount: number;
-  entriesPage: number;
-  entriesJobFilter: string | null;
-  entriesModelFilter: string | null;
-  entriesTenantFilter: string | null;
-  entriesStatusFilter: string | null;
-  syncLog: ISyncLogVM[];
-  syncLogsTotalCount: number;
-  syncLogsPage: number;
-  syncLogsTypeFilter: string | null;
-  syncLogsStatusFilter: string | null;
-  jobs: JobSummary[];
-  /** The job whose panel is open, with its log. Null while one is being read. */
-  selectedJob: Job | null;
-  isLoadingSelectedJob: boolean;
-  jobsTotalCount: number;
-  jobsPage: number;
-  jobsTypeFilter: string | null;
-  jobsStatusFilter: string | null;
   projectHealth: "unknown" | "checking" | "reachable" | "unreachable";
   projectHealthError: string | null;
   isLoading: boolean;
   isSyncing: boolean;
-  isSyncingTenants: boolean;
-  isSyncingModels: boolean;
-  isImporting: boolean;
-  isClearingEntries: boolean;
-  isCleaningUp: boolean;
-  isUploadingGlobal: boolean;
-  isPullingFiles: boolean;
   showEditDialog: boolean;
-  showCleanupDialog: boolean;
-  /** The one dialog standing in front of every action that starts a job. */
-  confirmation: IActionConfirmationVM;
   /** What a sync from disk would change. Shown before anything is stored. */
   syncPreview: ISyncPreviewVM;
 }
@@ -260,8 +138,9 @@ export interface IProjectDetailVM {
 export interface IProjectDetailPresenter {
   readonly vm: IProjectDetailVM;
   load(projectId: string, envName: string | null): Promise<void>;
-  activateView(view: string): Promise<void>;
   checkHealth(): Promise<void>;
+  /** Reads the selected environment's stacks, for the Environments and System Info tabs. */
+  loadStacks(): Promise<void>;
   /**
    * Reads what a sync from disk would change and opens the diff. Nothing is stored until
    * `applySync`.
@@ -269,9 +148,6 @@ export interface IProjectDetailPresenter {
   syncProject(): void;
   applySync(): Promise<void>;
   closeSyncPreview(): void;
-  /** Runs the action the open confirmation describes. */
-  confirmAction(): Promise<void>;
-  cancelAction(): void;
   /** Opens the confirmation in its reversible "archive" mode and loads the impact counts. */
   confirmRemoveEnvironment(environmentId: string, stackName: string): void;
   cancelRemoveEnvironment(): void;
@@ -290,43 +166,9 @@ export interface IProjectDetailPresenter {
   reviewDeployment(): void;
   setDeploymentTypedName(value: string): void;
   submitDeployment(): Promise<void>;
-  loadTemplate(templateId: string): void;
-  deleteTemplate(templateId: string): Promise<void>;
-  pullTenants(): void;
-  pullModels(): void;
   openEditDialog(): void;
   closeEditDialog(): void;
   submitEdit(input: IEditProjectInput): Promise<boolean>;
-  loadEntriesPage(page: number): void;
-  viewJobEntries(jobId: string): void;
-  setEntriesFilter(key: string, value: string | null): void;
-  clearEntriesFilter(): void;
-  clearEntries(): Promise<void>;
-  deleteFile(fileId: string): Promise<void>;
-  uploadFilesToProject(files: File[]): Promise<void>;
-  uploadAllGlobalImages(): Promise<void>;
-  uploadSelectedGlobalImages(fileNames: string[]): Promise<void>;
-  deleteSyncLog(logId: string): Promise<void>;
-  importEntries(tenant: string, modelIds: string[]): void;
-  openCleanupDialog(): void;
-  closeCleanupDialog(): void;
-  confirmCleanup(): Promise<void>;
-  loadSeedJobsPage(page: number): void;
-  setSeedJobsFilter(key: string, value: string | null): void;
-  clearSeedJobsFilter(): void;
-  loadJobsPage(page: number): void;
-  setJobsFilter(key: string, value: string | null): void;
-  clearJobsFilter(): void;
-  loadSyncLogsPage(page: number): void;
-  setSyncLogsFilter(key: string, value: string | null): void;
-  clearSyncLogsFilter(): void;
-  pullFiles(): void;
-  cancelJob(jobId: string): Promise<void>;
-  resumeSeedJob(seedJobId: string): void;
-  openJob(jobId: string): Promise<void>;
-  closeJob(): void;
-  /** Live log tail for a running job, empty until it emits something. */
-  liveLogsFor(jobId: string): string;
   dispose(): void;
 }
 

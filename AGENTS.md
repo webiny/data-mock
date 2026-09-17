@@ -105,8 +105,9 @@ src/
     ├── presentation/
     │   ├── Projects/
     │   │   ├── ProjectList/            # List page + use cases (load, delete, sync tenants/models)
-    │   │   ├── ProjectDetail/          # Detail page (sidebar: environments, system info, tenants, models, history)
-    │   │   │                           #   ProjectDatasets + projectDatasetDefinitions: per-tab loading
+    │   │   ├── ProjectDetail/          # Page frame: project, environments, deploy/destroy, system info
+    │   │   │   └── tabs/<Name>/        # One presentation unit per tab, each owning its own data:
+    │   │   │                           #   abstractions/, presenter, feature.ts, components/, __tests__/
     │   │   └── AddProject/             # Scan / Browse / Path / Remote tabs + use case
     │   └── Seeding/
     │       ├── SeedConfig/             # Seed configuration page
@@ -706,12 +707,20 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **987 tests** across 76 files (vitest)
+- **1193 tests** across 90 files (vitest)
 - **Coverage**: v8 provider, ~86% statements, ~76% branches, ~88% functions. Generators are held near 100%: every bug found in them so far was a legal CMS field configuration that made seeding throw. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
   The route tests enqueue jobs and never run the queue, so nothing reaches a live CMS either.
+- **A tab owns its own data.** Every tab of the project detail page is its own presentation unit
+  under `ProjectDetail/tabs/<Name>/`, with its own presenter, feature and tests. It is handed a
+  `ProjectDetailTabContext` — project id, resolved environment or null, stack name, tenant — as a
+  prop, reads once per context, never records a failed or environment-less read as loaded, and
+  subscribes to `job:status` for the one dataset it owns. The page frame keeps only what it draws
+  itself: the project, the environment list and its selection, deploy and destroy, and System Info.
+  The `VIEW_DATASETS` table and `activateView` that preceded this existed only because tabs did not
+  own their loading.
 - **React owns when data is fetched; the presenter owns how.** A tab's effect depends on the
   resolved environment as well as the view, because every tab reads environment-scoped data and the
   environment resolves asynchronously. A presenter that remembered which tab was open, so it could

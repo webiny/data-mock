@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { Alert, Stack, Title } from "@mantine/core";
-import { JobsTab } from "~/ui/presentation/Projects/ProjectDetail/components/JobsTab.js";
+import { JobsTable } from "~/ui/components/JobsTable.js";
 import type { ActivityPresenter } from "../abstractions/ActivityPresenter.js";
 
 interface ActivityPageProps {
@@ -26,7 +26,7 @@ export const ActivityPage = observer(function ActivityPage({ presenter }: Activi
         </Alert>
       )}
 
-      <JobsTab
+      <JobsTable
         jobs={vm.jobs}
         selectedJob={vm.selectedJob}
         isLoadingSelectedJob={vm.isLoadingSelectedJob}
