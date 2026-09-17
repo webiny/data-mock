@@ -296,6 +296,31 @@ describe("ProjectDetailPresenter", () => {
     });
   });
 
+  describe("a sync that discovers the first environment", () => {
+    it("shows it, selects it and stops saying there are none", async () => {
+      // The project has nothing until the sync runs, which is the state a fresh checkout is in.
+      http.data.set(ENVIRONMENTS_PATH, []);
+      const p = await loaded();
+      expect(p.vm.environments).toHaveLength(0);
+      expect(p.vm.environmentError).toContain("no environments yet");
+
+      // The sync finds dev while the page is open.
+      http.data.set(ENVIRONMENTS_PATH, [makeEnvironment()]);
+      container.resolve(EventBridge).emit("job:status", {
+        jobId: "sync-1",
+        projectId: PROJECT_ID,
+        type: "sync-system",
+        status: "completed",
+      });
+      await flush();
+
+      expect(p.vm.environments).toHaveLength(1);
+      // Still saying "no environments yet" over a list that now has one is the bug.
+      expect(p.vm.environmentError).toBeNull();
+      expect(p.vm.currentEnvironment?.stackName).toBe("dev");
+    });
+  });
+
   describe("live logs", () => {
     it("collects the lines of a running job in order", async () => {
       const p = await loaded();

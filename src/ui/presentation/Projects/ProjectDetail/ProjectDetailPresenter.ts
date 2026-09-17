@@ -1449,8 +1449,13 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   /**
-   * Reads the environment list again and re-points the page when it has nothing selected — after
-   * a purge of the environment the URL addressed, or before one has been resolved at all.
+   * Reads the environment list again and re-resolves which one the page is on.
+   *
+   * Delegates to the same routine the initial load uses, because everything that follows the list
+   * — the selection, the "no environments yet" notice, the stack name in the URL — is decided
+   * there. Reloading only the dataset stored the new rows and left the rest saying what it said
+   * before: after a sync discovered a project's first environment, the page listed it while still
+   * reporting that there were none, with nothing selected and every environment action dead.
    */
   private reloadEnvironments = async (): Promise<void> => {
     const projectId = this._projectId;
@@ -1458,16 +1463,18 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       return;
     }
 
-    await this.datasets.reload("environments");
+    await this.resolveEnvironment(projectId, this._envName);
+  };
 
-    runInAction(() => {
-      if (this._environmentId === null) {
-        this._environmentId =
-          this.environmentsRepository
-            .getEnvironmentsByProjectId(projectId)
-            .find((environment) => environment.archivedAt === null)?.id ?? null;
-      }
-    });
+  /**
+   * The environment list is not just another dataset: what it holds decides which environment the
+   * page is on, so it goes through `reloadEnvironments` rather than the dataset alone.
+   */
+  private reloadAfterJob = async (datasets: readonly string[]): Promise<void> => {
+    await Promise.all([
+      datasets.includes("environments") ? this.reloadEnvironments() : Promise.resolve(),
+      this.datasets.reloadAll(datasets.filter((dataset) => dataset !== "environments")),
+    ]);
   };
 
   private handleJobLog = (event: WSJobLog): void => {
@@ -1489,7 +1496,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (datasetsToReload.length === 0) {
       return;
     }
-    void this.datasets.reloadAll(datasetsToReload);
+    void this.reloadAfterJob(datasetsToReload);
   };
 
   private get datasetContext(): IDatasetContext | null {
