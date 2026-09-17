@@ -12,6 +12,7 @@ import type { ITestProject } from "~/shared/node/testing/createTestProject.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
 import { SeedService } from "~/shared/node/features/seeding/seed/abstractions/SeedService.js";
 import { SyncModelsService } from "~/shared/node/features/models/sync/abstractions/SyncModelsService.js";
+import { TenantSyncService } from "~/shared/node/features/tenants/sync/abstractions/TenantSyncService.js";
 import { FileUploadService } from "~/shared/node/features/files/upload/abstractions/FileUploadService.js";
 import { seedTemplates } from "~/shared/node/db/schema.js";
 
@@ -248,14 +249,84 @@ describe("seed command", () => {
     expect(tc.ui.on("warn")).toEqual(["No models synced. Run 'yarn cli sync-models' first."]);
   });
 
-  it("stops before seeding when no tenant has been discovered", async () => {
-    tc = createCliTestContainer({ answers: [pick("Blog")] });
+  it("offers to sync the tenants when it finds none, and seeds what the sync discovered", async () => {
+    tc = createCliTestContainer({
+      answers: [
+        pick("Blog"),
+        true,
+        pick("Acme (acme)"),
+        pickAll("Article (article)"),
+        "2",
+        false,
+        false,
+      ],
+    });
+    project = await createTestProject(tc, { name: "Blog" });
+    clearTenants(tc);
+    insertModel(tc, project, "article", "Article");
+
+    // The sync is what puts the tenant there; the seed then has something to choose from.
+    tc.container.registerInstance(TenantSyncService, {
+      execute: async () => {
+        insertTenant(tc, project, "acme", "Acme");
+        return Result.ok({
+          tenants: [{ tenantId: "acme", name: "Acme" }],
+          synced: 1,
+          diff: { added: [{ tenantId: "acme", name: "Acme" }], removed: [], unchanged: [] },
+          operations: [],
+        });
+      },
+    });
+
+    seedCalls = [];
+    tc.container.registerInstance(SeedService, {
+      execute: async (input) => {
+        seedCalls.push(input);
+        return Result.ok({
+          jobId: "seed-1",
+          created: 2,
+          errors: [],
+          cancelled: false,
+          dryRun: false,
+        });
+      },
+    });
+
+    await resolveCommand(tc, "seed").execute();
+
+    expect(tc.ui.said("Synced 1 tenant(s).")).toBe(true);
+    expect(seedCalls[0]!.tenant).toBe("acme");
+  });
+
+  it("stops when the tenant sync is declined", async () => {
+    tc = createCliTestContainer({ answers: [pick("Blog"), false] });
     project = await createTestProject(tc, { name: "Blog" });
     clearTenants(tc);
 
     await resolveCommand(tc, "seed").execute();
 
-    expect(tc.ui.on("warn").join("\n")).toContain("No tenants found");
+    expect(tc.ui.on("warn")).toEqual(["No tenants found for this environment."]);
+    expect(tc.ui.on("cancel")).toEqual(["Cancelled."]);
+  });
+
+  it("stops when the tenant sync finds nothing", async () => {
+    tc = createCliTestContainer({ answers: [pick("Blog"), true] });
+    project = await createTestProject(tc, { name: "Blog" });
+    clearTenants(tc);
+
+    tc.container.registerInstance(TenantSyncService, {
+      execute: async () =>
+        Result.ok({
+          tenants: [],
+          synced: 0,
+          diff: { added: [], removed: [], unchanged: [] },
+          operations: [],
+        }),
+    });
+
+    await resolveCommand(tc, "seed").execute();
+
+    expect(tc.ui.on("warn").join("\n")).toContain("The sync found no tenants");
   });
 
   it("says how to add a project when there is none", async () => {

@@ -6,11 +6,12 @@ import { UI } from "~/cli/abstractions/UI.js";
 import { Command } from "~/cli/abstractions/Command.js";
 import { ListProjectsUseCase } from "~/shared/node/features/projects/list/abstractions/ListProjectsUseCase.js";
 import { ListProjectTenantsRepository } from "~/shared/node/features/tenants/list/abstractions/ListProjectTenantsRepository.js";
+import { TenantSyncService } from "~/shared/node/features/tenants/sync/abstractions/TenantSyncService.js";
 import { ListProjectModelsRepository } from "~/shared/node/features/models/list/abstractions/ListProjectModelsRepository.js";
 import { SeedService } from "~/shared/node/features/seeding/seed/abstractions/SeedService.js";
 import { ListSeedTemplatesRepository } from "~/shared/node/features/templates/list/abstractions/ListSeedTemplatesRepository.js";
 import { CreateSeedTemplateRepository } from "~/shared/node/features/templates/create/abstractions/CreateSeedTemplateRepository.js";
-import type { ProjectModel, SeedTemplateConfig } from "~/shared/types.js";
+import type { ProjectModel, ProjectTenant, SeedTemplateConfig } from "~/shared/types.js";
 
 class SeedCommandImpl implements Command.Interface {
   public readonly name = "seed";
@@ -22,6 +23,7 @@ class SeedCommandImpl implements Command.Interface {
     private readonly listProjectsUseCase: ListProjectsUseCase.Interface,
     private readonly listEnvironmentsRepository: ListEnvironmentsRepository.Interface,
     private readonly listTenantsRepository: ListProjectTenantsRepository.Interface,
+    private readonly tenantSyncService: TenantSyncService.Interface,
     private readonly listModelsRepository: ListProjectModelsRepository.Interface,
     private readonly seedService: SeedService.Interface,
     private readonly listTemplatesRepository: ListSeedTemplatesRepository.Interface,
@@ -85,14 +87,18 @@ class SeedCommandImpl implements Command.Interface {
       return;
     }
 
-    const tenants = tenantsResult.value;
+    let tenants = tenantsResult.value;
     if (tenants.length === 0) {
-      // There is no tenant-sync command: tenants are discovered when a project is added, and
-      // re-synced from the UI. Naming one that does not exist sends the user to "Unknown command".
-      this.ui.log.warn(
-        "No tenants found. Tenants are discovered when a project is added — re-add it, or sync it from the UI.",
-      );
-      return;
+      /**
+       * Offered here rather than as a ninth command: this is the only place the CLI notices that
+       * tenants are missing, and sending the user somewhere else and back is the dead end that
+       * used to name a `sync-tenants` command that never existed.
+       */
+      const synced = await this.syncTenants(environment.id);
+      if (synced === null) {
+        return;
+      }
+      tenants = synced;
     }
 
     const tenantOptions = [
@@ -204,6 +210,44 @@ class SeedCommandImpl implements Command.Interface {
     }
   }
 
+  /**
+   * Discovers this environment's tenants, with the user's say-so. Returns null when they declined,
+   * cancelled, or the sync found nothing — every one of which ends the seed.
+   */
+  private async syncTenants(environmentId: string): Promise<ProjectTenant[] | null> {
+    this.ui.log.warn("No tenants found for this environment.");
+
+    const shouldSync = await this.prompts.confirm({ message: "Sync them now?" });
+    if (isCancelled(shouldSync) || !shouldSync) {
+      this.ui.cancel("Cancelled.");
+      return null;
+    }
+
+    const spinner = this.ui.spinner();
+    spinner.start("Syncing tenants...");
+
+    const result = await this.tenantSyncService.execute({ environmentId });
+    if (result.isFail()) {
+      spinner.stop(`Failed: ${result.error.message}`);
+      return null;
+    }
+
+    spinner.stop(`Synced ${result.value.synced} tenant(s).`);
+
+    const listed = await this.listTenantsRepository.execute({ environmentId });
+    if (listed.isFail()) {
+      this.ui.log.error(`Failed to list tenants: ${listed.error.message}`);
+      return null;
+    }
+
+    if (listed.value.length === 0) {
+      this.ui.log.warn("The sync found no tenants. Is this environment deployed and reachable?");
+      return null;
+    }
+
+    return listed.value;
+  }
+
   private async loadTemplateOrManual(
     projectId: string,
     selectedTenant: string | symbol,
@@ -308,6 +352,7 @@ export const SeedCommand = Command.createImplementation({
     ListProjectsUseCase,
     ListEnvironmentsRepository,
     ListProjectTenantsRepository,
+    TenantSyncService,
     ListProjectModelsRepository,
     SeedService,
     ListSeedTemplatesRepository,
