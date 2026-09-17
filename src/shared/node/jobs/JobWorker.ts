@@ -10,11 +10,21 @@ import { JobQueryHelper } from "./JobQueryHelper.js";
 import { JobRecoveryHelper } from "./JobRecoveryHelper.js";
 import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
 
+const DEFAULT_MAX_CONCURRENT_JOBS = 4;
+
 /**
  * How many jobs may run at once across every project. A deploy holds a child process for tens of
  * minutes, so an unbounded launcher would put every pending row on the machine simultaneously.
+ *
+ * Read once, at module load, from `MAX_CONCURRENT_JOBS`. Anything that is not a positive number
+ * falls back to the default rather than uncapping the launcher.
  */
-const MAX_CONCURRENT_JOBS = 4;
+const MAX_CONCURRENT_JOBS = readMaxConcurrentJobs();
+
+function readMaxConcurrentJobs(): number {
+  const configured = Number.parseInt(process.env.MAX_CONCURRENT_JOBS ?? "", 10);
+  return Number.isNaN(configured) || configured < 1 ? DEFAULT_MAX_CONCURRENT_JOBS : configured;
+}
 
 /** Shown on a job that is queued behind another job for the same project. Cleared on claim. */
 const WAITING_LABEL = "waiting: project busy";

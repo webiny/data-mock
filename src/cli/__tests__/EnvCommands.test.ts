@@ -49,6 +49,7 @@ describe("init command", () => {
     const written = readFileSync(cwd.envFile, "utf-8");
     expect(written).toContain("API_PORT=4100");
     expect(written).toContain("UI_PORT=4101");
+    expect(written).toContain("MAX_CONCURRENT_JOBS=4");
     expect(written).toMatch(/^ENCRYPTION_KEY=[0-9a-f]{64}$/m);
   });
 

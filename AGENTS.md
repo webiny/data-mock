@@ -273,7 +273,7 @@ Both run as background jobs, through the checkout's own `node_modules/.bin/webin
 
 ### Job concurrency
 
-`MAX_CONCURRENT_JOBS = 4` globally, and **one running job per project** — which is what stops a
+`MAX_CONCURRENT_JOBS` globally (default 4, set in `.env`), and **one running job per project** — which is what stops a
 sync from reading a checkpoint a deploy is halfway through rewriting. `projectId === null` is never
 blocked. A skipped job stays `pending` with `progressLabel = "waiting: project busy"`,
 cleared on claim. The claim update is guarded on the row still being `pending`.
@@ -778,3 +778,4 @@ Default DB path: `.webiny/data-mock.db`. Override via `DB_PATH` in `.env`.
 | `API_PORT` | No | 4000 | Fastify server port |
 | `UI_PORT` | No | 4001 | Vite dev server port |
 | `DB_PATH` | No | .webiny/data-mock.db | SQLite database path |
+| `MAX_CONCURRENT_JOBS` | No | 4 | Jobs running at once across every project |
