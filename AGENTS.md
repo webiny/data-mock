@@ -706,12 +706,16 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **976 tests** across 74 files (vitest)
+- **979 tests** across 75 files (vitest)
 - **Coverage**: v8 provider, ~86% statements, ~76% branches, ~88% functions. Generators are held near 100%: every bug found in them so far was a legal CMS field configuration that made seeding throw. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a
   recording stub. Both are deliberate — a test that deploys costs money and takes tens of minutes.
   The route tests enqueue jobs and never run the queue, so nothing reaches a live CMS either.
+- **A presenter test must observe, or it proves nothing about staleness.** `vm` is a MobX computed:
+  with no observer it recomputes on every read, so a test that only reads `presenter.vm` passes
+  whether or not the view would update. `__tests__/reactivity.test.ts` wraps the reads in `autorun`,
+  which is what caught a tab that stayed empty until the page was re-entered.
 - **`StubHttpClient`** (`src/ui/testing/`) answers every typed route from a table keyed by path,
   building the same envelope the server does, and the untyped `get`/`post` half from a second table
   keyed by the literal path. UI presenters are tested through their own DI feature with it
