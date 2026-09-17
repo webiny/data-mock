@@ -130,10 +130,21 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     }
   };
 
+  /**
+   * Opens the removal confirmation.
+   *
+   * An archived project opens straight on the permanent delete: archiving is the reversible step,
+   * and it has already been taken. Offering it again asks the user to archive what is archived,
+   * and buries the only action left behind a second click.
+   */
   public confirmDelete = (projectId: string, projectName: string): void => {
+    const project = this.projectsRepository.projects.find(
+      (candidate) => candidate.id === projectId,
+    );
+
     this._deleteProjectId = projectId;
     this._deleteProjectName = projectName;
-    this._deleteMode = "archive";
+    this._deleteMode = project?.archivedAt === null || project === undefined ? "archive" : "purge";
     this._impact = null;
     void this.loadImpact(projectId);
   };

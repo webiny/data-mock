@@ -3,6 +3,20 @@ import { createTestContainer } from "~/shared/node/testing/createTestContainer.j
 import { ApiFeature } from "../feature.js";
 import { createServer } from "../server.js";
 import { registerApiRoutes } from "../routes/index.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
+import {
+  jobs,
+  projectEnvironments,
+  projectFiles,
+  projectGroups,
+  projectModels,
+  projectStacks,
+  projectTenants,
+  seedEntries,
+  seedJobs,
+  seedTemplates,
+  syncLogs,
+} from "~/shared/node/db/schema.js";
 import type { FastifyInstance } from "fastify";
 
 describe("Project API routes", () => {
@@ -244,6 +258,162 @@ describe("Project API routes", () => {
 
       const getResponse = await app.inject({ method: "GET", url: `/api/projects/${id}` });
       expect(getResponse.statusCode).toBe(404);
+    });
+
+    it("takes every row that hangs off the project with it", async () => {
+      const project = await createTestProject(tc, { name: "Purge Everything" });
+      const now = Date.now();
+      const { db } = tc.databaseClient;
+      const scoped = { projectId: project.projectId, environmentId: project.environmentId };
+
+      db.insert(projectStacks)
+        .values({
+          id: "stack-1",
+          environmentId: project.environmentId,
+          app: "core",
+          deployed: 1,
+          resourceCount: 3,
+          stackOutput: "{}",
+          readState: "deployed",
+          syncedAt: now,
+        })
+        .run();
+      db.insert(projectTenants)
+        .values({ id: "tenant-1", ...scoped, tenantId: "acme", name: "Acme", discoveredAt: now })
+        .run();
+      db.insert(projectGroups)
+        .values({
+          id: "group-1",
+          ...scoped,
+          slug: "content",
+          name: "Content",
+          description: null,
+          icon: null,
+          remoteId: null,
+          syncedAt: now,
+          createdAt: now,
+        })
+        .run();
+      db.insert(projectModels)
+        .values({
+          id: "model-1",
+          ...scoped,
+          groupSlug: "content",
+          modelId: "article",
+          name: "Article",
+          singularApiName: "Article",
+          pluralApiName: "Articles",
+          description: null,
+          fields: "[]",
+          plugin: 0,
+          remoteId: null,
+          syncedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+      db.insert(projectFiles)
+        .values({
+          id: "file-1",
+          ...scoped,
+          tenant: "root",
+          fileKey: "a.png",
+          fileUrl: "https://files.example.com/a.png",
+          fileName: "a.png",
+          fileType: "image/png",
+          fileSize: 1,
+          uploadedAt: now,
+        })
+        .run();
+      db.insert(seedJobs)
+        .values({
+          id: "seed-job-1",
+          ...scoped,
+          status: "completed",
+          config: "{}",
+          result: null,
+          startedAt: now,
+          finishedAt: now,
+          createdAt: now,
+        })
+        .run();
+      db.insert(seedEntries)
+        .values({
+          id: "entry-1",
+          jobId: null,
+          ...scoped,
+          tenant: "root",
+          modelId: "article",
+          entryId: "remote-1",
+          entryData: "{}",
+          requestData: null,
+          responseData: null,
+          httpStatus: 200,
+          status: "created",
+          error: null,
+          createdAt: now,
+        })
+        .run();
+      db.insert(syncLogs)
+        .values({
+          id: "log-1",
+          ...scoped,
+          type: "models",
+          status: "success",
+          message: "ok",
+          request: null,
+          response: null,
+          createdAt: now,
+        })
+        .run();
+      db.insert(jobs)
+        .values({
+          id: "job-1",
+          ...scoped,
+          type: "seed",
+          status: "completed",
+          config: null,
+          logs: "out",
+          result: null,
+          progress: null,
+          progressLabel: null,
+          startedAt: now,
+          completedAt: now,
+          createdAt: now,
+        })
+        .run();
+      db.insert(seedTemplates)
+        .values({
+          id: "template-1",
+          projectId: project.projectId,
+          name: "Nightly",
+          config: "{}",
+          createdAt: now,
+        })
+        .run();
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: `/api/projects/${project.projectId}/purge`,
+      });
+      expect(response.statusCode).toBe(204);
+
+      // Jobs, logs, entries, models, tenants, files, templates and stacks all go with it.
+      for (const table of [
+        projectEnvironments,
+        projectStacks,
+        projectTenants,
+        projectGroups,
+        projectModels,
+        projectFiles,
+        seedJobs,
+        seedEntries,
+        syncLogs,
+        jobs,
+        seedTemplates,
+      ]) {
+        expect(db.select().from(table).all()).toEqual([]);
+      }
     });
 
     it("should return 404 when purging non-existent project", async () => {

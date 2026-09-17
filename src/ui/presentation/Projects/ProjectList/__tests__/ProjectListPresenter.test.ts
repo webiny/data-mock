@@ -317,6 +317,43 @@ describe("ProjectListPresenter", () => {
     expect(p.vm.deleteConfirmation.mode).toBe("purge");
   });
 
+  it("opens straight on the permanent delete for a project already archived", async () => {
+    projectsGateway.projects = [makeProject({ archivedAt: 123 })];
+
+    const p = presenter();
+    await p.load();
+    p.confirmDelete("p1", "Project One");
+
+    // Archiving is the reversible step and it has already been taken; offering it again asks the
+    // user to archive what is archived.
+    expect(p.vm.deleteConfirmation.mode).toBe("purge");
+  });
+
+  it("deletes an archived project and everything counted against it", async () => {
+    projectsGateway.projects = [makeProject({ archivedAt: 123 })];
+
+    const p = presenter();
+    await p.load();
+    p.confirmDelete("p1", "Project One");
+    await p.purge();
+
+    expect(projectsGateway.purged).toEqual(["p1"]);
+    expect(p.vm.projects).toHaveLength(0);
+    expect(p.vm.archivedProjects).toHaveLength(0);
+  });
+
+  it("still shows what a delete would destroy for an archived project", async () => {
+    projectsGateway.projects = [makeProject({ archivedAt: 123 })];
+
+    const p = presenter();
+    await p.load();
+    p.confirmDelete("p1", "Project One");
+    await settle();
+
+    // Opening on the purge step must not skip the counts that justify it.
+    expect(p.vm.deleteConfirmation.impactTotal).toBeGreaterThan(0);
+  });
+
   it("archives without deleting, and keeps the project in the archived list", async () => {
     projectsGateway.projects = [makeProject()];
 
