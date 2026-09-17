@@ -16,8 +16,6 @@ class SyncProjectGroupsRepositoryImpl implements Abstraction.Interface {
       const { db } = this.databaseClient;
       const now = Date.now();
 
-      db.delete(projectGroups).where(eq(projectGroups.environmentId, input.environmentId)).run();
-
       const rows: ProjectGroup[] = input.groups.map((group) => ({
         id: generateId(),
         projectId: input.projectId,
@@ -31,9 +29,18 @@ class SyncProjectGroupsRepositoryImpl implements Abstraction.Interface {
         createdAt: now,
       }));
 
-      for (const row of rows) {
-        db.insert(projectGroups).values(row).run();
-      }
+      /**
+       * Delete and re-insert as one unit. Run loose, a failure part-way through leaves the
+       * environment holding fewer rows than it started with — the delete has already happened and
+       * the inserts that replace them have not.
+       */
+      db.transaction((tx) => {
+        tx.delete(projectGroups).where(eq(projectGroups.environmentId, input.environmentId)).run();
+
+        for (const row of rows) {
+          tx.insert(projectGroups).values(row).run();
+        }
+      });
 
       return Result.ok(rows);
     } catch (error) {

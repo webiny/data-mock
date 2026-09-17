@@ -56,8 +56,6 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
       const { db } = this.databaseClient;
       const now = Date.now();
 
-      db.delete(projectModels).where(eq(projectModels.environmentId, input.environmentId)).run();
-
       const rows: ProjectModel[] = input.models.map((model) => ({
         id: generateId(),
         projectId: input.projectId,
@@ -76,15 +74,24 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
         updatedAt: now,
       }));
 
-      for (const row of rows) {
-        db.insert(projectModels)
-          .values({
-            ...row,
-            plugin: row.plugin ? 1 : 0,
-            fields: JSON.stringify(row.fields),
-          })
-          .run();
-      }
+      /**
+       * Delete and re-insert as one unit. Run loose, a failure part-way through leaves the
+       * environment holding fewer rows than it started with — the delete has already happened and
+       * the inserts that replace them have not.
+       */
+      db.transaction((tx) => {
+        tx.delete(projectModels).where(eq(projectModels.environmentId, input.environmentId)).run();
+
+        for (const row of rows) {
+          tx.insert(projectModels)
+            .values({
+              ...row,
+              plugin: row.plugin ? 1 : 0,
+              fields: JSON.stringify(row.fields),
+            })
+            .run();
+        }
+      });
 
       return Result.ok(rows);
     } catch (error) {

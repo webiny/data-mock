@@ -16,15 +16,6 @@ class SyncProjectFilesRepositoryImpl implements Abstraction.Interface {
       const { db } = this.databaseClient;
       const now = Date.now();
 
-      db.delete(projectFiles)
-        .where(
-          and(
-            eq(projectFiles.environmentId, input.environmentId),
-            eq(projectFiles.tenant, input.tenant),
-          ),
-        )
-        .run();
-
       const rows: ProjectFile[] = input.files.map((file) => ({
         id: generateId(),
         projectId: input.projectId,
@@ -38,9 +29,25 @@ class SyncProjectFilesRepositoryImpl implements Abstraction.Interface {
         uploadedAt: now,
       }));
 
-      for (const row of rows) {
-        db.insert(projectFiles).values(row).run();
-      }
+      /**
+       * Delete and re-insert as one unit. Run loose, a failure part-way through leaves the
+       * environment holding fewer rows than it started with — the delete has already happened and
+       * the inserts that replace them have not.
+       */
+      db.transaction((tx) => {
+        tx.delete(projectFiles)
+          .where(
+            and(
+              eq(projectFiles.environmentId, input.environmentId),
+              eq(projectFiles.tenant, input.tenant),
+            ),
+          )
+          .run();
+
+        for (const row of rows) {
+          tx.insert(projectFiles).values(row).run();
+        }
+      });
 
       return Result.ok(rows);
     } catch (error) {
