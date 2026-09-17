@@ -297,15 +297,22 @@ describe("API routes", () => {
   });
 
   describe("POST /health", () => {
-    it("reports an environment it can reach", async () => {
+    /** Counts the checks so a cached answer is distinguishable from a fresh one. */
+    function countingVerifier(): { checks: number } {
+      const counter = { checks: 0 };
       testContainer.container.registerInstance(VerifyProjectAccessService, {
-        execute: async () => Result.ok(undefined),
+        execute: async () => {
+          counter.checks += 1;
+          return Result.ok(undefined);
+        },
       });
+      return counter;
+    }
 
-      const response = await app.inject({
-        method: "POST",
-        url: environmentPath("/health?force=true"),
-      });
+    it("reports an environment it can reach", async () => {
+      countingVerifier();
+
+      const response = await app.inject({ method: "POST", url: environmentPath("/health") });
 
       expect(response.statusCode).toBe(200);
       expect((await body(response)).health).toEqual({ reachable: true, error: null });
@@ -316,14 +323,68 @@ describe("API routes", () => {
         execute: async () => Result.fail(new GraphQLRequestError("401 Unauthorized", 401)),
       });
 
-      const response = await app.inject({
-        method: "POST",
-        url: environmentPath("/health?force=true"),
-      });
+      const response = await app.inject({ method: "POST", url: environmentPath("/health") });
 
       // "Can I reach this API?" has a truthful answer: no, and this is why.
       expect(response.statusCode).toBe(200);
       expect((await body(response)).health).toMatchObject({ reachable: false });
+    });
+
+    it("answers a second time from the cache", async () => {
+      const verifier = countingVerifier();
+
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+
+      // The project list asks once per environment on every page load.
+      expect(verifier.checks).toBe(1);
+    });
+
+    it("asks again when the caller forces it", async () => {
+      const verifier = countingVerifier();
+
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+      await app.inject({ method: "POST", url: environmentPath("/health?force=true") });
+
+      expect(verifier.checks).toBe(2);
+    });
+
+    it("asks again after the environment is repointed", async () => {
+      const verifier = countingVerifier();
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+
+      await app.inject({
+        method: "PUT",
+        url: environmentPath(""),
+        payload: { apiUrl: "https://elsewhere.example.com" },
+      });
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+
+      // The url is what health asked with; a verdict from before the change answers for the old one.
+      expect(verifier.checks).toBe(2);
+    });
+
+    it("asks again after the environment is archived", async () => {
+      const verifier = countingVerifier();
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+
+      await app.inject({ method: "DELETE", url: environmentPath("") });
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+
+      expect(verifier.checks).toBe(2);
+    });
+
+    it("keeps one environment's answer out of another's", async () => {
+      const other = await createTestProject(testContainer, { name: "Other Project" });
+      const verifier = countingVerifier();
+
+      await app.inject({ method: "POST", url: environmentPath("/health") });
+      await app.inject({
+        method: "POST",
+        url: `/api/projects/${other.projectId}/environments/${other.environmentId}/health`,
+      });
+
+      expect(verifier.checks).toBe(2);
     });
 
     it("refuses an environment that belongs to another project", async () => {

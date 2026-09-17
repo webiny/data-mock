@@ -85,6 +85,7 @@ src/
 │   ├── server.ts                       # createServer()
 │   ├── feature.ts                      # ApiFeature
 │   ├── routing/                        # routeFactory, environmentOwnership, sendTyped, sendError, createRequestContext
+│   ├── health/                         # EnvironmentHealthCache (per container, invalidated on change)
 │   └── routes/                         # Route handlers (see below)
 │
 └── ui/                                  # React + Mantine + MobX (port 4001)
@@ -338,10 +339,12 @@ in the product deletes by default:
 - **A failed read is never marked as loaded.** Every project-detail dataset stayed marked loaded
   whether or not it loaded, so a one-second outage left a tab blank for the rest of the session
   with nothing asking again. Reopening the tab now retries, and the failure says so.
-- **Health is an environment fact, and cached for ten minutes server-side.** The project list asks
+- **Health is an environment fact, and cached for ten minutes in `EnvironmentHealthCache`.** The project list asks
   per environment and shows online / partly online / unreachable with the count; a project with no
   API to reach reads "no API", not unreachable. The badge is clickable and that click passes
-  `force`, or it would get the same cached answer and look like it did nothing.
+  `force`, or it would get the same cached answer and look like it did nothing. Updating,
+  archiving or purging an environment drops its entry: the url, token and tenant are what health
+  asked with, so a verdict from before the change answers for the old ones.
 - **Seed Data and History appear only where an environment has an API.** Both open one, so on a
   project that has never been deployed they could only lead to "this environment cannot be seeded".
 
@@ -698,7 +701,7 @@ export const ProjectsFeature = createFeature({
 
 ## Testing
 
-- **869 tests** across 68 files (vitest)
+- **874 tests** across 68 files (vitest)
 - **Coverage**: v8 provider, ~85% statements, ~74% branches, ~87% functions. Thresholds enforced via `vitest.config.ts`.
 - **Nothing in the suite spawns a real deploy.** The CLI runner is exercised against a fake
   `webiny` binary written into a temp checkout; deploy and destroy are exercised against a

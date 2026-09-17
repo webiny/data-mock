@@ -1,5 +1,6 @@
 import { updateProjectEnvironmentRoute } from "~/shared/routes/environments.js";
 import { UpdateEnvironmentRepository } from "~/shared/node/features/environments/update/abstractions/UpdateEnvironmentRepository.js";
+import { EnvironmentHealthCache } from "~/api/health/abstractions/EnvironmentHealthCache.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
 export const updateProjectEnvironment = routeFactory(
@@ -26,6 +27,10 @@ export const updateProjectEnvironment = routeFactory(
     if (result.isFail()) {
       return send.error(result.error);
     }
+
+    // The url, the token and the tenant are exactly what health asked with. A cached verdict from
+    // before this change answers for the old ones.
+    container.resolve(EnvironmentHealthCache).forget(params.environmentId);
 
     return send.one("environment", result.value);
   },

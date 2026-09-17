@@ -1,5 +1,6 @@
 import { purgeProjectEnvironmentRoute } from "~/shared/routes/environments.js";
 import { RemoveEnvironmentRepository } from "~/shared/node/features/environments/remove/abstractions/RemoveEnvironmentRepository.js";
+import { EnvironmentHealthCache } from "~/api/health/abstractions/EnvironmentHealthCache.js";
 import { routeFactory } from "~/api/routing/routeFactory.js";
 
 /**
@@ -16,6 +17,9 @@ export const purgeProjectEnvironment = routeFactory(
     if (result.isFail()) {
       return send.error(result.error);
     }
+
+    // The environment is gone; an answer about whether it was reachable outlives it otherwise.
+    container.resolve(EnvironmentHealthCache).forget(params.environmentId);
 
     return send.none();
   },
