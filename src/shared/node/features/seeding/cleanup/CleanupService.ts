@@ -120,7 +120,20 @@ class CleanupServiceImpl implements Abstraction.Interface {
 
           if (result.success) {
             deleted++;
-            await this.updateSeedEntryStatusRepository.execute({ id: entry.id, status: "deleted" });
+            const marked = await this.updateSeedEntryStatusRepository.execute({
+              id: entry.id,
+              status: "deleted",
+            });
+
+            /**
+             * The remote entry is gone either way. An unmarked row leaves the next cleanup run
+             * trying to delete something that no longer exists and reporting that as a failure.
+             */
+            if (marked.isFail()) {
+              this.logger.warn(
+                `Cleanup: deleted entry "${entry.entryId}" but could not mark it deleted: ${marked.error.message}. The next run will try it again.`,
+              );
+            }
           } else {
             errors++;
             this.logger.warn(

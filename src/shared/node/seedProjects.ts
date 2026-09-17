@@ -204,5 +204,5 @@ export function seedProjectsFromFile(
     }
   }
 
-  console.log(`Seeded ${parsed.data.length} project(s) from ${SEED_FILE_PATH}.`);
+  console.log(`Seeded ${parsed.data.length} project(s) from ${seedFilePath}.`);
 }

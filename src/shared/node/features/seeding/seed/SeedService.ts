@@ -698,7 +698,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     entryData: Record<string, unknown>,
     result: EntryMutationResult,
   ): Promise<void> {
-    await this.createSeedEntryRepository.execute({
+    const logged = await this.createSeedEntryRepository.execute({
       jobId,
       projectId,
       environmentId,
@@ -712,6 +712,17 @@ class SeedServiceImpl implements Abstraction.Interface {
       status: result.status,
       error: result.error,
     });
+
+    /**
+     * The entry itself is already sent; the audit row is what failed. Dropped, the stored count
+     * silently understates what was created, and a later cleanup misses the entry entirely
+     * because it has no record of it.
+     */
+    if (logged.isFail()) {
+      this.logger.warn(
+        `Entry "${result.entryId}" of model "${modelId}" was not written to the audit log: ${logged.error.message}`,
+      );
+    }
   }
 
   private async seedDryRun(
@@ -733,7 +744,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       );
       const entryData = entry.values as Record<string, unknown>;
       entries.push(entryData);
-      await this.createSeedEntryRepository.execute({
+      const logged = await this.createSeedEntryRepository.execute({
         jobId,
         projectId,
         environmentId,
@@ -747,6 +758,12 @@ class SeedServiceImpl implements Abstraction.Interface {
         status: "dry-run",
         error: null,
       });
+
+      if (logged.isFail()) {
+        this.logger.warn(
+          `Dry-run entry for model "${context.modelId}" was not written to the audit log: ${logged.error.message}`,
+        );
+      }
     }
     this.logger.info(
       `[DRY RUN] Generated ${entries.length} entries for model "${context.model.name}" (not sent).`,

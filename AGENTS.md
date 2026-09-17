@@ -18,7 +18,7 @@ respecting CMS field validation rules, and sends entries via GraphQL. Includes a
 yarn install
 yarn cli init            # generate .env (encryption key + ports)
 yarn cli add-project     # add a Webiny project connection
-yarn cli pull-models     # pull models from Webiny
+yarn cli sync-models     # pull models from Webiny
 yarn cli seed            # generate + send mock data
 yarn dev                 # start API (port 4000) + UI (port 4001)
 ```
@@ -355,7 +355,7 @@ in the product deletes by default:
 | `yarn cli add-project` | Add a Webiny project (prompts for name, URL, token, version, tenant) |
 | `yarn cli list-projects` | Show all configured projects |
 | `yarn cli remove-project` | Archive, restore or permanently delete a project (shows the row counts a permanent delete would destroy) |
-| `yarn cli pull-models` | Pull models/groups from a Webiny project into local DB |
+| `yarn cli sync-models` | Pull models/groups from a Webiny project into local DB |
 | `yarn cli seed` | Generate + send mock entries (select project → tenants → models → amounts) |
 | `yarn cli rotate-key` | Rotate the API token encryption key |
 | `yarn cli upload-files` | Upload files to a Webiny project's file manager |

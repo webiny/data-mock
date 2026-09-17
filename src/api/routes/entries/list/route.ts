@@ -5,6 +5,16 @@ import { parseListQuery, getStringFilter } from "~/api/routing/parseListQuery.js
 import type { SeedEntryStatus } from "~/shared/types.js";
 import type { ListSeedEntriesRepository as Abstraction } from "~/shared/node/features/seeding/entries/abstractions/ListSeedEntriesRepository.js";
 
+function isSeedEntryStatus(value: string | undefined): value is SeedEntryStatus {
+  return (
+    value === "created" ||
+    value === "failed" ||
+    value === "dry-run" ||
+    value === "imported" ||
+    value === "deleted"
+  );
+}
+
 export const listSeedEntries = routeFactory(
   listSeedEntriesRoute,
   async ({ params, query, container, send }) => {
@@ -24,8 +34,10 @@ export const listSeedEntries = routeFactory(
     if (tenant) {
       input.tenant = tenant;
     }
-    if (status) {
-      input.status = status as SeedEntryStatus;
+    // Guarded like every sibling filter. Cast straight through, an invalid `?status=` narrows the
+    // query to nothing and reads as "no entries" rather than as a bad request.
+    if (isSeedEntryStatus(status)) {
+      input.status = status;
     }
 
     const repository = container.resolve(ListSeedEntriesRepository);

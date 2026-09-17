@@ -151,7 +151,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 
       for (const entry of page.data) {
         const entryId = typeof entry["id"] === "string" ? entry["id"] : "";
-        await this.createSeedEntryRepository.execute({
+        const stored = await this.createSeedEntryRepository.execute({
           jobId: null,
           projectId,
           environmentId,
@@ -165,6 +165,18 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
           status: "imported",
           error: null,
         });
+
+        /**
+         * The local row is the whole product of an import — the entry already exists in the CMS.
+         * Counting one that was not stored reports an import that did not happen.
+         */
+        if (stored.isFail()) {
+          this.logger.warn(
+            `Import: entry "${entryId}" of model "${model.modelId}" could not be stored: ${stored.error.message}`,
+          );
+          continue;
+        }
+
         count++;
       }
 
