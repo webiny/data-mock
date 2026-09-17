@@ -80,39 +80,48 @@ class KeyRotationServiceImpl implements Abstraction.Interface {
         .from(projectEnvironments)
         .all();
 
-      let rotated = 0;
+      /**
+       * All of them or none of them.
+       *
+       * Rotating row by row and stopping at the first failure left the database holding two keys
+       * at once. `rotate-key` does not rewrite `.env` when the rotation fails, so `ENCRYPTION_KEY`
+       * still named the old key — and every token already written under the new one was
+       * unreadable for good. There is no recovery from that: the plaintext only ever existed
+       * inside this loop.
+       */
+      const rotated = this.databaseClient.db.transaction((tx) => {
+        let count = 0;
 
-      for (const environment of allEnvironments) {
-        if (environment.apiToken === null) {
-          continue;
+        for (const environment of allEnvironments) {
+          if (environment.apiToken === null) {
+            continue;
+          }
+
+          try {
+            const plaintext = decryptWithKey(environment.apiToken, oldKey);
+            const newCiphertext = encryptWithKey(plaintext, newKey);
+
+            tx.update(projectEnvironments)
+              .set({ apiToken: newCiphertext, updatedAt: Date.now() })
+              .where(eq(projectEnvironments.id, environment.id))
+              .run();
+
+            count++;
+          } catch (error) {
+            this.logger.error(
+              `Failed to rotate key for environment "${environment.id}": ${error instanceof Error ? error.message : String(error)}`,
+            );
+            // Thrown, not returned: the throw is what rolls the transaction back.
+            throw new Error(
+              `Key rotation failed at environment "${environment.id}". Nothing was changed.`,
+            );
+          }
         }
 
-        try {
-          const plaintext = decryptWithKey(environment.apiToken, oldKey);
-          const newCiphertext = encryptWithKey(plaintext, newKey);
+        return count;
+      });
 
-          this.databaseClient.db
-            .update(projectEnvironments)
-            .set({ apiToken: newCiphertext, updatedAt: Date.now() })
-            .where(eq(projectEnvironments.id, environment.id))
-            .run();
-
-          rotated++;
-        } catch (error) {
-          this.logger.error(
-            `Failed to rotate key for environment "${environment.id}": ${error instanceof Error ? error.message : String(error)}`,
-          );
-          return Result.fail(
-            new ProjectPersistenceError(
-              new Error(
-                `Key rotation failed at environment "${environment.id}". Some tokens may be in an inconsistent state.`,
-              ),
-            ),
-          );
-        }
-      }
-
-      this.logger.info(`Rotated encryption key for ${rotated} project(s).`);
+      this.logger.info(`Rotated the encryption key for ${rotated} environment(s).`);
       return Result.ok({ rotated });
     } catch (error) {
       return Result.fail(

@@ -171,7 +171,7 @@ describe("rotate-key command", () => {
     expect(written).toContain(`ENCRYPTION_KEY=${rotations[0]!.newKey}`);
     // The rest of the file survives the rewrite.
     expect(written).toContain("API_PORT=4000");
-    expect(tc.ui.on("spinner:stop")).toEqual(["Rotated 3 project(s)."]);
+    expect(tc.ui.on("spinner:stop")).toEqual(["Rotated 3 environment(s)."]);
   });
 
   it("uses a key typed by hand when one is offered", async () => {

@@ -106,7 +106,7 @@ class RotateKeyCommandImpl implements Command.Interface {
       return;
     }
 
-    spinner.stop(`Rotated ${result.value.rotated} project(s).`);
+    spinner.stop(`Rotated ${result.value.rotated} environment(s).`);
     this.ui.outro("Encryption key rotated successfully.");
   }
 }
