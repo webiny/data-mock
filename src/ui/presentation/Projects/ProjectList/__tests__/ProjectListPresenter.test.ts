@@ -369,6 +369,21 @@ describe("ProjectListPresenter", () => {
     expect(p.vm.isEmpty).toBe(true);
   });
 
+  it("loads again after a failed load, rather than sitting on the error", async () => {
+    projectsGateway.failList = true;
+    const p = presenter();
+    await p.load();
+    expect(p.vm.loadError).toContain("list refused");
+
+    projectsGateway.failList = false;
+    projectsGateway.projects = [makeProject({ id: "p1" })];
+    await p.load();
+
+    // Marking a failed load done blocks every retry for the life of the presenter.
+    expect(p.vm.loadError).toBeNull();
+    expect(p.vm.projects).toHaveLength(1);
+  });
+
   it("reports a project whose environment answers as online", async () => {
     projectsGateway.projects = [makeProject({ id: "p1" })];
     environmentsGateway.environments = [makeEnvironment()];

@@ -148,6 +148,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _showEditDialog = false;
   private _showCleanupDialog = false;
   private _loadingProjectId: string | null = null;
+  /**
+   * The project and stack name that actually loaded, as one key. Separate from `_projectId` and
+   * `_envName`, which are set before the read so the error state has something to render.
+   */
+  private _loadedKey: string | null = null;
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
   private readonly entriesListState: URLListState.Interface;
@@ -465,12 +470,18 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     return { projectId: this._projectId, environmentId: this._environmentId };
   }
 
+  /**
+   * A failed load is never marked loaded. Keying "already here" off `_projectId`/`_envName` meant
+   * a failed read still looked like a successful one, so re-entering the page short-circuited and
+   * left it on an error banner with nothing able to ask again.
+   */
   public load = async (projectId: string, envName: string | null): Promise<void> => {
-    const alreadyLoaded = this._projectId === projectId && this._envName === envName;
-    if (this._loadingProjectId === projectId || alreadyLoaded) {
+    const key = `${projectId}|${envName ?? ""}`;
+    if (this._loadingProjectId === projectId || this._loadedKey === key) {
       return;
     }
     this._loadingProjectId = projectId;
+    this._loadedKey = null;
     this._projectId = projectId;
     this._envName = envName;
     this._environmentId = null;
@@ -487,6 +498,9 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         });
         return;
       }
+      runInAction(() => {
+        this._loadedKey = key;
+      });
       await this.resolveEnvironment(projectId, envName);
     } finally {
       runInAction(() => {

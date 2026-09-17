@@ -136,6 +136,22 @@ describe("ProjectDetailPresenter", () => {
     return p;
   }
 
+  it("loads again after a failed load, rather than sitting on the error", async () => {
+    http.failures.set("/api/projects/:id", "project read refused");
+
+    const p = presenter();
+    await p.load(PROJECT_ID, null);
+    expect(p.vm.loadError).toContain("project read refused");
+
+    http.failures.delete("/api/projects/:id");
+    await p.load(PROJECT_ID, null);
+
+    // Keying "already here" off the requested ids treated a failed read as a successful one, so
+    // re-entering the page short-circuited and left it on the error banner for good.
+    expect(p.vm.loadError).toBeNull();
+    expect(p.vm.project?.name).toBe("Project One");
+  });
+
   it("selects the only environment when the URL names none", async () => {
     const p = await loaded();
 

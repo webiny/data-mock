@@ -86,6 +86,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     }
     this._isLoading = true;
     this._loadError = null;
+    let loadedProjects = false;
     try {
       const result = await this.loadProjectsUseCase.execute();
       if (result.isFail()) {
@@ -98,6 +99,7 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
         });
         return;
       }
+      loadedProjects = true;
       const projects = this.projectsRepository.projects;
       const loaded = await Promise.all(
         projects.map((project) => this.loadEnvironments(project.id)),
@@ -119,7 +121,11 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
     } finally {
       runInAction(() => {
         this._isLoading = false;
-        this._loaded = true;
+        /**
+         * Only a load that actually loaded counts. Marking a failed one done blocks every retry
+         * for the life of the presenter, and the page sits on an error banner with no way back.
+         */
+        this._loaded = loadedProjects;
       });
     }
   };
