@@ -113,6 +113,8 @@ class SeedServiceImpl implements Abstraction.Interface {
       environmentId: environment.id,
       config: {
         models: input.models,
+        tenant: input.tenant,
+        batchSize: input.batchSize,
         publishStrategy: input.publishStrategy,
         publishPercent: input.publishPercent,
         includeUnpublish: input.includeUnpublish,

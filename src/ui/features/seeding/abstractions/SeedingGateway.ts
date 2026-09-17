@@ -35,6 +35,8 @@ export interface SeedJobsListResult {
 
 export interface ISeedingGateway {
   triggerSeed(ref: EnvironmentRef, input: ITriggerSeedInput): Promise<Result<Job, HTTPError>>;
+  /** Seeds whatever a cancelled or failed run did not finish. The remainder is worked out server-side. */
+  resumeSeed(ref: EnvironmentRef, seedJobId: string): Promise<Result<Job, HTTPError>>;
   listSeedJobs(
     ref: EnvironmentRef,
     params?: SeedJobsListParams,

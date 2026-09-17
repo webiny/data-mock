@@ -377,6 +377,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       seedJobs: seedJobs.map((seedJob) => ({
         id: seedJob.id,
         status: seedJob.status,
+        /**
+         * Offered on what stopped early. Whether anything is actually left is worked out
+         * server-side from the entries the run created, so the button can still be refused.
+         */
+        resumable: seedJob.status === "cancelled" || seedJob.status === "failed",
         modelCount: seedJob.config.models.length,
         entriesCreated: seedJob.result?.created ?? 0,
         errorCount: seedJob.result?.errors.length ?? 0,
@@ -1268,6 +1273,37 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     runInAction(() => {
       this._selectedJob = null;
       this._isLoadingSelectedJob = false;
+    });
+  };
+
+  /**
+   * Seeds whatever a run that stopped early did not finish.
+   *
+   * Confirmed first, like every other action that starts a job, and the remainder is computed
+   * server-side: the entries the original run created are real, and re-sending them would
+   * duplicate them.
+   */
+  public resumeSeedJob = (seedJobId: string): void => {
+    const ref = this.ref;
+    if (ref === null) {
+      return;
+    }
+
+    this.actionConfirmation.request({
+      title: "Resume seeding",
+      message:
+        "Seeds only what this run did not finish. The entries it already created are left alone.",
+      confirmLabel: "Resume",
+      run: async () => {
+        const result = await this.seedingGateway.resumeSeed(ref, seedJobId);
+        if (result.isFail()) {
+          this.notifications.error(`Could not resume: ${result.error.message}`);
+          return;
+        }
+        this.notifications.success("Resumed. The remaining entries are being seeded.");
+        await this.datasets.reload("seedJobs");
+        await this.datasets.reload("jobs");
+      },
     });
   };
 

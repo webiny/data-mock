@@ -39,6 +39,8 @@ interface SeedHistoryTabProps {
   onFilterChange: (key: string, value: string | null) => void;
   onClearFilter: () => void;
   onJobClick: (jobId: string) => void;
+  /** Starts whatever a run that stopped early did not finish. */
+  onResume: (seedJobId: string) => void;
 }
 
 export const SeedHistoryTab = observer(function SeedHistoryTab({
@@ -50,6 +52,7 @@ export const SeedHistoryTab = observer(function SeedHistoryTab({
   onFilterChange,
   onClearFilter,
   onJobClick,
+  onResume,
 }: SeedHistoryTabProps) {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
@@ -92,6 +95,7 @@ export const SeedHistoryTab = observer(function SeedHistoryTab({
                 <Table.Th>Created</Table.Th>
                 <Table.Th>Errors</Table.Th>
                 <Table.Th>Status</Table.Th>
+                <Table.Th />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -127,6 +131,21 @@ export const SeedHistoryTab = observer(function SeedHistoryTab({
                     <Badge color={statusColor(job.status)} size="sm">
                       {job.status}
                     </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    {job.resumable && (
+                      <Button
+                        size="compact-xs"
+                        variant="light"
+                        onClick={(event) => {
+                          // The row itself opens the run; this button starts one.
+                          event.stopPropagation();
+                          onResume(job.id);
+                        }}
+                      >
+                        Resume
+                      </Button>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               ))}

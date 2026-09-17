@@ -257,6 +257,12 @@ export interface SeedModelConfig {
 
 export interface SeedJobConfig {
   models: SeedModelConfig[];
+  /**
+   * Which tenant the run seeded. Optional because rows written before resuming existed do not
+   * carry it — a resume falls back to the tenant on the entries the run already created.
+   */
+  tenant?: string | undefined;
+  batchSize?: number | undefined;
   publishStrategy?: PublishStrategy | undefined;
   publishPercent?: number | undefined;
   includeUnpublish?: boolean | undefined;

@@ -381,6 +381,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onFilterChange={(key, value) => presenter.setSeedJobsFilter(key, value)}
                 onClearFilter={() => presenter.clearSeedJobsFilter()}
                 onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
+                onResume={(seedJobId) => presenter.resumeSeedJob(seedJobId)}
               />
             )}
             {activeView === "jobs" && (

@@ -1,6 +1,6 @@
 import { Result } from "@webiny/stdlib";
 import type { SeedJob, Job } from "~/shared/types.js";
-import { triggerSeedRoute } from "~/shared/routes/seeding.js";
+import { resumeSeedRoute, triggerSeedRoute } from "~/shared/routes/seeding.js";
 import { importEntriesRoute } from "~/shared/routes/import.js";
 import { cleanupEntriesRoute } from "~/shared/routes/cleanup.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
@@ -19,6 +19,18 @@ class SeedingGatewayImpl implements Abstraction.Interface {
     const result = await this.httpClient.request(triggerSeedRoute, {
       params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input,
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.job);
+  }
+
+  public async resumeSeed(ref: EnvironmentRef, seedJobId: string): Promise<Result<Job, HTTPError>> {
+    const result = await this.httpClient.request(resumeSeedRoute, {
+      params: { projectId: ref.projectId, environmentId: ref.environmentId, seedJobId },
     });
 
     if (result.isFail()) {

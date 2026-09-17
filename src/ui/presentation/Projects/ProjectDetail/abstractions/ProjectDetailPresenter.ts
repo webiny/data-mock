@@ -124,6 +124,8 @@ export interface IModelVM {
 export interface ISeedJobVM {
   id: string;
   status: string;
+  /** True for a run that stopped early and still has entries left to create. */
+  resumable: boolean;
   modelCount: number;
   entriesCreated: number;
   errorCount: number;
@@ -320,6 +322,7 @@ export interface IProjectDetailPresenter {
   clearSyncLogsFilter(): void;
   pullFiles(): void;
   cancelJob(jobId: string): Promise<void>;
+  resumeSeedJob(seedJobId: string): void;
   openJob(jobId: string): Promise<void>;
   closeJob(): void;
   /** Live log tail for a running job, empty until it emits something. */
