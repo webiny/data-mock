@@ -22,7 +22,13 @@ import {
 import { SeedingError } from "~/shared/errors.js";
 import type { IHttpResponse } from "~/shared/abstractions/HttpClient.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { ProjectModel, ProjectFile, Revisions, PublishStrategy } from "~/shared/types.js";
+import type {
+  ProjectModel,
+  ProjectFile,
+  Revisions,
+  PublishStrategy,
+  SeedJobStatus,
+} from "~/shared/types.js";
 
 interface ModelSeedContext {
   model: ProjectModel;
@@ -209,6 +215,7 @@ class SeedServiceImpl implements Abstraction.Interface {
         );
 
         let modelFailed = false;
+        let modelProcessed = 0;
         for (
           let batchStart = 0;
           batchStart < context.amount && !modelFailed && !signal?.aborted;
@@ -355,55 +362,90 @@ class SeedServiceImpl implements Abstraction.Interface {
 
           const batchCount = batchEnd - batchStart;
           totalProcessed += batchCount;
+          modelProcessed += batchCount;
           reportProgress(context.model.name, batchEnd, context.amount);
         }
 
+        /**
+         * A failed entry stops the rest of the model — one broken field would otherwise be sent
+         * `amount` times against an API that will refuse every one. Said out loud, because the
+         * error count alone reads as "99 fine, 1 bad" rather than "stopped after 1 of 100".
+         */
+        if (modelFailed && modelProcessed < context.amount) {
+          errors.push({
+            modelId: context.modelId,
+            message: `Stopped after ${modelProcessed} of ${context.amount} entries — the first failure ends the model.`,
+          });
+        }
+
         this.logger.info(
-          `Completed model "${context.model.name}": ${context.amount} attempted, ${modelErrors.length} errors.`,
+          `Completed model "${context.model.name}": ${modelProcessed} of ${context.amount} attempted, ${modelErrors.length} errors.`,
         );
       }
 
-      const status = isDryRun
+      /**
+       * A cancelled run is not a completed one. The job row is marked cancelled by the worker; a
+       * `seed_jobs` row left saying "completed" makes Seed History and Jobs disagree about the
+       * same run, and hides that there is anything left to resume.
+       */
+      const cancelled = signal?.aborted === true;
+      const status: SeedJobStatus = isDryRun
         ? "dry-run"
-        : errors.length === 0
-          ? "completed"
-          : totalCreated > 0
+        : cancelled
+          ? "cancelled"
+          : errors.length === 0 || totalCreated > 0
             ? "completed"
             : "failed";
 
-      await this.updateSeedJobRepository.execute({
-        id: job.id,
-        status,
-        result: {
-          created: totalCreated,
-          errors: errors.map((modelError) => ({
-            message: modelError.message,
-            code: "SEED_ERROR",
-          })),
-        },
-      });
+      await this.recordOutcome(job.id, status, totalCreated, errors);
 
       return Result.ok({
         jobId: job.id,
         created: totalCreated,
         errors,
+        cancelled,
         dryRun: isDryRun,
         generatedEntries: isDryRun ? generatedEntries : undefined,
       });
     } catch (error) {
-      await this.updateSeedJobRepository.execute({
-        id: job.id,
-        status: "failed",
-        result: {
-          created: totalCreated,
-          errors: [
-            { message: error instanceof Error ? error.message : String(error), code: "FATAL" },
-          ],
-        },
-      });
+      await this.recordOutcome(job.id, "failed", totalCreated, [
+        { modelId: "", message: error instanceof Error ? error.message : String(error) },
+      ]);
 
       return Result.fail(
         new SeedingError(error instanceof Error ? error : new Error(String(error))),
+      );
+    }
+  }
+
+  /**
+   * Writes the run's outcome onto its `seed_jobs` row.
+   *
+   * The write is checked rather than fired and forgotten: a row that keeps saying `running` after
+   * the work has finished never corrects itself, and everything reading seed history — the tab,
+   * the history route, a future resume — believes the run is still going.
+   */
+  private async recordOutcome(
+    jobId: string,
+    status: SeedJobStatus,
+    created: number,
+    errors: Abstraction.ModelError[],
+  ): Promise<void> {
+    const recorded = await this.updateSeedJobRepository.execute({
+      id: jobId,
+      status,
+      result: {
+        created,
+        errors: errors.map((modelError) => ({
+          message: modelError.message,
+          code: "SEED_ERROR",
+        })),
+      },
+    });
+
+    if (recorded.isFail()) {
+      this.logger.error(
+        `Seed job ${jobId} finished as "${status}" but the outcome could not be stored: ${recorded.error.message}. The seed_jobs row is left as it was.`,
       );
     }
   }

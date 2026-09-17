@@ -262,7 +262,13 @@ export interface SeedJobConfig {
   includeUnpublish?: boolean | undefined;
 }
 
-export type SeedJobStatus = "pending" | "running" | "completed" | "failed" | "dry-run";
+export type SeedJobStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "dry-run";
 
 export interface SeedJob {
   id: string;

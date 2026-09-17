@@ -32,8 +32,9 @@ class SeedJobExecutorImpl implements Abstraction.Interface {
       throw new Error(result.error.message);
     }
 
+    // "Completed" over a run the user stopped is the job log disagreeing with the job's own status.
     context.appendLog(
-      `Completed: ${result.value.created} created, ${result.value.errors.length} errors`,
+      `${result.value.cancelled ? "Cancelled" : "Completed"}: ${result.value.created} created, ${result.value.errors.length} errors`,
     );
     if (result.value.errors.length > 0) {
       for (const error of result.value.errors) {

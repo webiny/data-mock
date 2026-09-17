@@ -10,6 +10,7 @@ function isSeedJobStatus(value: string | undefined): value is SeedJobStatus {
     value === "running" ||
     value === "completed" ||
     value === "failed" ||
+    value === "cancelled" ||
     value === "dry-run"
   );
 }

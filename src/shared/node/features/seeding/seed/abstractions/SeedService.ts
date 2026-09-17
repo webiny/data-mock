@@ -42,6 +42,8 @@ export interface ISeedServiceOutput {
   jobId: string;
   created: number;
   errors: ISeedModelError[];
+  /** True when the run stopped because the job was cancelled, rather than because it finished. */
+  cancelled: boolean;
   dryRun: boolean;
   generatedEntries?: ISeedGeneratedModelEntries[] | undefined;
 }

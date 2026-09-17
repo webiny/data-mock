@@ -69,7 +69,13 @@ describe("Seeding job executors", () => {
       const executor = stubSeedService(async (input) => {
         calls.push(input);
         input.onProgress?.(50, "half");
-        return Result.ok({ jobId: "seed-1", created: 5, errors: [], dryRun: false });
+        return Result.ok({
+          jobId: "seed-1",
+          created: 5,
+          errors: [],
+          cancelled: false,
+          dryRun: false,
+        });
       });
 
       const context = createExecutionContext({ config: seedConfig, environmentId: "env-9" });
@@ -93,6 +99,7 @@ describe("Seeding job executors", () => {
         Result.ok({
           jobId: "seed-1",
           created: 1,
+          cancelled: false,
           errors: [
             { modelId: "article", message: "validation failed" },
             { modelId: "author", message: "rate limited" },

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
+import { Logger, Result } from "@webiny/stdlib";
+import { ProjectPersistenceError } from "~/shared/errors.js";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
 import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { SyncProjectModelsRepository } from "~/shared/node/features/models/sync/abstractions/SyncProjectModelsRepository.js";
@@ -274,6 +276,118 @@ describe("Seeding Feature", () => {
           expect(result.value.errors).toHaveLength(1);
           expect(result.value.created).toBe(0);
         }
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("records a cancelled run as cancelled, not as completed", async () => {
+      const mockHttpClient = createMockHttpClient();
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const controller = new AbortController();
+        controller.abort();
+
+        const result = await tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 5 }],
+          batchSize: 1,
+          signal: controller.signal,
+        });
+
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.cancelled).toBe(true);
+
+        // The worker marks the job cancelled; a seed_jobs row saying "completed" makes Seed
+        // History and Jobs disagree about the same run.
+        const jobs = await tc.container
+          .resolve(ListSeedJobsRepository)
+          .execute({ environmentId: project.environmentId });
+        expect(jobs.isOk() && jobs.value.seedJobs[0]?.status).toBe("cancelled");
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("says how far it got when the first failure ends a model", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
+        createMockResponse(500, "Internal Server Error"),
+      );
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const result = await tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 3 }],
+          batchSize: 1,
+        });
+
+        expect(result.isOk()).toBe(true);
+        // One error alone reads as "2 fine, 1 bad" rather than "stopped after 1 of 3".
+        const messages = result.isOk() ? result.value.errors.map((error) => error.message) : [];
+        expect(messages.some((message) => message.includes("Stopped after 1 of 3"))).toBe(true);
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("finishes the run even when the outcome cannot be stored, and says so", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
+        createMockResponse(200, {
+          data: {
+            createArticle: {
+              data: { id: "entry-1", entryId: "entry-1", title: "Test", count: 42 },
+              error: null,
+            },
+          },
+        }),
+      );
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const logged: string[] = [];
+        // Built rather than spread: Logger's methods live on the prototype, so a spread of the
+        // resolved instance produces an object whose `info` is undefined.
+        const recordingLogger: Logger.Interface = {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          fatal: () => {},
+          error: (message: string) => {
+            logged.push(message);
+          },
+          child: () => recordingLogger,
+        };
+        tc.container.registerInstance(Logger, recordingLogger);
+
+        // The row is created before this stub replaces the repository, so the run has a job.
+        tc.container.registerInstance(UpdateSeedJobRepository, {
+          execute: async () =>
+            Result.fail(new ProjectPersistenceError(new Error("database is locked"))),
+        });
+
+        const result = await tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
+        });
+
+        // The entries were sent. Failing the run over a status write would misreport worse.
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.created).toBe(1);
+        // A row stuck at "running" never corrects itself, so the failure must be said out loud.
+        expect(logged.some((message) => message.includes("could not be stored"))).toBe(true);
       } finally {
         tc.cleanup();
       }

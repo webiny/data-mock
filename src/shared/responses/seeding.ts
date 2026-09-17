@@ -15,7 +15,7 @@ export const seedJobSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   environmentId: z.string(),
-  status: z.enum(["pending", "running", "completed", "failed", "dry-run"]),
+  status: z.enum(["pending", "running", "completed", "failed", "cancelled", "dry-run"]),
   config: z.object({
     models: z.array(
       z.object({

@@ -37,6 +37,7 @@ describe("seed command", () => {
         return Result.ok({
           jobId: "seed-1",
           created: input.models.reduce((total, model) => total + model.amount, 0),
+          cancelled: false,
           errors: [],
           dryRun: input.dryRun === true,
         });
@@ -78,7 +79,13 @@ describe("seed command", () => {
     tc.container.registerInstance(SeedService, {
       execute: async (input) => {
         seedCalls.push(input);
-        return Result.ok({ jobId: "seed-1", created: 1, errors: [], dryRun: false });
+        return Result.ok({
+          jobId: "seed-1",
+          created: 1,
+          errors: [],
+          cancelled: false,
+          dryRun: false,
+        });
       },
     });
 
@@ -118,7 +125,7 @@ describe("seed command", () => {
         attempted.push(input.tenant);
         return input.tenant === "acme"
           ? Result.fail(new ProjectPersistenceError(new Error("acme is down")))
-          : Result.ok({ jobId: "seed-1", created: 1, errors: [], dryRun: false });
+          : Result.ok({ jobId: "seed-1", created: 1, errors: [], cancelled: false, dryRun: false });
       },
     });
 
@@ -140,6 +147,7 @@ describe("seed command", () => {
         Result.ok({
           jobId: "seed-1",
           created: 0,
+          cancelled: false,
           errors: Array.from({ length: 7 }, (_unused, index) => ({
             modelId: "article",
             message: `error ${index}`,

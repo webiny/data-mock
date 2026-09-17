@@ -9,6 +9,7 @@ const STATUS_OPTIONS = [
   { value: "running", label: "Running" },
   { value: "completed", label: "Completed" },
   { value: "failed", label: "Failed" },
+  { value: "cancelled", label: "Cancelled" },
   { value: "dry-run", label: "Dry Run" },
 ];
 
@@ -18,6 +19,8 @@ function statusColor(status: string): string {
       return "green";
     case "failed":
       return "red";
+    case "cancelled":
+      return "orange";
     case "running":
       return "blue";
     case "dry-run":
