@@ -17,6 +17,41 @@ function isJobSortField(value: string | undefined): value is JobSortField {
   return value !== undefined && Object.hasOwn(JOB_SORT_COLUMNS, value);
 }
 
+/** Every column a list needs. `logs` is deliberately absent — see `IJobSummary`. */
+const JOB_SUMMARY_COLUMNS = {
+  id: jobs.id,
+  projectId: jobs.projectId,
+  environmentId: jobs.environmentId,
+  type: jobs.type,
+  status: jobs.status,
+  config: jobs.config,
+  result: jobs.result,
+  progress: jobs.progress,
+  progressLabel: jobs.progressLabel,
+  startedAt: jobs.startedAt,
+  completedAt: jobs.completedAt,
+  createdAt: jobs.createdAt,
+} as const;
+
+function toJobSummary(row: {
+  [K in keyof typeof JOB_SUMMARY_COLUMNS]: (typeof jobs.$inferSelect)[K];
+}): JobWorker.JobSummary {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    environmentId: row.environmentId,
+    type: row.type as JobType,
+    status: row.status as JobStatus,
+    config: row.config,
+    result: row.result === null ? null : safeParse(row.result),
+    progress: row.progress,
+    progressLabel: row.progressLabel,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+    createdAt: row.createdAt,
+  };
+}
+
 function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
   return {
     id: row.id,
@@ -84,7 +119,7 @@ export class JobQueryHelper {
     const offset = input.offset ?? 0;
 
     const rows = this.databaseClient.db
-      .select()
+      .select(JOB_SUMMARY_COLUMNS)
       .from(jobs)
       .where(whereClause)
       .orderBy(orderBy)
@@ -92,6 +127,6 @@ export class JobQueryHelper {
       .offset(offset)
       .all();
 
-    return { jobs: rows.map(toJob), total };
+    return { jobs: rows.map(toJobSummary), total };
   }
 }

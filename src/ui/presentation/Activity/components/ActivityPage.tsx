@@ -28,6 +28,10 @@ export const ActivityPage = observer(function ActivityPage({ presenter }: Activi
 
       <JobsTab
         jobs={vm.jobs}
+        selectedJob={vm.selectedJob}
+        isLoadingSelectedJob={vm.isLoadingSelectedJob}
+        onOpenJob={(jobId) => void presenter.openJob(jobId)}
+        onCloseJob={() => presenter.closeJob()}
         totalCount={vm.totalCount}
         page={vm.page}
         typeFilter={vm.typeFilter}

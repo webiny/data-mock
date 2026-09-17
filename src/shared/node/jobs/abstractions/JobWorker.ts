@@ -40,8 +40,17 @@ export interface IListJobsInput {
   sortDir?: "asc" | "desc";
 }
 
+/**
+ * A job as a list shows it: everything except the log.
+ *
+ * A deploy streams thousands of Pulumi lines into `logs`, and a page of fifty rows would ship all
+ * of them to render a table that displays none. The log is read one job at a time, through
+ * `getJob`.
+ */
+export type IJobSummary = Omit<IJob, "logs">;
+
 export interface IListJobsOutput {
-  jobs: IJob[];
+  jobs: IJobSummary[];
   total: number;
 }
 
@@ -60,6 +69,7 @@ export const JobWorker = createAbstraction<IJobWorker>("Jobs/JobWorker");
 export namespace JobWorker {
   export type Interface = IJobWorker;
   export type Job = IJob;
+  export type JobSummary = IJobSummary;
   export type CreateJobInput = ICreateJobInput;
   export type ListJobsInput = IListJobsInput;
   export type ListJobsOutput = IListJobsOutput;

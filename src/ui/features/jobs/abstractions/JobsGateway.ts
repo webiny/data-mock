@@ -1,6 +1,12 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { Job } from "~/shared/types.js";
+
+/**
+ * A job as a list returns it. The log is fetched one job at a time through `get`, because a deploy
+ * streams thousands of Pulumi lines into it and a page of rows would carry every one.
+ */
+export type JobSummary = Omit<Job, "logs">;
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface JobsListParams {
@@ -13,7 +19,7 @@ export interface JobsListParams {
 }
 
 export interface JobsListResult {
-  jobs: Job[];
+  jobs: JobSummary[];
   total: number;
 }
 

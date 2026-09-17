@@ -28,6 +28,7 @@ import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/Loca
 import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
 import type {
   DeletionImpact,
+  Job,
   EnvironmentRef,
   ProjectEnvironment,
   ProjectFile,
@@ -155,6 +156,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _loadedKey: string | null = null;
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
+  private _selectedJob: Job | null = null;
+  private _isLoadingSelectedJob = false;
   private readonly entriesListState: URLListState.Interface;
   private readonly jobsListState: URLListState.Interface;
   private readonly syncLogsListState: URLListState.Interface;
@@ -428,6 +431,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       syncLogsTypeFilter: this.syncLogsListState.get("logType") || null,
       syncLogsStatusFilter: this.syncLogsListState.get("logStatus") || null,
       jobs,
+      selectedJob: this._selectedJob,
+      isLoadingSelectedJob: this._isLoadingSelectedJob,
       jobsTotalCount: this._projectId ? this.jobsRepository.totalJobs : 0,
       jobsPage: this.jobsListState.page,
       jobsTypeFilter: this.jobsListState.get("jobType") || null,
@@ -1229,6 +1234,41 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
         this._isPullingFiles = false;
       });
     }
+  };
+
+  /**
+   * Reads one job's detail, log included. The list carries no logs — a deploy streams thousands of
+   * Pulumi lines into one, and a page of rows would ship every one to render a table that shows
+   * none of them.
+   */
+  public openJob = async (jobId: string): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    runInAction(() => {
+      this._selectedJob = null;
+      this._isLoadingSelectedJob = true;
+    });
+
+    const result = await this.jobsGateway.get(projectId, jobId);
+
+    runInAction(() => {
+      this._isLoadingSelectedJob = false;
+      if (result.isFail()) {
+        this.notifications.error(`Could not load the job: ${result.error.message}`);
+        return;
+      }
+      this._selectedJob = result.value;
+    });
+  };
+
+  public closeJob = (): void => {
+    runInAction(() => {
+      this._selectedJob = null;
+      this._isLoadingSelectedJob = false;
+    });
   };
 
   public cancelJob = async (jobId: string): Promise<void> => {

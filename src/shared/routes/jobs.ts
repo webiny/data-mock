@@ -28,18 +28,25 @@ const enqueueJobBodySchema = z.object({
   config: z.record(z.string(), z.unknown()).optional(),
 });
 
+/**
+ * A job as a list returns it. The log is left out on purpose: a deploy streams thousands of
+ * Pulumi lines into it, and a page of rows would carry all of them to render a table that shows
+ * none. The log comes from `getJobRoute`, one job at a time.
+ */
+export const jobSummarySchema = jobSchema.omit({ logs: true });
+
 export const listJobsRoute = defineListRoute("jobs", {
   path: "/api/projects/:projectId/jobs",
   description: "List jobs for a project",
   params: z.object({ projectId: z.string() }),
-  item: jobSchema,
+  item: jobSummarySchema,
 });
 
 export const listGlobalJobsRoute = defineListRoute("jobs", {
   path: "/api/jobs",
   description: "List all jobs (global, not project-scoped)",
   params: z.object({}),
-  item: jobSchema,
+  item: jobSummarySchema,
 });
 
 export const getJobRoute = defineOneRoute("job", {

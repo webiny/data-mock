@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   Group,
+  Loader,
   Modal,
   Pagination,
   Progress,
@@ -16,6 +17,7 @@ import {
 import { Editor } from "@monaco-editor/react";
 import type { OnMount } from "@monaco-editor/react";
 import type { Job } from "~/shared/types.js";
+import type { JobSummary } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import { JOB_TYPE_OPTIONS, getJobTypeLabel } from "~/shared/jobs/descriptors.js";
 
 const PAGE_SIZE = 25;
@@ -39,7 +41,15 @@ const STATUS_OPTIONS = [
 ];
 
 interface JobsTabProps {
-  jobs: Job[];
+  jobs: JobSummary[];
+  /**
+   * The job whose panel is open, with its log. Fetched one at a time rather than carried on every
+   * list row — a deploy streams thousands of Pulumi lines into a log the table never shows.
+   */
+  selectedJob: Job | null;
+  isLoadingSelectedJob: boolean;
+  onOpenJob: (jobId: string) => void;
+  onCloseJob: () => void;
   totalCount: number;
   page: number;
   typeFilter: string | null;
@@ -54,6 +64,10 @@ interface JobsTabProps {
 
 export const JobsTab = observer(function JobsTab({
   jobs,
+  selectedJob,
+  isLoadingSelectedJob,
+  onOpenJob,
+  onCloseJob,
   totalCount,
   page,
   typeFilter,
@@ -64,7 +78,6 @@ export const JobsTab = observer(function JobsTab({
   onCancel,
   liveLogsFor,
 }: JobsTabProps) {
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const hasFilters = typeFilter || statusFilter;
 
@@ -124,7 +137,7 @@ export const JobsTab = observer(function JobsTab({
               {jobs.map((job) => (
                 <Table.Tr
                   key={job.id}
-                  onClick={() => setSelectedJob(job)}
+                  onClick={() => onOpenJob(job.id)}
                   style={{ cursor: "pointer" }}
                 >
                   <Table.Td>
@@ -159,12 +172,14 @@ export const JobsTab = observer(function JobsTab({
       )}
 
       <Modal
-        opened={selectedJob !== null}
-        onClose={() => setSelectedJob(null)}
+        opened={selectedJob !== null || isLoadingSelectedJob}
+        onClose={onCloseJob}
         title={selectedJob ? `${getJobTypeLabel(selectedJob.type)} — ${selectedJob.status}` : ""}
         size="lg"
       >
-        {selectedJob && (
+        {selectedJob === null ? (
+          <Loader size="sm" />
+        ) : (
           <JobDetail
             job={selectedJob}
             liveLogs={liveLogsFor?.(selectedJob.id) ?? ""}
@@ -172,7 +187,7 @@ export const JobsTab = observer(function JobsTab({
               onCancel && (selectedJob.status === "pending" || selectedJob.status === "running")
                 ? () => {
                     onCancel(selectedJob.id);
-                    setSelectedJob(null);
+                    onCloseJob();
                   }
                 : undefined
             }
@@ -183,7 +198,7 @@ export const JobsTab = observer(function JobsTab({
   );
 });
 
-function JobProgress({ job }: { job: Job }) {
+function JobProgress({ job }: { job: JobSummary }) {
   if (job.progress === null) {
     return (
       <Text size="sm" c="dimmed">
@@ -381,7 +396,7 @@ function formatJsonValue(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-function formatDuration(job: Job): string {
+function formatDuration(job: JobSummary): string {
   if (!job.startedAt) {
     return "—";
   }

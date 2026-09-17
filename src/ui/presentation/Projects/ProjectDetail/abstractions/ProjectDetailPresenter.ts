@@ -1,5 +1,6 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { SeedTemplateConfig, SeedEntryStatus, Job, StackReadState } from "~/shared/types.js";
+import type { JobSummary } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import type { IActionConfirmationVM } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import type { ISyncPreviewVM } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 
@@ -227,7 +228,10 @@ export interface IProjectDetailVM {
   syncLogsPage: number;
   syncLogsTypeFilter: string | null;
   syncLogsStatusFilter: string | null;
-  jobs: Job[];
+  jobs: JobSummary[];
+  /** The job whose panel is open, with its log. Null while one is being read. */
+  selectedJob: Job | null;
+  isLoadingSelectedJob: boolean;
   jobsTotalCount: number;
   jobsPage: number;
   jobsTypeFilter: string | null;
@@ -316,6 +320,8 @@ export interface IProjectDetailPresenter {
   clearSyncLogsFilter(): void;
   pullFiles(): void;
   cancelJob(jobId: string): Promise<void>;
+  openJob(jobId: string): Promise<void>;
+  closeJob(): void;
   /** Live log tail for a running job, empty until it emits something. */
   liveLogsFor(jobId: string): string;
   dispose(): void;

@@ -181,6 +181,22 @@ describe("Jobs System", () => {
       expect(result.jobs.map((job) => job.id)).toEqual([scoped]);
     });
 
+    it("leaves the log out of a list, and keeps it on the job itself", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      const id = await worker.enqueue({ projectId, type: "deploy" });
+      const logLines = "Deploying core...\n".repeat(2000);
+      tc.databaseClient.db.update(jobs).set({ logs: logLines }).where(eq(jobs.id, id)).run();
+
+      const listed = await worker.listJobs({ projectId });
+
+      // A page of fifty deploys would otherwise carry every line of every log to render a table
+      // that shows none of them.
+      expect(listed.jobs[0]).not.toHaveProperty("logs");
+
+      const job = await worker.getJob(id);
+      expect(job!.logs).toBe(logLines);
+    });
+
     it("reads a job whose result is not valid JSON as having none", async () => {
       const worker = tc.container.resolve(JobWorker);
       const id = await worker.enqueue({ projectId, type: "sync-preview" });

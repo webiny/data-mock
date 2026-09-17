@@ -8,6 +8,7 @@ import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
 import type { WSJobStatus } from "~/shared/websocket/types.js";
 import { ActivityPresenter as Abstraction } from "./abstractions/ActivityPresenter.js";
 import type { IActivityVM } from "./abstractions/ActivityPresenter.js";
+import type { JobSummary } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import type { Job } from "~/shared/types.js";
 
 const PAGE_SIZE = 25;
@@ -20,10 +21,12 @@ const PAGE_SIZE = 25;
  * cancellable but invisible.
  */
 class ActivityPresenterImpl implements Abstraction.Interface {
-  private _jobs: Job[] = [];
+  private _jobs: JobSummary[] = [];
   private _totalCount = 0;
   private _isLoading = false;
   private _error: string | null = null;
+  private _selectedJob: Job | null = null;
+  private _isLoadingSelectedJob = false;
   private readonly listState: URLListState.Interface;
   private readonly disposeJobSubscription: () => void;
 
@@ -53,8 +56,45 @@ class ActivityPresenterImpl implements Abstraction.Interface {
       statusFilter: this.listState.get("jobStatus") || null,
       isLoading: this._isLoading,
       error: this._error,
+      selectedJob: this._selectedJob,
+      isLoadingSelectedJob: this._isLoadingSelectedJob,
     };
   }
+
+  /**
+   * Reads one job's detail, log included. The list carries no logs — a deploy streams thousands of
+   * Pulumi lines into one, and a page of rows would ship every one to render a table that shows
+   * none of them.
+   */
+  public openJob = async (jobId: string): Promise<void> => {
+    const job = this._jobs.find((candidate) => candidate.id === jobId);
+    if (!job) {
+      return;
+    }
+
+    this._selectedJob = null;
+    this._isLoadingSelectedJob = true;
+
+    // This page lists project-less jobs too, and those answer only on the global route.
+    const result =
+      job.projectId === null
+        ? await this.jobsGateway.getGlobal(jobId)
+        : await this.jobsGateway.get(job.projectId, jobId);
+
+    runInAction(() => {
+      this._isLoadingSelectedJob = false;
+      if (result.isFail()) {
+        this.notifications.error(`Could not load the job: ${result.error.message}`);
+        return;
+      }
+      this._selectedJob = result.value;
+    });
+  };
+
+  public closeJob = (): void => {
+    this._selectedJob = null;
+    this._isLoadingSelectedJob = false;
+  };
 
   public load = async (): Promise<void> => {
     this._isLoading = true;

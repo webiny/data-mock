@@ -386,6 +386,10 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
             {activeView === "jobs" && (
               <JobsTab
                 jobs={vm.jobs}
+                selectedJob={vm.selectedJob}
+                isLoadingSelectedJob={vm.isLoadingSelectedJob}
+                onOpenJob={(jobId) => void presenter.openJob(jobId)}
+                onCloseJob={() => presenter.closeJob()}
                 totalCount={vm.jobsTotalCount}
                 page={vm.jobsPage}
                 typeFilter={vm.jobsTypeFilter}

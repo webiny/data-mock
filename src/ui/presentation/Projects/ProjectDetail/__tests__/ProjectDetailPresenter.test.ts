@@ -71,6 +71,7 @@ const ENVIRONMENTS_PATH = "/api/projects/:projectId/environments";
 const STACKS_PATH = "/api/projects/:projectId/environments/:environmentId/stacks";
 // The jobs gateway builds this URL itself, query string and all.
 const JOBS_PATH = `/api/projects/${PROJECT_ID}/jobs`;
+const JOB_PATH = "/api/projects/:projectId/jobs/:jobId";
 const MODELS_PATH = "/api/projects/:projectId/environments/:environmentId/models";
 const DEPLOYABLE_PATH = "/api/projects/:projectId/deployable-apps";
 const DEPLOY_PATH = "/api/projects/:projectId/environments/:environmentId/deploy";
@@ -442,6 +443,37 @@ describe("ProjectDetailPresenter", () => {
       await flush();
 
       expect(http.callsTo(JOBS_PATH).length).toBeGreaterThan(1);
+    });
+
+    it("fetches a job's log only when its panel is opened", async () => {
+      const p = await loaded();
+      await p.activateView("jobs");
+      expect(http.callsTo(JOB_PATH)).toHaveLength(0);
+
+      http.data.set(JOB_PATH, {
+        id: "job-1",
+        projectId: PROJECT_ID,
+        environmentId: null,
+        type: "deploy",
+        status: "completed",
+        config: null,
+        logs: "Deploying core...",
+        result: null,
+        progress: null,
+        progressLabel: null,
+        startedAt: 1,
+        completedAt: 2,
+        createdAt: 1,
+      });
+
+      await p.openJob("job-1");
+
+      // The list carries no logs, so the panel has to ask for the one job it is showing.
+      expect(http.callsTo(JOB_PATH)).toHaveLength(1);
+      expect(p.vm.selectedJob?.logs).toBe("Deploying core...");
+
+      p.closeJob();
+      expect(p.vm.selectedJob).toBeNull();
     });
 
     it("reads the project's jobs even when it has no environment at all", async () => {
