@@ -5,6 +5,7 @@ import {
   MinimumLengthValidator,
   PatternValidator,
 } from "../validators/index.js";
+import { generateTextOfLength } from "./text/generateTextOfLength.js";
 import type { IGeneratorGenerateParams } from "../types.js";
 
 function generateFromRegex(regex: string | undefined): string | null {
@@ -69,14 +70,10 @@ export class TextGenerator extends BaseGenerator<string> {
       }
     }
 
-    const options = {
-      min: getValidator(MinimumLengthValidator).getValue(1),
-      max: getValidator(MaximumLengthValidator).getValue(100),
-    };
-
-    const value = faker.lorem.words(options);
-
-    return value.length > options.max ? value.slice(0, options.max) : value;
+    return generateTextOfLength(
+      getValidator(MinimumLengthValidator).getValue(1),
+      getValidator(MaximumLengthValidator).getValue(100),
+    );
   }
 }
 

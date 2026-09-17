@@ -1,20 +1,17 @@
 import { faker } from "@faker-js/faker";
 import { BaseGenerator, BaseMultiGenerator } from "./BaseGenerator.js";
 import { MaximumLengthValidator, MinimumLengthValidator } from "../validators/index.js";
+import { generateTextOfLength } from "./text/generateTextOfLength.js";
 import type { IGeneratorGenerateParams } from "../types.js";
 
 export class LongTextGenerator extends BaseGenerator<string> {
   public type = "long-text";
 
   public async generate({ getValidator }: IGeneratorGenerateParams): Promise<string> {
-    const min = getValidator(MinimumLengthValidator).getValue(1);
-    const max = getValidator(MaximumLengthValidator).getValue(25);
-    const value = faker.lorem.words({
-      min,
-      max,
-    });
-
-    return value.length > max ? value.slice(0, max) : value;
+    return generateTextOfLength(
+      getValidator(MinimumLengthValidator).getValue(1),
+      getValidator(MaximumLengthValidator).getValue(250),
+    );
   }
 }
 
