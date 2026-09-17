@@ -7,11 +7,12 @@ import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abs
 import { UpdateProjectRepository } from "~/shared/node/features/projects/update/abstractions/UpdateProjectRepository.js";
 import { ListEnvironmentsRepository } from "~/shared/node/features/environments/list/abstractions/ListEnvironmentsRepository.js";
 import { ListStacksRepository } from "~/shared/node/features/environments/stacks/abstractions/ListStacksRepository.js";
+import { UpdateEnvironmentRepository } from "~/shared/node/features/environments/update/abstractions/UpdateEnvironmentRepository.js";
 import { ArchiveEnvironmentRepository } from "~/shared/node/features/environments/archive/abstractions/ArchiveEnvironmentRepository.js";
 import { WebinyCliRunner } from "../runner/abstractions/WebinyCliRunner.js";
 import { WebinyDeploymentService } from "../deployment/abstractions/WebinyDeploymentService.js";
 import { createFixtureProject, stackResource } from "./fixtures.js";
-import { WebinyCliError } from "~/shared/errors.js";
+import { ProjectPersistenceError, WebinyCliError } from "~/shared/errors.js";
 
 /** Records every invocation instead of spawning. No test in this file runs a real deploy. */
 class RecordingRunner {
@@ -180,6 +181,37 @@ describe("WebinyDeploymentService", () => {
     expect(environment?.apiUrl).toBe("https://api.example.com");
     expect(environment?.adminUrl).toBe("https://admin.example.com");
     expect(environment?.region).toBe("eu-central-1");
+  });
+
+  it("leaves the environment row alone when the stacks cannot be read back", async () => {
+    // Give the row a real, deployed state worth losing — written directly, because resolving the
+    // deployment service would construct the refresh singleton before the stub below is registered.
+    await tc.container.resolve(UpdateEnvironmentRepository).execute({
+      id: environmentId,
+      deployed: true,
+      apiUrl: "https://api.example.com",
+      adminUrl: "https://admin.example.com",
+    });
+
+    // The read-back that the environment row is derived from now fails.
+    tc.container.registerInstance(ListStacksRepository, {
+      execute: async () =>
+        Result.fail(new ProjectPersistenceError(new Error("database is locked"))),
+    });
+
+    const result = await service().execute({ command: "deploy", projectId, environmentId });
+    expect(result.isOk()).toBe(true);
+
+    const environments = await tc.container
+      .resolve(ListEnvironmentsRepository)
+      .execute({ projectId });
+    const environment = environments.isOk() ? environments.value[0] : undefined;
+
+    // Deriving from an empty list would call a live environment never-deployed and blank both
+    // URLs, off the back of one failed select.
+    expect(environment?.deployed).toBe(true);
+    expect(environment?.apiUrl).toBe("https://api.example.com");
+    expect(environment?.adminUrl).toBe("https://admin.example.com");
   });
 
   it("refreshes after a failure too, because a failed deploy is rarely a no-op", async () => {

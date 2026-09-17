@@ -69,9 +69,20 @@ class RefreshEnvironmentStacksServiceImpl implements Abstraction.Interface {
      * exactly what this write will produce.
      */
     const stored = await this.listStacksRepository.execute({ environmentId: environment.id });
-    const derived = deriveEnvironmentState(stored.isOk() ? stored.value : []);
 
-    await this.updateEnvironmentRepository.execute({
+    /**
+     * A read that failed is not an environment with no stacks. Deriving from an empty list would
+     * write `deployed: false` with no `api_url` and no `admin_url` — a live environment recorded
+     * as never deployed, off the back of one failed select. The row keeps what it had, and the
+     * stacks count as unknown so the sync reports itself as partial.
+     */
+    if (stored.isFail()) {
+      return { read: 0, unknown: read + unknown, deployed: environment.deployed };
+    }
+
+    const derived = deriveEnvironmentState(stored.value);
+
+    const updated = await this.updateEnvironmentRepository.execute({
       id: environment.id,
       deployed: derived.deployed,
       apiUrl: derived.apiUrl,
@@ -79,6 +90,11 @@ class RefreshEnvironmentStacksServiceImpl implements Abstraction.Interface {
       ...(derived.region !== null ? { region: derived.region } : {}),
       lastSyncedAt: Date.now(),
     });
+
+    // A derivation that could not be stored is not a refreshed environment either.
+    if (updated.isFail()) {
+      return { read: 0, unknown: read + unknown, deployed: environment.deployed };
+    }
 
     return { read, unknown, deployed: derived.deployed };
   }
