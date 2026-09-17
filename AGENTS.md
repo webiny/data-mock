@@ -636,6 +636,8 @@ export const ProjectsFeature = createFeature({
 10. **Routes as DI instances** — features register their own routes. No centralized if/switch.
 11. **`registerInstance` only for pre-built infrastructure** — DatabaseClient, GraphQLConfig, EncryptionKey, BaseUrl. Everything else via `createImplementation`.
 12. **Constructor deps are `private readonly`** with explicit access modifiers on all methods.
+13. **Barrels export abstractions only** — never a feature, never an implementation. A feature is registered once, imported from its own `feature.ts`.
+14. **An implementation is never imported outside its domain directory.** In practice its only importer is that domain's `feature.ts`; everything else depends on the abstraction. An implementation reached directly is one the container cannot substitute.
 
 ### Scoping
 | Type | Scope |
