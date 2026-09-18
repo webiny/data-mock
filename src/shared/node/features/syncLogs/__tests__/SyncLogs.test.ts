@@ -8,6 +8,7 @@ import { DeleteSyncLogRepository } from "../delete/abstractions/DeleteSyncLogRep
 describe("SyncLogs Feature", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -21,7 +22,8 @@ describe("SyncLogs Feature", () => {
     if (result.isFail()) {
       throw new Error("Failed to create project");
     }
-    projectId = result.value.id;
+    projectId = result.value.project.id;
+    environmentId = result.value.environment.id;
   });
 
   afterEach(() => {
@@ -33,6 +35,7 @@ describe("SyncLogs Feature", () => {
       const repo = tc.container.resolve(CreateSyncLogRepository);
       const result = await repo.execute({
         projectId,
+        environmentId,
         type: "tenants",
         status: "success",
         message: "Synced 3 tenants",
@@ -56,6 +59,7 @@ describe("SyncLogs Feature", () => {
 
       const result = await repo.execute({
         projectId,
+        environmentId,
         type: "models",
         status: "success",
         message: "Synced models",
@@ -74,6 +78,7 @@ describe("SyncLogs Feature", () => {
       const repo = tc.container.resolve(CreateSyncLogRepository);
       const result = await repo.execute({
         projectId,
+        environmentId,
         type: "upload-file",
         status: "success",
         message: 'Uploaded "photo.jpg" to File Manager',
@@ -96,6 +101,7 @@ describe("SyncLogs Feature", () => {
       const repo = tc.container.resolve(CreateSyncLogRepository);
       const result = await repo.execute({
         projectId,
+        environmentId,
         type: "pull-files",
         status: "success",
         message: "Pulled 10 file(s) from File Manager",
@@ -112,6 +118,7 @@ describe("SyncLogs Feature", () => {
       const repo = tc.container.resolve(CreateSyncLogRepository);
       const result = await repo.execute({
         projectId,
+        environmentId,
         type: "tenants",
         status: "error",
         message: "Network timeout",
@@ -128,7 +135,7 @@ describe("SyncLogs Feature", () => {
   describe("ListSyncLogsRepository", () => {
     it("should return empty when no logs exist", async () => {
       const repo = tc.container.resolve(ListSyncLogsRepository);
-      const result = await repo.execute({ projectId });
+      const result = await repo.execute({ environmentId });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -142,30 +149,34 @@ describe("SyncLogs Feature", () => {
 
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "tenants",
         status: "success",
         message: "Pulled tenants",
       });
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "models",
         status: "error",
         message: "Model pull failed",
       });
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "upload-file",
         status: "success",
         message: "Uploaded photo.jpg",
       });
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "pull-files",
         status: "success",
         message: "Pulled 5 files",
       });
 
-      const result = await listRepo.execute({ projectId });
+      const result = await listRepo.execute({ environmentId });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.logs).toHaveLength(4);
@@ -184,20 +195,21 @@ describe("SyncLogs Feature", () => {
       for (let i = 0; i < 5; i++) {
         await createRepo.execute({
           projectId,
+          environmentId,
           type: "tenants",
           status: "success",
           message: `Log ${i}`,
         });
       }
 
-      const page1 = await listRepo.execute({ projectId, limit: 2, offset: 0 });
+      const page1 = await listRepo.execute({ environmentId, limit: 2, offset: 0 });
       expect(page1.isOk()).toBe(true);
       if (page1.isOk()) {
         expect(page1.value.logs).toHaveLength(2);
         expect(page1.value.total).toBe(5);
       }
 
-      const page2 = await listRepo.execute({ projectId, limit: 2, offset: 2 });
+      const page2 = await listRepo.execute({ environmentId, limit: 2, offset: 2 });
       expect(page2.isOk()).toBe(true);
       if (page2.isOk()) {
         expect(page2.value.logs).toHaveLength(2);
@@ -211,18 +223,20 @@ describe("SyncLogs Feature", () => {
 
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "tenants",
         status: "success",
         message: "Pulled tenants",
       });
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "models",
         status: "success",
         message: "Pulled models",
       });
 
-      const result = await listRepo.execute({ projectId, type: "tenants" });
+      const result = await listRepo.execute({ environmentId, type: "tenants" });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.logs).toHaveLength(1);
@@ -237,18 +251,20 @@ describe("SyncLogs Feature", () => {
 
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "tenants",
         status: "success",
         message: "OK",
       });
       await createRepo.execute({
         projectId,
+        environmentId,
         type: "tenants",
         status: "error",
         message: "Failed",
       });
 
-      const result = await listRepo.execute({ projectId, status: "error" });
+      const result = await listRepo.execute({ environmentId, status: "error" });
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.logs).toHaveLength(1);
@@ -266,6 +282,7 @@ describe("SyncLogs Feature", () => {
 
       const createResult = await createRepo.execute({
         projectId,
+        environmentId,
         type: "tenants",
         status: "success",
         message: "Done",
@@ -278,7 +295,7 @@ describe("SyncLogs Feature", () => {
       const deleteResult = await deleteRepo.execute({ id: createResult.value.id });
       expect(deleteResult.isOk()).toBe(true);
 
-      const listResult = await listRepo.execute({ projectId });
+      const listResult = await listRepo.execute({ environmentId });
       expect(listResult.isOk()).toBe(true);
       if (listResult.isOk()) {
         expect(listResult.value.logs).toHaveLength(0);

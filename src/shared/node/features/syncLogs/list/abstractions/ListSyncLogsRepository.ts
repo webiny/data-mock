@@ -4,7 +4,7 @@ import type { SyncLog, SyncLogType, SyncLogStatus } from "~/shared/types.js";
 import type { SyncLogPersistenceError } from "~/shared/errors.js";
 
 export interface IListSyncLogsRepositoryInput {
-  projectId: string;
+  environmentId: string;
   type?: SyncLogType;
   status?: SyncLogStatus;
   limit?: number;

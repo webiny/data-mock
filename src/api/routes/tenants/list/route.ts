@@ -6,7 +6,7 @@ export const listProjectTenants = routeFactory(
   listProjectTenantsRoute,
   async ({ params, container, send }) => {
     const repository = container.resolve(ListProjectTenantsRepository);
-    const result = await repository.execute({ projectId: params.projectId });
+    const result = await repository.execute({ environmentId: params.environmentId });
 
     if (result.isFail()) {
       return send.error(result.error);

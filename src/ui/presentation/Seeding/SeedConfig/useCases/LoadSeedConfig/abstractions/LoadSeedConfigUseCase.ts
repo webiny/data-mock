@@ -3,6 +3,7 @@ import type { Result } from "@webiny/stdlib";
 import type { ProjectModel, ProjectTenant } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
+import type { EnvironmentRef } from "~/shared/types.js";
 export interface ILoadSeedConfigOutput {
   projectName: string;
   tenants: ProjectTenant[];
@@ -10,7 +11,7 @@ export interface ILoadSeedConfigOutput {
 }
 
 export interface ILoadSeedConfigUseCase {
-  execute(projectId: string): Promise<Result<ILoadSeedConfigOutput, HTTPError>>;
+  execute(ref: EnvironmentRef): Promise<Result<ILoadSeedConfigOutput, HTTPError>>;
 }
 
 export const LoadSeedConfigUseCase = createAbstraction<ILoadSeedConfigUseCase>(

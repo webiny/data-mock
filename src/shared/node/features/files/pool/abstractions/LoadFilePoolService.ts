@@ -8,7 +8,7 @@ import type {
 } from "~/shared/errors.js";
 
 export interface ILoadFilePoolServiceInput {
-  projectId: string;
+  environmentId: string;
   tenant: string;
   onProgress?: ((percent: number, label: string) => void) | undefined;
 }

@@ -7,6 +7,10 @@ import { CleanupJobExecutor } from "./abstractions/CleanupJobExecutor.js";
 import { ImportJobExecutor } from "./abstractions/ImportJobExecutor.js";
 import { UploadFilesJobExecutor } from "./abstractions/UploadFilesJobExecutor.js";
 import { PullPicsumJobExecutor } from "./abstractions/PullPicsumJobExecutor.js";
+import { SyncSystemJobExecutor } from "./abstractions/SyncSystemJobExecutor.js";
+import { SyncPreviewJobExecutor } from "./abstractions/SyncPreviewJobExecutor.js";
+import { DeployJobExecutor } from "./abstractions/DeployJobExecutor.js";
+import { DestroyJobExecutor } from "./abstractions/DestroyJobExecutor.js";
 
 class JobExecutorRegistryImpl implements Abstraction.Interface {
   private readonly executors = new Map<string, JobExecutor.Interface>();
@@ -19,6 +23,10 @@ class JobExecutorRegistryImpl implements Abstraction.Interface {
     importJobExecutor: ImportJobExecutor.Interface,
     uploadFilesJobExecutor: UploadFilesJobExecutor.Interface,
     pullPicsumJobExecutor: PullPicsumJobExecutor.Interface,
+    syncSystemJobExecutor: SyncSystemJobExecutor.Interface,
+    syncPreviewJobExecutor: SyncPreviewJobExecutor.Interface,
+    deployJobExecutor: DeployJobExecutor.Interface,
+    destroyJobExecutor: DestroyJobExecutor.Interface,
   ) {
     const all: JobExecutor.Interface[] = [
       seedJobExecutor,
@@ -28,6 +36,10 @@ class JobExecutorRegistryImpl implements Abstraction.Interface {
       importJobExecutor,
       uploadFilesJobExecutor,
       pullPicsumJobExecutor,
+      syncSystemJobExecutor,
+      syncPreviewJobExecutor,
+      deployJobExecutor,
+      destroyJobExecutor,
     ];
     for (const executor of all) {
       this.executors.set(executor.type, executor);
@@ -53,5 +65,9 @@ export const JobExecutorRegistry = Abstraction.createImplementation({
     ImportJobExecutor,
     UploadFilesJobExecutor,
     PullPicsumJobExecutor,
+    SyncSystemJobExecutor,
+    SyncPreviewJobExecutor,
+    DeployJobExecutor,
+    DestroyJobExecutor,
   ],
 });

@@ -9,7 +9,7 @@ export const listProjectFiles = routeFactory(
     const { limit, offset, sortField, sortDir } = parseListQuery(query);
 
     const input: ListProjectFilesRepository.Input = {
-      projectId: params.projectId,
+      environmentId: params.environmentId,
       limit,
       offset,
       sortDir,

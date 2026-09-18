@@ -1,9 +1,9 @@
 [
   {
     "name": "My Project",
-    "apiUrl": "https://your-api.webiny.com/cms/manage",
+    "apiUrl": "https://your-api.webiny.com",
     "apiToken": "your-api-token",
     "tenant": "root",
-    "webinyVersion": "6.0.0"
+    "operationsVersion": "6.0.0"
   }
 ]

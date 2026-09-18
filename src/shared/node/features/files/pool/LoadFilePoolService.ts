@@ -19,7 +19,7 @@ class LoadFilePoolServiceImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     const dbFilesResult = await this.listProjectFilesRepository.execute({
-      projectId: input.projectId,
+      environmentId: input.environmentId,
       tenant: input.tenant,
       limit: ALL_FILES_LIMIT,
     });
@@ -51,7 +51,7 @@ class LoadFilePoolServiceImpl implements Abstraction.Interface {
 
       try {
         const uploadResult = await this.fileUploadService.execute({
-          projectId: input.projectId,
+          environmentId: input.environmentId,
           tenant: input.tenant,
           filePath: localImage.filePath,
         });

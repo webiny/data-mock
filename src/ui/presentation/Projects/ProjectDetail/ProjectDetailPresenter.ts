@@ -1,310 +1,239 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { SyncPreviewState } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import { ProjectDetailPresenter as Abstraction } from "./abstractions/ProjectDetailPresenter.js";
 import type {
+  IDeploymentDialogVM,
+  IEnvironmentVM,
   IProjectDetailVM,
   IEditProjectInput,
-  IMergedFileVM,
+  IStackVM,
 } from "./abstractions/ProjectDetailPresenter.js";
 import { LoadProjectDetailUseCase } from "./useCases/LoadProjectDetail/abstractions/LoadProjectDetailUseCase.js";
-import { DeleteTemplateUseCase } from "./useCases/DeleteTemplate/abstractions/DeleteTemplateUseCase.js";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
-import { TenantsGateway } from "~/ui/features/tenants/abstractions/TenantsGateway.js";
-import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
-import { ModelsGateway } from "~/ui/features/models/abstractions/ModelsGateway.js";
-import { ModelsRepository } from "~/ui/features/models/abstractions/ModelsRepository.js";
-import { SeedingRepository } from "~/ui/features/seeding/abstractions/SeedingRepository.js";
-import { TemplatesGateway } from "~/ui/features/templates/abstractions/TemplatesGateway.js";
-import { TemplatesRepository } from "~/ui/features/templates/abstractions/TemplatesRepository.js";
-import { FilesGateway } from "~/ui/features/files/abstractions/FilesGateway.js";
-import { FilesRepository } from "~/ui/features/files/abstractions/FilesRepository.js";
-import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
-import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
-import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
-import type { ProjectFile } from "~/shared/types.js";
-import { EntriesGateway } from "~/ui/features/entries/abstractions/EntriesGateway.js";
-import { EntriesRepository } from "~/ui/features/entries/abstractions/EntriesRepository.js";
-import { SeedingGateway } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
-import { SyncLogsGateway } from "~/ui/features/syncLogs/abstractions/SyncLogsGateway.js";
-import { SyncLogsRepository } from "~/ui/features/syncLogs/abstractions/SyncLogsRepository.js";
-import { navigate } from "~/ui/features/router/Router.js";
-import { AppRoutes } from "~/ui/features/router/routePaths.js";
-import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
-import type { URLListState } from "~/ui/features/router/abstractions/URLListState.js";
+import type {
+  DeletionImpact,
+  EnvironmentRef,
+  ProjectEnvironment,
+  ProjectStack,
+} from "~/shared/types.js";
+import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/impactLines.js";
+import { buildSystemInfo, namedResourcesAtRisk, systemInfoNotice } from "./systemInfo.js";
+import { getStackName } from "~/shared/environments/index.js";
+import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
+import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { WSJobStatus } from "~/shared/websocket/types.js";
 import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
+import { getJobTypeDatasets } from "~/shared/jobs/descriptors.js";
+import { WEBINY_REGIONS } from "~/shared/webiny/regions.js";
 import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
-import { JobsRepository } from "~/ui/features/jobs/abstractions/JobsRepository.js";
 
-const VIEW_DATASETS: Record<string, string[]> = {
-  tenants: ["tenants"],
-  models: ["models"],
-  files: ["files"],
-  entries: ["entries"],
-  history: ["seedJobs"],
-  templates: ["templates"],
-  "pull-tenants": ["syncLogs"],
-  "pull-models": ["syncLogs"],
-  "pull-images": ["syncLogs"],
-  jobs: ["jobs"],
-  activity: ["syncLogs"],
-  seed: ["tenants", "models"],
-  import: ["tenants", "models"],
+const STACK_STATE_LABELS: Record<string, string> = {
+  deployed: "Deployed",
+  "not-deployed": "Not deployed",
+  unknown: "Could not read",
 };
 
-const JOB_TYPE_DATASETS: Record<string, string[]> = {
-  seed: ["entries", "seedJobs", "jobs"],
-  "pull-tenants": ["tenants", "syncLogs", "jobs"],
-  "pull-models": ["models", "syncLogs", "jobs"],
-  cleanup: ["entries", "jobs"],
-  import: ["entries", "jobs"],
-  "upload-files": ["files", "syncLogs", "jobs"],
-};
+function toStackVM(stack: ProjectStack): IStackVM {
+  return {
+    app: stack.app,
+    deployed: stack.deployed,
+    // An unreadable stack has no count. Showing 0 would claim it is empty.
+    resourceCount: stack.readState === "unknown" ? null : stack.resourceCount,
+    readState: stack.readState,
+    stateLabel: STACK_STATE_LABELS[stack.readState] ?? stack.readState,
+    syncedAt: stack.syncedAt,
+    rawOutput: stack.stackOutput === null ? null : JSON.stringify(stack.stackOutput, null, 2),
+  };
+}
+
+function toEnvironmentVM(environment: ProjectEnvironment): IEnvironmentVM {
+  return {
+    archivedAt: environment.archivedAt,
+    id: environment.id,
+    stackName: getStackName({ env: environment.env, variant: environment.variant }),
+    env: environment.env,
+    variant: environment.variant,
+    region: environment.region,
+    deployed: environment.deployed,
+    // Seeding needs an API to talk to; a core-only deployment has none.
+    connectable: environment.apiUrl !== null,
+    apiUrl: environment.apiUrl,
+    adminUrl: environment.adminUrl,
+    tenant: environment.tenant,
+    lastSyncedAt: environment.lastSyncedAt,
+  };
+}
 
 class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _projectId: string | null = null;
+  private _environmentId: string | null = null;
+  /** Stack name from the URL (`dev`, `dev___blue`), or null to take the project's first. */
+  private _envName: string | null = null;
+  private _environmentError: string | null = null;
+  private _loadError: string | null = null;
   private _isLoading = false;
-  private _isSyncingTenants = false;
-  private _isSyncingModels = false;
-  private _isImporting = false;
-  private _isClearingEntries = false;
-  private _isCleaningUp = false;
-  private _isUploadingGlobal = false;
-  private _isPullingFiles = false;
+  private _isSyncing = false;
+  private _removeEnvironmentId: string | null = null;
+  private _removeEnvironmentStackName: string | null = null;
+  private _removeEnvironmentMode: "archive" | "purge" = "archive";
+  private _environmentImpact: DeletionImpact | null = null;
+  private _isLoadingEnvironmentImpact = false;
+  private _deploymentCommand: "deploy" | "destroy" | null = null;
+  private _deploymentStep: "review" | "confirm" = "review";
+  private _deployableApps: string[] = [];
+  private _selectedApps: string[] = [];
+  private _deploymentRegion: string | null = null;
+  private _deploymentTypedName = "";
+  private _deploymentPreview = false;
+  private _isSubmittingDeployment = false;
+  private _deploymentError: string | null = null;
   private _showEditDialog = false;
-  private _showCleanupDialog = false;
-  private _loadedDatasets = new Set<string>();
-  private _loadingDatasets = new Set<string>();
   private _loadingProjectId: string | null = null;
+  /**
+   * The project and stack name that actually loaded, as one key. Separate from `_projectId` and
+   * `_envName`, which are set before the read so the error state has something to render.
+   */
+  private _loadedKey: string | null = null;
   private _projectHealth: "unknown" | "checking" | "reachable" | "unreachable" = "unknown";
   private _projectHealthError: string | null = null;
-  private readonly entriesListState: URLListState.Interface;
-  private readonly jobsListState: URLListState.Interface;
-  private readonly syncLogsListState: URLListState.Interface;
-  private readonly seedJobsListState: URLListState.Interface;
+  /** The environment whose stacks are stored, so they are read once per environment. */
+  private _stacksLoadedFor: string | null = null;
+  private _isLoadingStacks = false;
   private readonly disposeJobSubscription: () => void;
+  private readonly syncPreviewState: SyncPreviewState;
 
   public constructor(
     private readonly loadProjectDetailUseCase: LoadProjectDetailUseCase.Interface,
-    private readonly deleteTemplateUseCase: DeleteTemplateUseCase.Interface,
     private readonly projectsGateway: ProjectsGateway.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
-    private readonly tenantsGateway: TenantsGateway.Interface,
-    private readonly tenantsRepository: TenantsRepository.Interface,
-    private readonly modelsGateway: ModelsGateway.Interface,
-    private readonly modelsRepository: ModelsRepository.Interface,
-    private readonly seedingRepository: SeedingRepository.Interface,
-    private readonly templatesGateway: TemplatesGateway.Interface,
-    private readonly templatesRepository: TemplatesRepository.Interface,
-    private readonly filesGateway: FilesGateway.Interface,
-    private readonly filesRepository: FilesRepository.Interface,
-    private readonly localFilesGateway: LocalFilesGateway.Interface,
-    private readonly localFilesRepository: LocalFilesRepository.Interface,
-    private readonly entriesGateway: EntriesGateway.Interface,
-    private readonly entriesRepository: EntriesRepository.Interface,
-    private readonly seedingGateway: SeedingGateway.Interface,
-    private readonly syncLogsGateway: SyncLogsGateway.Interface,
-    private readonly syncLogsRepository: SyncLogsRepository.Interface,
+    private readonly environmentsGateway: EnvironmentsGateway.Interface,
+    private readonly environmentsRepository: EnvironmentsRepository.Interface,
     private readonly jobsGateway: JobsGateway.Interface,
-    private readonly jobsRepository: JobsRepository.Interface,
     private readonly notifications: NotificationService.Interface,
-    urlListStateFactory: URLListStateFactory.Interface,
     eventBridge: EventBridge.Interface,
   ) {
-    this.entriesListState = urlListStateFactory.create({
-      filters: {
-        jobId: { type: "dropdown" },
-        modelId: { type: "dropdown" },
-        tenant: { type: "dropdown" },
-        status: { type: "dropdown" },
-      },
-      onChange: () => this.reloadEntries(),
-    });
-    this.jobsListState = urlListStateFactory.create({
-      filters: {
-        jobType: { type: "dropdown" },
-        jobStatus: { type: "dropdown" },
-      },
-      onChange: () => this.reloadJobs(),
-    });
-    this.syncLogsListState = urlListStateFactory.create({
-      filters: {
-        logType: { type: "dropdown" },
-        logStatus: { type: "dropdown" },
-      },
-      onChange: () => this.reloadSyncLogs(),
-    });
-    this.seedJobsListState = urlListStateFactory.create({
-      filters: {
-        seedStatus: { type: "dropdown" },
-      },
-      onChange: () => this.reloadSeedJobs(),
-    });
+    this.syncPreviewState = new SyncPreviewState(environmentsGateway, jobsGateway, notifications);
     makeAutoObservable(this);
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
   }
 
   public get vm(): IProjectDetailVM {
+    const environmentId = this._environmentId;
     const project = this._projectId
-      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
+      ? (this.projectsRepository.projects.find((candidate) => candidate.id === this._projectId) ??
+        null)
       : null;
+    const allEnvironmentVMs = (
+      this._projectId ? this.environmentsRepository.getEnvironmentsByProjectId(this._projectId) : []
+    ).map((environment) => toEnvironmentVM(environment));
+    // The selector and every environment-scoped action see only the active ones; the Environments
+    // tab reads `archivedEnvironments` to offer Restore.
+    const environmentVMs = allEnvironmentVMs.filter(
+      (environment) => environment.archivedAt === null,
+    );
+    const archivedEnvironmentVMs = allEnvironmentVMs.filter(
+      (environment) => environment.archivedAt !== null,
+    );
+    const currentEnvironmentVM =
+      environmentVMs.find((environment) => environment.id === environmentId) ?? null;
 
-    const tenants = this._projectId
-      ? this.tenantsRepository.getTenantsByProjectId(this._projectId)
-      : [];
-
-    const models = this._projectId
-      ? this.modelsRepository.getModelsByProjectId(this._projectId)
-      : [];
-
-    const groupMap = new Map<string, { slug: string; name: string; modelCount: number }>();
-    for (const model of models) {
-      const existing = groupMap.get(model.groupSlug);
-      if (existing) {
-        existing.modelCount++;
-      } else {
-        groupMap.set(model.groupSlug, {
-          slug: model.groupSlug,
-          name: model.groupSlug,
-          modelCount: 1,
-        });
-      }
-    }
-
-    const seedJobs = this._projectId ? this.seedingRepository.seedJobs : [];
-    const jobs = this._projectId ? this.jobsRepository.jobs : [];
-
-    const templates = this._projectId
-      ? this.templatesRepository.getTemplatesByProjectId(this._projectId)
-      : [];
-
-    const files = this._projectId ? this.filesRepository.getFilesByProjectId(this._projectId) : [];
-    const localFiles = this._projectId ? this.localFilesRepository.files : [];
-    const mergedFiles = this.buildMergedFiles(files, localFiles);
-
-    const entries = this._projectId
-      ? this.entriesRepository.getEntriesByProjectId(this._projectId)
-      : [];
-
-    const syncLogs = this._projectId
-      ? this.syncLogsRepository.getLogsByProjectId(this._projectId)
-      : [];
+    const stackRows = environmentId ? this.environmentsRepository.getStacks(environmentId) : [];
 
     return {
       project: project
         ? {
             id: project.id,
             name: project.name,
-            apiUrl: project.apiUrl,
-            apiToken: project.apiToken,
+            rootPath: project.rootPath,
             webinyVersion: project.webinyVersion,
-            tenant: project.tenant,
+            versionMajor: project.versionMajor,
+            operationsVersion: project.operationsVersion,
             createdAt: project.createdAt,
           }
         : null,
-      tenants: tenants.map((t) => ({
-        tenantId: t.tenantId,
-        name: t.name,
-        discoveredAt: t.discoveredAt,
-      })),
-      groups: Array.from(groupMap.values()),
-      models: models.map((m) => ({
-        modelId: m.modelId,
-        name: m.name,
-        groupSlug: m.groupSlug,
-        fieldCount: m.fields.length,
-        fields: m.fields,
-        syncedAt: m.syncedAt,
-      })),
-      seedJobs: seedJobs.map((j) => ({
-        id: j.id,
-        status: j.status,
-        modelCount: j.config.models.length,
-        entriesCreated: j.result?.created ?? 0,
-        errorCount: j.result?.errors.length ?? 0,
-        createdAt: j.createdAt,
-      })),
-      seedJobsTotalCount: this._projectId ? this.seedingRepository.totalSeedJobs : 0,
-      seedJobsPage: this.seedJobsListState.page,
-      seedJobsStatusFilter: this.seedJobsListState.get("seedStatus") || null,
-      templates: templates.map((t) => ({
-        id: t.id,
-        name: t.name,
-        config: t.config,
-      })),
-      files: files.map((f) => ({
-        id: f.id,
-        fileName: f.fileName,
-        fileType: f.fileType,
-        fileSize: f.fileSize,
-        tenant: f.tenant,
-        uploadedAt: f.uploadedAt,
-      })),
-      mergedFiles,
-      entries: entries.map((e) => ({
-        id: e.id,
-        modelId: e.modelId,
-        tenant: e.tenant,
-        status: e.status,
-        entryId: e.entryId,
-        entryData: e.entryData,
-        requestData: e.requestData,
-        responseData: e.responseData,
-        error: e.error,
-        createdAt: e.createdAt,
-      })),
-      entriesTotalCount: this._projectId ? this.entriesRepository.totalEntries : 0,
-      entriesPage: this.entriesListState.page,
-      entriesJobFilter: this.entriesListState.get("jobId") || null,
-      entriesModelFilter: this.entriesListState.get("modelId") || null,
-      entriesTenantFilter: this.entriesListState.get("tenant") || null,
-      entriesStatusFilter: this.entriesListState.get("status") || null,
-      syncLog: syncLogs.map((l) => ({
-        id: l.id,
-        type: l.type,
-        status: l.status,
-        message: l.message,
-        request: l.request,
-        response: l.response,
-        createdAt: l.createdAt,
-      })),
-      syncLogsTotalCount: this._projectId ? this.syncLogsRepository.totalLogs : 0,
-      syncLogsPage: this.syncLogsListState.page,
-      syncLogsTypeFilter: this.syncLogsListState.get("logType") || null,
-      syncLogsStatusFilter: this.syncLogsListState.get("logStatus") || null,
-      jobs,
-      jobsTotalCount: this._projectId ? this.jobsRepository.totalJobs : 0,
-      jobsPage: this.jobsListState.page,
-      jobsTypeFilter: this.jobsListState.get("jobType") || null,
-      jobsStatusFilter: this.jobsListState.get("jobStatus") || null,
+      environments: environmentVMs,
+      archivedEnvironments: archivedEnvironmentVMs,
+      currentEnvironment: currentEnvironmentVM,
+      stacks: stackRows.map(toStackVM),
+      environmentDeleteConfirmation: {
+        isOpen: this._removeEnvironmentId !== null,
+        mode: this._removeEnvironmentMode,
+        environmentId: this._removeEnvironmentId,
+        stackName: this._removeEnvironmentStackName,
+        isLoadingImpact: this._isLoadingEnvironmentImpact,
+        impact: this.environmentImpactLines,
+        impactTotal: totalDeletionImpact(this.environmentImpactLines),
+      },
+      deploymentDialog: this.buildDeploymentDialog(stackRows, currentEnvironmentVM, project?.name),
+      systemInfo: buildSystemInfo(stackRows, currentEnvironmentVM, project?.versionMajor ?? null),
+      systemInfoNotice: systemInfoNotice(stackRows, currentEnvironmentVM),
+      showEnvironmentSelector: environmentVMs.length > 1,
+      environmentError: this._environmentError,
+      loadError: this._loadError,
       projectHealth: this._projectHealth,
       projectHealthError: this._projectHealthError,
       isLoading: this._isLoading,
-      isSyncingTenants: this._isSyncingTenants,
-      isSyncingModels: this._isSyncingModels,
-      isImporting: this._isImporting,
-      isClearingEntries: this._isClearingEntries,
-      isCleaningUp: this._isCleaningUp,
-      isUploadingGlobal: this._isUploadingGlobal,
-      isPullingFiles: this._isPullingFiles,
-      showCleanupDialog: this._showCleanupDialog,
+      isSyncing: this._isSyncing,
       showEditDialog: this._showEditDialog,
+      syncPreview: this.syncPreviewState.vm,
     };
   }
 
-  public load = async (projectId: string): Promise<void> => {
-    if (this._loadingProjectId === projectId || this._projectId === projectId) {
+  /** Both ids together, or null until an environment has been resolved. */
+  private get currentEnvironment(): ProjectEnvironment | null {
+    if (!this._projectId || !this._environmentId) {
+      return null;
+    }
+    const environmentId = this._environmentId;
+    return (
+      this.environmentsRepository
+        .getEnvironmentsByProjectId(this._projectId)
+        .find((environment) => environment.id === environmentId) ?? null
+    );
+  }
+
+  private get ref(): EnvironmentRef | null {
+    if (!this._projectId || !this._environmentId) {
+      return null;
+    }
+    return { projectId: this._projectId, environmentId: this._environmentId };
+  }
+
+  /**
+   * A failed load is never marked loaded. Keying "already here" off `_projectId`/`_envName` meant
+   * a failed read still looked like a successful one, so re-entering the page short-circuited and
+   * left it on an error banner with nothing able to ask again.
+   */
+  public load = async (projectId: string, envName: string | null): Promise<void> => {
+    const key = `${projectId}|${envName ?? ""}`;
+    if (this._loadingProjectId === projectId || this._loadedKey === key) {
       return;
     }
     this._loadingProjectId = projectId;
+    this._loadedKey = null;
     this._projectId = projectId;
-    this._loadedDatasets.clear();
-    this._loadingDatasets.clear();
+    this._envName = envName;
+    this._environmentId = null;
+    this._environmentError = null;
+    this._loadError = null;
+    this._stacksLoadedFor = null;
     this._isLoading = true;
     try {
-      await this.loadProjectDetailUseCase.execute({ projectId });
+      const loaded = await this.loadProjectDetailUseCase.execute({ projectId });
+      if (loaded.isFail()) {
+        // Without this the page renders its whole frame around a project that was never there.
+        runInAction(() => {
+          this._loadError = loaded.error.message;
+        });
+        return;
+      }
+      runInAction(() => {
+        this._loadedKey = key;
+      });
+      await this.resolveEnvironment(projectId, envName);
     } finally {
       runInAction(() => {
         this._loadingProjectId = null;
@@ -314,13 +243,89 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     void this.checkHealth();
   };
 
+  /**
+   * Environments are addressed by stack name in the URL, so they must be listed before anything
+   * else can load. With no name in the URL the first environment is taken — the common case, since
+   * most projects have only `dev`.
+   */
+  private resolveEnvironment = async (projectId: string, envName: string | null): Promise<void> => {
+    /**
+     * Archived environments are listed so the Environments tab can offer Restore next to them.
+     * They are never auto-selected: archiving is "stop looking at this stack", and landing on one
+     * would undo that on every page load.
+     */
+    const result = await this.environmentsGateway.listForProject(projectId, true);
+
+    if (result.isFail()) {
+      runInAction(() => {
+        this._environmentError = result.error.message;
+      });
+      return;
+    }
+
+    const environments = result.value;
+    this.environmentsRepository.setEnvironments(projectId, environments);
+
+    const active = environments.filter((environment) => environment.archivedAt === null);
+
+    const selected =
+      envName === null
+        ? (active[0] ?? null)
+        : this.environmentsRepository.findByStackName(projectId, envName);
+
+    runInAction(() => {
+      if (selected === null) {
+        this._environmentId = null;
+        this._environmentError =
+          active.length === 0
+            ? "This project has no environments yet. Sync it to discover them."
+            : `Environment "${envName ?? ""}" not found in this project.`;
+        return;
+      }
+      this._environmentId = selected.id;
+      this._envName = getStackName({ env: selected.env, variant: selected.variant });
+      this._environmentError = null;
+    });
+  };
+
+  /**
+   * Reads the selected environment's Pulumi stacks, once per environment. The Environments and
+   * System Info tabs are the two that render them, and both belong to this page's frame rather
+   * than being tabs of their own, so the page asks for this when it shows one of them.
+   *
+   * A failed read is not recorded as loaded: showing the tab again tries once more.
+   */
+  public loadStacks = async (): Promise<void> => {
+    const ref = this.ref;
+    if (ref === null || this._isLoadingStacks || this._stacksLoadedFor === ref.environmentId) {
+      return;
+    }
+    this._isLoadingStacks = true;
+    try {
+      const result = await this.environmentsGateway.listStacks(ref.projectId, ref.environmentId);
+      if (result.isFail()) {
+        this.notifications.error(`Could not load stacks: ${result.error.message}`);
+        return;
+      }
+      runInAction(() => {
+        this.environmentsRepository.setStacks(ref.environmentId, result.value);
+        this._stacksLoadedFor = ref.environmentId;
+      });
+    } finally {
+      runInAction(() => {
+        this._isLoadingStacks = false;
+      });
+    }
+  };
+
   public checkHealth = async (): Promise<void> => {
-    if (!this._projectId) {
+    const ref = this.ref;
+    if (!ref) {
       return;
     }
     this._projectHealth = "checking";
     this._projectHealthError = null;
-    const result = await this.projectsGateway.healthCheck(this._projectId);
+    const result = await this.projectsGateway.healthCheck(ref);
     runInAction(() => {
       if (result.isFail()) {
         this._projectHealth = "unreachable";
@@ -332,97 +337,205 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     });
   };
 
-  public activateView = async (view: string): Promise<void> => {
-    if (!this._projectId) {
+  /**
+   * Opens the diff rather than syncing. A sync overwrites what is stored for the project with
+   * whatever the checkout currently says, so what it would change is shown first.
+   */
+  public syncProject = (): void => {
+    const projectId = this._projectId;
+    if (projectId === null) {
       return;
     }
-    const datasets = VIEW_DATASETS[view];
-    if (!datasets) {
+    void this.syncPreviewState.open([projectId]);
+  };
+
+  public applySync = async (): Promise<void> => {
+    await this.syncPreviewState.apply();
+  };
+
+  public closeSyncPreview = (): void => {
+    this.syncPreviewState.close();
+  };
+
+  public openDeploymentDialog = (command: "deploy" | "destroy"): void => {
+    this._deploymentCommand = command;
+    this._deploymentStep = "review";
+    this._deploymentTypedName = "";
+    this._deploymentError = null;
+    this._selectedApps = [];
+    this._deploymentRegion = null;
+    this._deploymentPreview = false;
+    void this.loadDeployableApps();
+  };
+
+  public closeDeploymentDialog = (): void => {
+    this._deploymentCommand = null;
+    this._deploymentStep = "review";
+    this._deploymentTypedName = "";
+    this._deploymentError = null;
+    this._selectedApps = [];
+  };
+
+  public toggleDeploymentApp = (app: string): void => {
+    this._selectedApps = this._selectedApps.includes(app)
+      ? this._selectedApps.filter((candidate) => candidate !== app)
+      : [...this._selectedApps, app];
+  };
+
+  public setDeploymentRegion = (region: string | null): void => {
+    this._deploymentRegion = region;
+  };
+
+  public toggleDeploymentPreview = (): void => {
+    this._deploymentPreview = !this._deploymentPreview;
+  };
+
+  public reviewDeployment = (): void => {
+    this._deploymentStep = "confirm";
+  };
+
+  public setDeploymentTypedName = (value: string): void => {
+    this._deploymentTypedName = value;
+  };
+
+  public submitDeployment = async (): Promise<void> => {
+    const command = this._deploymentCommand;
+    const projectId = this._projectId;
+    const environmentId = this._environmentId;
+
+    if (command === null || projectId === null || environmentId === null) {
       return;
     }
-    const needed = datasets.filter((d) => !this._loadedDatasets.has(d));
-    if (needed.length === 0) {
-      return;
-    }
-    await Promise.all(needed.map((d) => this.loadDataset(d)));
-  };
 
-  public loadEntriesPage = (page: number): void => {
-    this.entriesListState.setPage(page);
-  };
+    this._isSubmittingDeployment = true;
+    this._deploymentError = null;
 
-  public setEntriesFilter = (key: string, value: string | null): void => {
-    this.entriesListState.set(key, value ?? "");
-  };
-
-  public viewJobEntries = (jobId: string): void => {
-    if (!this._projectId) {
-      return;
-    }
-    navigate(AppRoutes.projectTab(this._projectId, "entries"));
-    this.entriesListState.setBatch({ jobId, modelId: null, tenant: null, status: null });
-  };
-
-  public clearEntriesFilter = (): void => {
-    this.entriesListState.setBatch({ jobId: null, modelId: null, tenant: null, status: null });
-  };
-
-  public loadTemplate = (_templateId: string): void => {
-    if (this._projectId) {
-      navigate(AppRoutes.seedConfig(this._projectId));
-    }
-  };
-
-  public deleteTemplate = async (templateId: string): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    await this.deleteTemplateUseCase.execute({ projectId: this._projectId, templateId });
-    this.notifications.success("Template deleted.");
-  };
-
-  public pullTenants = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._isSyncingTenants = true;
     try {
-      const result = await this.tenantsGateway.syncForProject(this._projectId);
+      const apps = this._selectedApps;
+      const region = this._deploymentRegion;
+
+      const result =
+        command === "deploy"
+          ? await this.environmentsGateway.deploy(projectId, environmentId, {
+              ...(apps.length > 0 ? { apps } : {}),
+              ...(region !== null ? { region } : {}),
+              ...(this._deploymentPreview ? { preview: true } : {}),
+            })
+          : await this.environmentsGateway.destroy(projectId, environmentId, {
+              ...(apps.length > 0 ? { apps } : {}),
+              ...(region !== null ? { region } : {}),
+              confirmProjectName: this._deploymentTypedName.trim(),
+            });
+
+      if (result.isFail()) {
+        runInAction(() => {
+          this._deploymentError = result.error.message;
+        });
+        return;
+      }
+
+      this.notifications.success(
+        command === "destroy"
+          ? "Destroy started."
+          : this._deploymentPreview
+            ? "Preview started. Nothing will be changed."
+            : "Deploy started.",
+      );
+      this.closeDeploymentDialog();
+    } finally {
       runInAction(() => {
-        if (result.isOk()) {
-          this.notifications.success("Tenant pull job started.");
-        } else {
-          this.notifications.error(`Failed to start tenant pull: ${result.error.message}`);
-        }
-        this._isSyncingTenants = false;
-      });
-    } catch {
-      runInAction(() => {
-        this._isSyncingTenants = false;
+        this._isSubmittingDeployment = false;
       });
     }
   };
 
-  public pullModels = async (): Promise<void> => {
-    if (!this._projectId) {
+  public confirmRemoveEnvironment = (environmentId: string, stackName: string): void => {
+    this._removeEnvironmentId = environmentId;
+    this._removeEnvironmentStackName = stackName;
+    this._removeEnvironmentMode = "archive";
+    this._environmentImpact = null;
+    void this.loadEnvironmentImpact(environmentId);
+  };
+
+  public cancelRemoveEnvironment = (): void => {
+    this._removeEnvironmentId = null;
+    this._removeEnvironmentStackName = null;
+    this._removeEnvironmentMode = "archive";
+    this._environmentImpact = null;
+  };
+
+  public requestPurgeEnvironment = (): void => {
+    this._removeEnvironmentMode = "purge";
+  };
+
+  public archiveEnvironment = async (): Promise<void> => {
+    const projectId = this._projectId;
+    const environmentId = this._removeEnvironmentId;
+    const stackName = this._removeEnvironmentStackName;
+    if (projectId === null || environmentId === null) {
       return;
     }
-    this._isSyncingModels = true;
-    try {
-      const result = await this.modelsGateway.pullModels(this._projectId);
-      runInAction(() => {
-        if (result.isOk()) {
-          this.notifications.success("Model pull job started.");
-        } else {
-          this.notifications.error(`Failed to start model pull: ${result.error.message}`);
-        }
-        this._isSyncingModels = false;
-      });
-    } catch {
-      runInAction(() => {
-        this._isSyncingModels = false;
-      });
+    this.cancelRemoveEnvironment();
+
+    const result = await this.environmentsGateway.archive(projectId, environmentId);
+    if (result.isFail()) {
+      this.notifications.error(`Failed to archive environment: ${result.error.message}`);
+      return;
     }
+
+    this.notifications.success(`Environment "${stackName}" archived. Its data is kept.`);
+    await this.reloadEnvironments();
+  };
+
+  public purgeEnvironment = async (): Promise<void> => {
+    const projectId = this._projectId;
+    const environmentId = this._removeEnvironmentId;
+    const stackName = this._removeEnvironmentStackName;
+    if (projectId === null || environmentId === null) {
+      return;
+    }
+    /**
+     * The confirmation has to have been moved to "purge" first. This destroys every seed entry,
+     * sync log, model and job that hangs off the environment, so it must not be reachable from the
+     * dialog's reversible first step by any route.
+     */
+    if (this._removeEnvironmentMode !== "purge") {
+      return;
+    }
+    this.cancelRemoveEnvironment();
+
+    const result = await this.environmentsGateway.purge(projectId, environmentId);
+    if (result.isFail()) {
+      this.notifications.error(`Failed to delete environment: ${result.error.message}`);
+      return;
+    }
+
+    this.notifications.success(`Environment "${stackName}" and all of its data were deleted.`);
+
+    /**
+     * The purged environment may be the one the URL addresses. Reloading resolves the project's
+     * first remaining environment, rather than leaving the page pointed at a row that is gone.
+     */
+    if (environmentId === this._environmentId) {
+      this._environmentId = null;
+      this._envName = null;
+    }
+    await this.reloadEnvironments();
+  };
+
+  public restoreEnvironment = async (environmentId: string): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    const result = await this.environmentsGateway.restore(projectId, environmentId);
+    if (result.isFail()) {
+      this.notifications.error(`Failed to restore environment: ${result.error.message}`);
+      return;
+    }
+
+    await this.reloadEnvironments();
   };
 
   public openEditDialog = (): void => {
@@ -434,10 +547,11 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   };
 
   public submitEdit = async (input: IEditProjectInput): Promise<boolean> => {
-    if (!this._projectId) {
+    const projectId = this._projectId;
+    if (!projectId) {
       return false;
     }
-    const result = await this.projectsGateway.update(this._projectId, input);
+    const result = await this.projectsGateway.update(projectId, input);
     if (result.isOk()) {
       this.projectsRepository.updateProject(result.value);
       this.notifications.success("Project updated.");
@@ -448,334 +562,147 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     return false;
   };
 
-  public clearEntries = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._isClearingEntries = true;
-    try {
-      const result = await this.entriesGateway.clear(this._projectId);
-      runInAction(() => {
-        if (result.isOk()) {
-          this.entriesRepository.clearEntries(this._projectId!);
-          this.notifications.success("Audit log cleared.");
-        } else {
-          this.notifications.error("Failed to clear audit log.");
-        }
-      });
-    } finally {
-      runInAction(() => {
-        this._isClearingEntries = false;
-      });
-    }
-  };
-
-  public deleteFile = async (fileId: string): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const result = await this.filesGateway.remove(this._projectId, fileId);
-    if (result.isOk()) {
-      this.filesRepository.removeFile(fileId);
-      this.notifications.success("File deleted.");
-    } else {
-      this.notifications.error("Failed to delete file.");
-    }
-  };
-
-  public uploadFilesToProject = async (files: File[]): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const projectId = this._projectId;
-    const tenant = this.currentTenant();
-    const failures: string[] = [];
-
-    for (const file of files) {
-      try {
-        const fileContent = await readFileAsBase64(file);
-        const result = await this.filesGateway.upload(projectId, {
-          tenant,
-          fileName: file.name,
-          fileContent,
-          fileType: file.type,
-        });
-        if (result.isFail()) {
-          failures.push(`${file.name}: ${result.error.message}`);
-        }
-      } catch (error) {
-        failures.push(`${file.name}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-
-    runInAction(() => {
-      if (failures.length > 0) {
-        this.notifications.error(`Some files failed to upload: ${failures.join("; ")}`);
-      } else {
-        this.notifications.success("Files uploaded.");
-      }
-    });
-
-    await this.reloadFiles();
-  };
-
-  public uploadAllGlobalImages = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const projectId = this._projectId;
-    const tenant = this.currentTenant();
-    this._isUploadingGlobal = true;
-    try {
-      const result = await this.localFilesGateway.uploadGlobalToProject(projectId, { tenant });
-      runInAction(() => {
-        if (result.isOk()) {
-          this.notifications.success("Upload job started.");
-        } else {
-          this.notifications.error(`Failed to upload global images: ${result.error.message}`);
-        }
-      });
-    } finally {
-      runInAction(() => {
-        this._isUploadingGlobal = false;
-      });
-    }
-  };
-
-  public uploadSelectedGlobalImages = async (fileNames: string[]): Promise<void> => {
-    if (!this._projectId || fileNames.length === 0) {
-      return;
-    }
-    const projectId = this._projectId;
-    const tenant = this.currentTenant();
-    this._isUploadingGlobal = true;
-    try {
-      const result = await this.localFilesGateway.uploadGlobalToProject(projectId, {
-        tenant,
-        fileNames,
-      });
-      runInAction(() => {
-        if (result.isOk()) {
-          this.notifications.success("Upload job started.");
-        } else {
-          this.notifications.error(`Failed to upload selected images: ${result.error.message}`);
-        }
-      });
-    } finally {
-      runInAction(() => {
-        this._isUploadingGlobal = false;
-      });
-    }
-  };
-
-  public deleteSyncLog = async (logId: string): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const result = await this.syncLogsGateway.remove(this._projectId, logId);
-    if (result.isOk()) {
-      this.syncLogsRepository.removeLog(logId);
-      this.notifications.success("Sync log deleted.");
-    } else {
-      this.notifications.error("Failed to delete sync log.");
-    }
-  };
-
-  public openCleanupDialog = (): void => {
-    this._showCleanupDialog = true;
-  };
-
-  public closeCleanupDialog = (): void => {
-    this._showCleanupDialog = false;
-  };
-
-  public confirmCleanup = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._showCleanupDialog = false;
-    this._isCleaningUp = true;
-    try {
-      const result = await this.seedingGateway.cleanupEntries(this._projectId);
-      runInAction(() => {
-        if (result.isOk()) {
-          this.notifications.success("Cleanup job started.");
-        } else {
-          this.notifications.error(`Cleanup failed: ${result.error.message}`);
-        }
-        this._isCleaningUp = false;
-      });
-    } catch {
-      runInAction(() => {
-        this._isCleaningUp = false;
-      });
-    }
-  };
-
-  public importEntries = async (tenant: string, modelIds: string[]): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    this._isImporting = true;
-    try {
-      const result = await this.seedingGateway.importEntries(this._projectId, {
-        tenant,
-        models: modelIds,
-      });
-      runInAction(() => {
-        if (result.isOk()) {
-          this.notifications.success("Import job started.");
-        } else {
-          this.notifications.error(`Import failed: ${result.error.message}`);
-        }
-        this._isImporting = false;
-      });
-    } catch {
-      runInAction(() => {
-        this._isImporting = false;
-      });
-    }
-  };
-
-  private buildJobsParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.jobsListState.page };
-    const type = this.jobsListState.get("jobType");
-    const status = this.jobsListState.get("jobStatus");
-    if (type) {
-      params.type = type;
-    }
-    if (status) {
-      params.status = status;
-    }
-    const sort = this.jobsListState.sort;
-    if (sort) {
-      params.sortField = sort.field;
-      params.sortDir = sort.direction;
-    }
-    return params;
-  }
-
-  private buildSeedJobsParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.seedJobsListState.page };
-    const status = this.seedJobsListState.get("seedStatus");
-    if (status) {
-      params.status = status;
-    }
-    return params;
-  }
-
-  private buildSyncLogsParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.syncLogsListState.page };
-    const type = this.syncLogsListState.get("logType");
-    const status = this.syncLogsListState.get("logStatus");
-    if (type) {
-      params.type = type;
-    }
-    if (status) {
-      params.status = status;
-    }
-    return params;
-  }
-
-  private buildEntriesParams(): Record<string, string | number> {
-    const params: Record<string, string | number> = { page: this.entriesListState.page };
-    const jobId = this.entriesListState.get("jobId");
-    const modelId = this.entriesListState.get("modelId");
-    const tenant = this.entriesListState.get("tenant");
-    const status = this.entriesListState.get("status");
-    if (jobId) {
-      params.jobId = jobId;
-    }
-    if (modelId) {
-      params.modelId = modelId;
-    }
-    if (tenant) {
-      params.tenant = tenant;
-    }
-    if (status) {
-      params.status = status;
-    }
-    return params;
-  }
-
-  public loadSeedJobsPage = (page: number): void => {
-    this.seedJobsListState.setPage(page);
-  };
-
-  public setSeedJobsFilter = (key: string, value: string | null): void => {
-    this.seedJobsListState.set(key, value ?? "");
-  };
-
-  public clearSeedJobsFilter = (): void => {
-    this.seedJobsListState.setBatch({ seedStatus: null });
-  };
-
-  public loadJobsPage = (page: number): void => {
-    this.jobsListState.setPage(page);
-  };
-
-  public setJobsFilter = (key: string, value: string | null): void => {
-    this.jobsListState.set(key, value ?? "");
-  };
-
-  public clearJobsFilter = (): void => {
-    this.jobsListState.setBatch({ jobType: null, jobStatus: null });
-  };
-
-  public loadSyncLogsPage = (page: number): void => {
-    this.syncLogsListState.setPage(page);
-  };
-
-  public setSyncLogsFilter = (key: string, value: string | null): void => {
-    this.syncLogsListState.set(key, value ?? "");
-  };
-
-  public clearSyncLogsFilter = (): void => {
-    this.syncLogsListState.setBatch({ logType: null, logStatus: null });
-  };
-
-  public pullFiles = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const projectId = this._projectId;
-    const tenant = this.currentTenant();
-    this._isPullingFiles = true;
-    try {
-      const result = await this.filesGateway.pullFiles(projectId, tenant);
-      runInAction(() => {
-        if (result.isOk()) {
-          this.notifications.success(`Pulled ${result.value.synced} file(s) from File Manager.`);
-        } else {
-          this.notifications.error(`Failed to pull files: ${result.error.message}`);
-        }
-      });
-      await this.reloadFiles();
-    } finally {
-      runInAction(() => {
-        this._isPullingFiles = false;
-      });
-    }
-  };
-
-  public cancelJob = async (jobId: string): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const result = await this.jobsGateway.cancel(this._projectId, jobId);
-    runInAction(() => {
-      if (result.isOk()) {
-        this.notifications.success("Job cancelled.");
-      } else {
-        this.notifications.error(`Failed to cancel job: ${result.error.message}`);
-      }
-    });
-  };
-
   public dispose = (): void => {
     this.disposeJobSubscription();
   };
 
+  private loadDeployableApps = async (): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    const result = await this.environmentsGateway.listDeployableApps(projectId);
+    runInAction(() => {
+      // An empty list is a real answer — a remote-only project can deploy nothing — so a failure
+      // leaves whatever was there rather than claiming there is nothing to deploy.
+      if (result.isOk()) {
+        this._deployableApps = result.value.apps;
+      }
+    });
+  };
+
+  /**
+   * The deploy and destroy dialog.
+   *
+   * The "at risk" list is built from the stored stacks rather than from a fresh read: it is what
+   * the last sync saw, which is the only honest thing to show before running anything. An
+   * unreadable stack reports a null count instead of zero.
+   */
+  /** The version the key maps are read through. Null for a workspace root, which resolves none. */
+  private get currentVersionMajor(): number | null {
+    if (this._projectId === null) {
+      return null;
+    }
+    return (
+      this.projectsRepository.projects.find((project) => project.id === this._projectId)
+        ?.versionMajor ?? null
+    );
+  }
+
+  private buildDeploymentDialog(
+    stacks: ProjectStack[],
+    environment: IEnvironmentVM | null,
+    projectName: string | undefined,
+  ): IDeploymentDialogVM {
+    const command = this._deploymentCommand ?? "deploy";
+    const isDestroy = command === "destroy";
+    const name = projectName ?? "";
+
+    const targeted =
+      this._selectedApps.length > 0
+        ? this._selectedApps
+        : this._deployableApps.length > 0
+          ? this._deployableApps
+          : stacks.map((stack) => stack.app);
+
+    const atRisk = isDestroy
+      ? targeted.map((app) => {
+          const stack = stacks.find((candidate) => candidate.app === app);
+          return {
+            app,
+            resourceCount:
+              stack === undefined || stack.readState === "unknown"
+                ? null
+                : (stack.resourceCount ?? 0),
+            deployed: stack?.deployed ?? false,
+          };
+        })
+      : [];
+
+    return {
+      isOpen: this._deploymentCommand !== null,
+      command,
+      step: this._deploymentStep,
+      stackName: environment?.stackName ?? null,
+      projectName: name,
+      deployableApps: this._deployableApps,
+      selectedApps: this._selectedApps,
+      // Null means "whatever the environment already uses", which is what the backend falls back to.
+      region: this._deploymentRegion,
+      regionOptions: WEBINY_REGIONS,
+      preview: this._deploymentPreview,
+      atRisk,
+      atRiskResources: isDestroy
+        ? namedResourcesAtRisk(stacks, targeted, this.currentVersionMajor)
+        : [],
+      typedName: this._deploymentTypedName,
+      canConfirm: isDestroy
+        ? this._deploymentTypedName.trim() === name && name !== ""
+        : this._deployableApps.length > 0,
+      isSubmitting: this._isSubmittingDeployment,
+      error: this._deploymentError,
+    };
+  }
+  private get environmentImpactLines(): Array<{ label: string; count: number }> {
+    return this._environmentImpact === null ? [] : toDeletionImpactLines(this._environmentImpact);
+  }
+
+  private loadEnvironmentImpact = async (environmentId: string): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    this._isLoadingEnvironmentImpact = true;
+    try {
+      const result = await this.environmentsGateway.deletionImpact(projectId, environmentId);
+      runInAction(() => {
+        // A failed count must not become a silent "nothing will be lost".
+        this._environmentImpact = result.isOk() ? result.value : null;
+      });
+    } finally {
+      runInAction(() => {
+        this._isLoadingEnvironmentImpact = false;
+      });
+    }
+  };
+
+  /**
+   * Reads the environment list again and re-resolves which one the page is on.
+   *
+   * Delegates to the same routine the initial load uses, because everything that follows the list
+   * — the selection, the "no environments yet" notice, the stack name in the URL — is decided
+   * there. Reloading only the dataset stored the new rows and left the rest saying what it said
+   * before: after a sync discovered a project's first environment, the page listed it while still
+   * reporting that there were none, with nothing selected and every environment action dead.
+   */
+  private reloadEnvironments = async (): Promise<void> => {
+    const projectId = this._projectId;
+    if (projectId === null) {
+      return;
+    }
+
+    await this.resolveEnvironment(projectId, this._envName);
+  };
+
+  /**
+   * Only the two datasets this presenter still owns. Every tab subscribes for its own, so a job
+   * that writes a tab's data reaches that tab directly.
+   *
+   * The environment list is not just another dataset: what it holds decides which environment the
+   * page is on, so it goes through `reloadEnvironments`, which re-runs the whole selection.
+   */
   private handleJobStatus = (event: WSJobStatus): void => {
     if (!this._projectId || event.projectId !== this._projectId) {
       return;
@@ -783,284 +710,28 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     if (!TERMINAL_JOB_STATUSES.has(event.status)) {
       return;
     }
-    const datasetsToReload = JOB_TYPE_DATASETS[event.type];
-    if (!datasetsToReload) {
-      return;
+    // The descriptor table is the single source for this map; a local copy is what drifted before.
+    const datasets = getJobTypeDatasets(event.type);
+    if (datasets.includes("environments")) {
+      void this.reloadEnvironments();
     }
-    runInAction(() => {
-      for (const dataset of datasetsToReload) {
-        this._loadedDatasets.delete(dataset);
-        this._loadingDatasets.delete(dataset);
-      }
-    });
-    void Promise.all(datasetsToReload.map((d) => this.loadDataset(d)));
-  };
-
-  private reloadEntries = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
+    if (datasets.includes("stacks")) {
+      this._stacksLoadedFor = null;
+      void this.loadStacks();
     }
-    const projectId = this._projectId;
-    const result = await this.entriesGateway.list(projectId, this.buildEntriesParams());
-    runInAction(() => {
-      if (result.isOk()) {
-        this.entriesRepository.setEntries(result.value.entries, result.value.total);
-      }
-      this._loadedDatasets.add("entries");
-    });
   };
-
-  private loadDataset = async (dataset: string): Promise<void> => {
-    if (
-      !this._projectId ||
-      this._loadedDatasets.has(dataset) ||
-      this._loadingDatasets.has(dataset)
-    ) {
-      return;
-    }
-    this._loadingDatasets.add(dataset);
-    const projectId = this._projectId;
-
-    switch (dataset) {
-      case "tenants": {
-        const result = await this.tenantsGateway.listForProject(projectId);
-        runInAction(() => {
-          if (result.isOk()) {
-            this.tenantsRepository.setTenants(projectId, result.value);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "models": {
-        const result = await this.modelsGateway.listModels(projectId);
-        runInAction(() => {
-          if (result.isOk()) {
-            this.modelsRepository.setModels(result.value);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "files": {
-        const [filesResult, localFilesResult] = await Promise.all([
-          this.filesGateway.list(projectId),
-          this.localFilesGateway.list(),
-        ]);
-        runInAction(() => {
-          if (filesResult.isOk()) {
-            this.filesRepository.setFiles(filesResult.value);
-          }
-          if (localFilesResult.isOk()) {
-            this.localFilesRepository.setFiles(localFilesResult.value);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "entries": {
-        const result = await this.entriesGateway.list(projectId, this.buildEntriesParams());
-        runInAction(() => {
-          if (result.isOk()) {
-            this.entriesRepository.setEntries(result.value.entries, result.value.total);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "seedJobs": {
-        const result = await this.seedingGateway.listSeedJobs(
-          projectId,
-          this.buildSeedJobsParams(),
-        );
-        runInAction(() => {
-          if (result.isOk()) {
-            this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "templates": {
-        const result = await this.templatesGateway.listForProject(projectId);
-        runInAction(() => {
-          if (result.isOk()) {
-            this.templatesRepository.setTemplates(result.value);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "syncLogs": {
-        const result = await this.syncLogsGateway.list(projectId, this.buildSyncLogsParams());
-        runInAction(() => {
-          if (result.isOk()) {
-            this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-      case "jobs": {
-        const result = await this.jobsGateway.list(projectId, this.buildJobsParams());
-        runInAction(() => {
-          if (result.isOk()) {
-            this.jobsRepository.setJobs(result.value.jobs, result.value.total);
-          }
-          this._loadedDatasets.add(dataset);
-        });
-        break;
-      }
-    }
-    this._loadingDatasets.delete(dataset);
-  };
-
-  private reloadSeedJobs = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const result = await this.seedingGateway.listSeedJobs(
-      this._projectId,
-      this.buildSeedJobsParams(),
-    );
-    runInAction(() => {
-      if (result.isOk()) {
-        this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);
-      }
-      this._loadedDatasets.add("seedJobs");
-    });
-  };
-
-  private reloadJobs = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const result = await this.jobsGateway.list(this._projectId, this.buildJobsParams());
-    runInAction(() => {
-      if (result.isOk()) {
-        this.jobsRepository.setJobs(result.value.jobs, result.value.total);
-      }
-      this._loadedDatasets.add("jobs");
-    });
-  };
-
-  private reloadSyncLogs = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const result = await this.syncLogsGateway.list(this._projectId, this.buildSyncLogsParams());
-    runInAction(() => {
-      if (result.isOk()) {
-        this.syncLogsRepository.setLogs(result.value.logs, result.value.total);
-      }
-    });
-  };
-
-  private reloadFiles = async (): Promise<void> => {
-    if (!this._projectId) {
-      return;
-    }
-    const projectId = this._projectId;
-    const [filesResult, localFilesResult] = await Promise.all([
-      this.filesGateway.list(projectId),
-      this.localFilesGateway.list(),
-    ]);
-    runInAction(() => {
-      if (filesResult.isOk()) {
-        this.filesRepository.setFiles(filesResult.value);
-      }
-      if (localFilesResult.isOk()) {
-        this.localFilesRepository.setFiles(localFilesResult.value);
-      }
-      this._loadedDatasets.add("files");
-    });
-  };
-
-  private currentTenant = (): string => {
-    const project = this._projectId
-      ? (this.projectsRepository.projects.find((p) => p.id === this._projectId) ?? null)
-      : null;
-    return project?.tenant ?? "root";
-  };
-
-  private buildMergedFiles = (
-    projectFiles: ProjectFile[],
-    localFiles: ILocalFileVM[],
-  ): IMergedFileVM[] => {
-    const projectFileNames = new Set(projectFiles.map((f) => f.fileName));
-
-    const projectMerged: IMergedFileVM[] = projectFiles.map((f) => ({
-      id: f.id,
-      fileName: f.fileName,
-      fileType: f.fileType,
-      fileSize: f.fileSize,
-      source: "project",
-      thumbnailUrl: f.fileUrl,
-      badges: [{ label: "project", color: "blue" }],
-    }));
-
-    const globalMerged: IMergedFileVM[] = localFiles
-      .filter((f) => !projectFileNames.has(f.fileName))
-      .map((f) => ({
-        id: f.fileName,
-        fileName: f.fileName,
-        fileType: f.fileType,
-        fileSize: f.fileSize,
-        source: "global",
-        thumbnailUrl: `/api/files/local/${encodeURIComponent(f.fileName)}/content`,
-        badges: [{ label: "global", color: "gray" }],
-      }));
-
-    return [...projectMerged, ...globalMerged];
-  };
-}
-
-function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        reject(new Error(`Failed to read file "${file.name}"`));
-        return;
-      }
-      const commaIndex = result.indexOf(",");
-      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-    };
-    reader.onerror = () => {
-      reject(reader.error ?? new Error(`Failed to read file "${file.name}"`));
-    };
-    reader.readAsDataURL(file);
-  });
 }
 
 export const ProjectDetailPresenter = Abstraction.createImplementation({
   implementation: ProjectDetailPresenterImpl,
   dependencies: [
     LoadProjectDetailUseCase,
-    DeleteTemplateUseCase,
     ProjectsGateway,
     ProjectsRepository,
-    TenantsGateway,
-    TenantsRepository,
-    ModelsGateway,
-    ModelsRepository,
-    SeedingRepository,
-    TemplatesGateway,
-    TemplatesRepository,
-    FilesGateway,
-    FilesRepository,
-    LocalFilesGateway,
-    LocalFilesRepository,
-    EntriesGateway,
-    EntriesRepository,
-    SeedingGateway,
-    SyncLogsGateway,
-    SyncLogsRepository,
+    EnvironmentsGateway,
+    EnvironmentsRepository,
     JobsGateway,
-    JobsRepository,
     NotificationService,
-    URLListStateFactory,
     EventBridge,
   ],
 });

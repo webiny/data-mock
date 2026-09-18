@@ -15,13 +15,13 @@ function sanitizeFieldValidators(fields: ApiCmsModelField[]): ApiCmsModelField[]
   return fields.map((field) => {
     const sanitized = { ...field };
     if (Array.isArray(sanitized.validation)) {
-      sanitized.validation = sanitized.validation.map((v: CmsFieldValidation) => {
-        if (v.name === "pattern" && v.settings) {
-          if (v.settings.flags === null || v.settings.flags === undefined) {
-            return { ...v, settings: { ...v.settings, flags: "" } };
+      sanitized.validation = sanitized.validation.map((validator: CmsFieldValidation) => {
+        if (validator.name === "pattern" && validator.settings) {
+          if (validator.settings.flags === null || validator.settings.flags === undefined) {
+            return { ...validator, settings: { ...validator.settings, flags: "" } };
           }
         }
-        return v;
+        return validator;
       });
     }
     if (field.type === "object" && Array.isArray(field.settings?.fields)) {
@@ -34,9 +34,11 @@ function sanitizeFieldValidators(fields: ApiCmsModelField[]): ApiCmsModelField[]
       const templates = field.settings!.templates as DynamicZoneTemplate[];
       sanitized.settings = {
         ...sanitized.settings,
-        templates: templates.map((tpl) => ({
-          ...tpl,
-          fields: Array.isArray(tpl.fields) ? sanitizeFieldValidators(tpl.fields) : tpl.fields,
+        templates: templates.map((template) => ({
+          ...template,
+          fields: Array.isArray(template.fields)
+            ? sanitizeFieldValidators(template.fields)
+            : template.fields,
         })),
       };
     }
@@ -54,34 +56,42 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
       const { db } = this.databaseClient;
       const now = Date.now();
 
-      db.delete(projectModels).where(eq(projectModels.projectId, input.projectId)).run();
-
-      const rows: ProjectModel[] = input.models.map((m) => ({
+      const rows: ProjectModel[] = input.models.map((model) => ({
         id: generateId(),
         projectId: input.projectId,
-        groupSlug: m.groupSlug,
-        modelId: m.modelId,
-        name: m.name,
-        singularApiName: m.singularApiName,
-        pluralApiName: m.pluralApiName,
-        description: m.description ?? null,
-        plugin: m.plugin ?? false,
-        fields: sanitizeFieldValidators(m.fields),
-        remoteId: m.remoteId ?? null,
+        environmentId: input.environmentId,
+        groupSlug: model.groupSlug,
+        modelId: model.modelId,
+        name: model.name,
+        singularApiName: model.singularApiName,
+        pluralApiName: model.pluralApiName,
+        description: model.description ?? null,
+        plugin: model.plugin ?? false,
+        fields: sanitizeFieldValidators(model.fields),
+        remoteId: model.remoteId ?? null,
         syncedAt: now,
         createdAt: now,
         updatedAt: now,
       }));
 
-      for (const row of rows) {
-        db.insert(projectModels)
-          .values({
-            ...row,
-            plugin: row.plugin ? 1 : 0,
-            fields: JSON.stringify(row.fields),
-          })
-          .run();
-      }
+      /**
+       * Delete and re-insert as one unit. Run loose, a failure part-way through leaves the
+       * environment holding fewer rows than it started with — the delete has already happened and
+       * the inserts that replace them have not.
+       */
+      db.transaction((tx) => {
+        tx.delete(projectModels).where(eq(projectModels.environmentId, input.environmentId)).run();
+
+        for (const row of rows) {
+          tx.insert(projectModels)
+            .values({
+              ...row,
+              plugin: row.plugin ? 1 : 0,
+              fields: JSON.stringify(row.fields),
+            })
+            .run();
+        }
+      });
 
       return Result.ok(rows);
     } catch (error) {

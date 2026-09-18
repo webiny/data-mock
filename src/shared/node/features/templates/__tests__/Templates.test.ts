@@ -22,7 +22,7 @@ describe("Templates Feature", () => {
     if (result.isFail()) {
       throw new Error("Failed to create project");
     }
-    projectId = result.value.id;
+    projectId = result.value.project.id;
   });
 
   afterEach(() => {

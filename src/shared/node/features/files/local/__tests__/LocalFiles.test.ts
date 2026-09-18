@@ -79,11 +79,13 @@ describe("Local Files Feature", () => {
       if (!projectResult.isOk()) {
         return;
       }
-      const projectId = projectResult.value.id;
+      const projectId = projectResult.value.project.id;
+      const environmentId = projectResult.value.environment.id;
 
       const uploadRepo = tc.container.resolve(UploadFileRepository);
       await uploadRepo.execute({
         projectId,
+        environmentId,
         tenant: "root",
         fileKey: "images/photo.jpg",
         fileUrl: "https://cdn.example.com/images/photo.jpg",

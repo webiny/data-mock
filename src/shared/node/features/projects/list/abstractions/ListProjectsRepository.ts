@@ -3,8 +3,15 @@ import type { Result } from "@webiny/stdlib";
 import type { Project } from "~/shared/types.js";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
+export interface IListProjectsRepositoryInput {
+  /** Archived projects are hidden unless this is set. */
+  includeArchived?: boolean;
+}
+
 export interface IListProjectsRepository {
-  execute(): Promise<Result<Project[], ProjectPersistenceError>>;
+  execute(
+    input?: ListProjectsRepository.Input,
+  ): Promise<Result<Project[], ProjectPersistenceError>>;
 }
 
 export const ListProjectsRepository = createAbstraction<IListProjectsRepository>(
@@ -13,5 +20,6 @@ export const ListProjectsRepository = createAbstraction<IListProjectsRepository>
 
 export namespace ListProjectsRepository {
   export type Interface = IListProjectsRepository;
+  export type Input = IListProjectsRepositoryInput;
   export type Error = ProjectPersistenceError;
 }

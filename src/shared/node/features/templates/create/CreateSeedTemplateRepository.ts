@@ -6,8 +6,8 @@ import { ProjectPersistenceError } from "~/shared/errors.js";
 import { CreateSeedTemplateRepository as Abstraction } from "./abstractions/CreateSeedTemplateRepository.js";
 import type { SeedTemplate } from "~/shared/types.js";
 
-function toError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
 }
 
 class CreateSeedTemplateRepositoryImpl implements Abstraction.Interface {

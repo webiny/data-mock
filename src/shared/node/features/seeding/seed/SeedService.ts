@@ -1,6 +1,6 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { SeedService as Abstraction } from "./abstractions/SeedService.js";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
 import { GeneratorRegistry } from "~/shared/node/generators/abstractions/GeneratorRegistry.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
@@ -22,7 +22,13 @@ import {
 import { SeedingError } from "~/shared/errors.js";
 import type { IHttpResponse } from "~/shared/abstractions/HttpClient.js";
 import type { ApiGraphQLResultJson } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { ProjectModel, ProjectFile, Revisions, PublishStrategy } from "~/shared/types.js";
+import type {
+  ProjectModel,
+  ProjectFile,
+  Revisions,
+  PublishStrategy,
+  SeedJobStatus,
+} from "~/shared/types.js";
 
 interface ModelSeedContext {
   model: ProjectModel;
@@ -32,6 +38,7 @@ interface ModelSeedContext {
 }
 
 interface EntryMutationRequest {
+  [key: string]: unknown;
   url: string;
   mutation: string;
   variables: Record<string, unknown>;
@@ -42,13 +49,27 @@ interface EntryMutationResult {
   entryId: string;
   request: EntryMutationRequest;
   responseBody: string | null;
-  httpStatus: number;
+  /** Null when the request never got an answer at all — a dropped connection, a refused socket. */
+  httpStatus: number | null;
   status: "created" | "failed";
   error: string | null;
 }
 
-interface GqlOp {
+interface GraphQLOperation {
   getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
+}
+
+const MUTATION_MAX_RETRIES = 3;
+
+/**
+ * Statuses worth sending the same entry again for: a rate limit, and the gateway errors a CMS
+ * emits while it is restarting or under load. A 4xx other than 429 is the request's own fault and
+ * will fail identically every time, so retrying it only slows the run down.
+ */
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function isRetryableStatus(status: number): boolean {
+  return RETRYABLE_STATUSES.has(status);
 }
 
 function resolveRevisionCount(revisions: Revisions): number {
@@ -60,7 +81,7 @@ function resolveRevisionCount(revisions: Revisions): number {
 
 class SeedServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
     private readonly generatorRegistry: GeneratorRegistry.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
@@ -77,17 +98,23 @@ class SeedServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
+
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
 
-    const project = projectResult.value;
+    const { project, environment, apiUrl, apiToken, operationsVersion } = contextResult.value;
 
     const jobResult = await this.createSeedJobRepository.execute({
       projectId: project.id,
+      environmentId: environment.id,
       config: {
         models: input.models,
+        tenant: input.tenant,
+        batchSize: input.batchSize,
         publishStrategy: input.publishStrategy,
         publishPercent: input.publishPercent,
         includeUnpublish: input.includeUnpublish,
@@ -108,7 +135,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     const includeUnpublish = input.includeUnpublish ?? false;
     const batchSize = input.batchSize;
     const onProgress = input.onProgress;
-    const totalRequested = input.models.reduce((sum, m) => sum + m.amount, 0);
+    const totalRequested = input.models.reduce((sum, modelConfig) => sum + modelConfig.amount, 0);
     let totalProcessed = 0;
 
     const reportProgress = (
@@ -128,20 +155,20 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
+      authorization: `Bearer ${apiToken}`,
       "x-tenant": input.tenant,
     };
 
     try {
-      const contexts = await this.resolveModels(input, project.id, errors);
+      const contexts = await this.resolveModels(input, environment.id, errors);
       const orderedContexts = this.orderByDependencies(contexts);
 
       const availableRefs = new Map<string, string[]>();
 
-      await this.preloadExistingRefs(project.id, availableRefs);
+      await this.preloadExistingRefs(environment.id, availableRefs);
 
       const filePoolResult = await this.loadFilePoolService.execute({
-        projectId: project.id,
+        environmentId: environment.id,
         tenant: input.tenant,
       });
       const filePool = filePoolResult.isOk() ? filePoolResult.value.filePool : [];
@@ -151,7 +178,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
       const signal = input.signal;
 
-      for (const ctx of orderedContexts) {
+      for (const context of orderedContexts) {
         if (signal?.aborted) {
           this.logger.info("Job cancelled — stopping before next model.");
           break;
@@ -160,27 +187,28 @@ class SeedServiceImpl implements Abstraction.Interface {
         const modelErrors: string[] = [];
 
         this.logger.info(
-          `${isDryRun ? "[DRY RUN] " : ""}Generating ${ctx.amount} entries for model "${ctx.model.name}"...`,
+          `${isDryRun ? "[DRY RUN] " : ""}Generating ${context.amount} entries for model "${context.model.name}"...`,
         );
 
         if (isDryRun) {
           const dryRunEntries = await this.seedDryRun(
-            ctx,
+            context,
             availableRefs,
             job.id,
             project.id,
+            environment.id,
             input.tenant,
             filePool,
           );
-          generatedEntries.push({ modelId: ctx.modelId, entries: dryRunEntries });
+          generatedEntries.push({ modelId: context.modelId, entries: dryRunEntries });
           totalCreated += dryRunEntries.length;
           totalProcessed += dryRunEntries.length;
-          reportProgress(ctx.model.name, dryRunEntries.length, ctx.amount);
+          reportProgress(context.model.name, dryRunEntries.length, context.amount);
           continue;
         }
 
-        const fieldSelection = createModelFields(ctx.model.fields);
-        const singularApiName = ctx.model.singularApiName;
+        const fieldSelection = createModelFields(context.model.fields);
+        const singularApiName = context.model.singularApiName;
         const createMutation = buildCreateEntryQuery({ singularApiName, fieldSelection }).query;
         const revisionMutation = buildCreateRevisionQuery({
           singularApiName,
@@ -188,28 +216,34 @@ class SeedServiceImpl implements Abstraction.Interface {
         }).query;
         const publishMutation = buildPublishQuery(singularApiName).query;
         const unpublishMutation = buildUnpublishQuery(singularApiName).query;
-        const createOp = this.operationRegistry.resolve(
+        const createOperation = this.operationRegistry.resolve(
           "createContentEntry",
-          project.webinyVersion,
+          operationsVersion,
         );
-        const revisionOp = this.operationRegistry.resolve("createRevision", project.webinyVersion);
-        const publishOp = this.operationRegistry.resolve("publishEntry", project.webinyVersion);
-        const unpublishOp = this.operationRegistry.resolve("unpublishEntry", project.webinyVersion);
-        const apiUrl = project.apiUrl;
+        const revisionOperation = this.operationRegistry.resolve(
+          "createRevision",
+          operationsVersion,
+        );
+        const publishOperation = this.operationRegistry.resolve("publishEntry", operationsVersion);
+        const unpublishOperation = this.operationRegistry.resolve(
+          "unpublishEntry",
+          operationsVersion,
+        );
 
         let modelFailed = false;
+        let modelProcessed = 0;
         for (
           let batchStart = 0;
-          batchStart < ctx.amount && !modelFailed && !signal?.aborted;
+          batchStart < context.amount && !modelFailed && !signal?.aborted;
           batchStart += batchSize
         ) {
-          const batchEnd = Math.min(batchStart + batchSize, ctx.amount);
+          const batchEnd = Math.min(batchStart + batchSize, context.amount);
           const batchEntries: Record<string, unknown>[] = [];
 
           for (let i = batchStart; i < batchEnd; i++) {
             const entry = await createSingleEntryVariables(
               this.generatorRegistry,
-              { fields: ctx.model.fields },
+              { fields: context.model.fields },
               availableRefs,
               filePool,
             );
@@ -223,7 +257,7 @@ class SeedServiceImpl implements Abstraction.Interface {
                 createMutation,
                 { data: { values: entryData } },
                 headers,
-                createOp,
+                createOperation,
               ).then((result) => ({ entryData, result })),
             ),
           );
@@ -240,8 +274,16 @@ class SeedServiceImpl implements Abstraction.Interface {
 
           for (const { entryData, result: created } of failed) {
             modelErrors.push(created.error!);
-            errors.push({ modelId: ctx.modelId, message: created.error! });
-            await this.logEntry(job.id, project.id, input.tenant, ctx.modelId, entryData, created);
+            errors.push({ modelId: context.modelId, message: created.error! });
+            await this.logEntry(
+              job.id,
+              project.id,
+              environment.id,
+              input.tenant,
+              context.modelId,
+              entryData,
+              created,
+            );
           }
 
           if (failed.length > 0) {
@@ -250,9 +292,9 @@ class SeedServiceImpl implements Abstraction.Interface {
 
           for (const { result: created } of succeeded) {
             if (created.entryId) {
-              const refs = availableRefs.get(ctx.model.modelId) ?? [];
+              const refs = availableRefs.get(context.model.modelId) ?? [];
               refs.push(created.entryId);
-              availableRefs.set(ctx.model.modelId, refs);
+              availableRefs.set(context.model.modelId, refs);
             }
           }
 
@@ -261,21 +303,22 @@ class SeedServiceImpl implements Abstraction.Interface {
               await this.logEntry(
                 job.id,
                 project.id,
+                environment.id,
                 input.tenant,
-                ctx.modelId,
+                context.modelId,
                 entryData,
                 created,
               );
 
               let entryCreatedCount = 1;
               const entryErrors: Abstraction.ModelError[] = [];
-              const revisionCount = resolveRevisionCount(ctx.revisions);
+              const revisionCount = resolveRevisionCount(context.revisions);
               let latestRevisionId = created.entryId;
 
               for (let rev = 1; rev < revisionCount; rev++) {
                 const revEntry = await createSingleEntryVariables(
                   this.generatorRegistry,
-                  { fields: ctx.model.fields },
+                  { fields: context.model.fields },
                   availableRefs,
                   filePool,
                 );
@@ -286,21 +329,22 @@ class SeedServiceImpl implements Abstraction.Interface {
                   revisionMutation,
                   { revision: latestRevisionId, data: { values: revData } },
                   headers,
-                  revisionOp,
+                  revisionOperation,
                 );
 
                 await this.logEntry(
                   job.id,
                   project.id,
+                  environment.id,
                   input.tenant,
-                  ctx.modelId,
+                  context.modelId,
                   revData,
                   revResult,
                 );
 
                 if (revResult.error) {
                   entryErrors.push({
-                    modelId: ctx.modelId,
+                    modelId: context.modelId,
                     message: `Revision ${rev + 1}: ${revResult.error}`,
                   });
                 } else if (revResult.entryId) {
@@ -314,8 +358,8 @@ class SeedServiceImpl implements Abstraction.Interface {
                 publishMutation,
                 unpublishMutation,
                 headers,
-                publishOp,
-                unpublishOp,
+                publishOperation,
+                unpublishOperation,
                 created.entryId,
                 latestRevisionId,
                 publishStrategy,
@@ -334,93 +378,138 @@ class SeedServiceImpl implements Abstraction.Interface {
 
           const batchCount = batchEnd - batchStart;
           totalProcessed += batchCount;
-          reportProgress(ctx.model.name, batchEnd, ctx.amount);
+          modelProcessed += batchCount;
+          reportProgress(context.model.name, batchEnd, context.amount);
+        }
+
+        /**
+         * A failed entry stops the rest of the model — one broken field would otherwise be sent
+         * `amount` times against an API that will refuse every one. Said out loud, because the
+         * error count alone reads as "99 fine, 1 bad" rather than "stopped after 1 of 100".
+         */
+        if (modelFailed && modelProcessed < context.amount) {
+          errors.push({
+            modelId: context.modelId,
+            message: `Stopped after ${modelProcessed} of ${context.amount} entries — the first failure ends the model.`,
+          });
         }
 
         this.logger.info(
-          `Completed model "${ctx.model.name}": ${ctx.amount} attempted, ${modelErrors.length} errors.`,
+          `Completed model "${context.model.name}": ${modelProcessed} of ${context.amount} attempted, ${modelErrors.length} errors.`,
         );
       }
 
-      const status = isDryRun
+      /**
+       * A cancelled run is not a completed one. The job row is marked cancelled by the worker; a
+       * `seed_jobs` row left saying "completed" makes Seed History and Jobs disagree about the
+       * same run, and hides that there is anything left to resume.
+       */
+      const cancelled = signal?.aborted === true;
+      const status: SeedJobStatus = isDryRun
         ? "dry-run"
-        : errors.length === 0
-          ? "completed"
-          : totalCreated > 0
+        : cancelled
+          ? "cancelled"
+          : errors.length === 0 || totalCreated > 0
             ? "completed"
             : "failed";
 
-      await this.updateSeedJobRepository.execute({
-        id: job.id,
-        status,
-        result: {
-          created: totalCreated,
-          errors: errors.map((e) => ({ message: e.message, code: "SEED_ERROR" })),
-        },
-      });
+      await this.recordOutcome(job.id, status, totalCreated, errors);
 
       return Result.ok({
         jobId: job.id,
         created: totalCreated,
         errors,
+        cancelled,
         dryRun: isDryRun,
         generatedEntries: isDryRun ? generatedEntries : undefined,
       });
-    } catch (err) {
-      await this.updateSeedJobRepository.execute({
-        id: job.id,
-        status: "failed",
-        result: {
-          created: totalCreated,
-          errors: [{ message: err instanceof Error ? err.message : String(err), code: "FATAL" }],
-        },
-      });
+    } catch (error) {
+      await this.recordOutcome(job.id, "failed", totalCreated, [
+        { modelId: "", message: error instanceof Error ? error.message : String(error) },
+      ]);
 
-      return Result.fail(new SeedingError(err instanceof Error ? err : new Error(String(err))));
+      return Result.fail(
+        new SeedingError(error instanceof Error ? error : new Error(String(error))),
+      );
+    }
+  }
+
+  /**
+   * Writes the run's outcome onto its `seed_jobs` row.
+   *
+   * The write is checked rather than fired and forgotten: a row that keeps saying `running` after
+   * the work has finished never corrects itself, and everything reading seed history — the tab,
+   * the history route, a future resume — believes the run is still going.
+   */
+  private async recordOutcome(
+    jobId: string,
+    status: SeedJobStatus,
+    created: number,
+    errors: Abstraction.ModelError[],
+  ): Promise<void> {
+    const recorded = await this.updateSeedJobRepository.execute({
+      id: jobId,
+      status,
+      result: {
+        created,
+        errors: errors.map((modelError) => ({
+          message: modelError.message,
+          code: "SEED_ERROR",
+        })),
+      },
+    });
+
+    if (recorded.isFail()) {
+      this.logger.error(
+        `Seed job ${jobId} finished as "${status}" but the outcome could not be stored: ${recorded.error.message}. The seed_jobs row is left as it was.`,
+      );
     }
   }
 
   private async resolveModels(
     input: Abstraction.Input,
-    projectId: string,
+    environmentId: string,
     errors: Abstraction.ModelError[],
   ): Promise<ModelSeedContext[]> {
     const contexts: ModelSeedContext[] = [];
-    for (const mc of input.models) {
-      const r = await this.getProjectModelRepository.execute({ projectId, modelId: mc.modelId });
-      if (r.isFail()) {
-        errors.push({ modelId: mc.modelId, message: r.error.message });
+    for (const modelConfig of input.models) {
+      const modelResult = await this.getProjectModelRepository.execute({
+        environmentId,
+        modelId: modelConfig.modelId,
+      });
+      if (modelResult.isFail()) {
+        errors.push({ modelId: modelConfig.modelId, message: modelResult.error.message });
         continue;
       }
       contexts.push({
-        model: r.value,
-        amount: mc.amount,
-        modelId: mc.modelId,
-        revisions: mc.revisions ?? 1,
+        model: modelResult.value,
+        amount: modelConfig.amount,
+        modelId: modelConfig.modelId,
+        revisions: modelConfig.revisions ?? 1,
       });
     }
     return contexts;
   }
 
   private orderByDependencies(contexts: ModelSeedContext[]): ModelSeedContext[] {
-    const models = contexts.map((c) => c.model);
-    const depResult = this.modelDependencyResolver.execute({ models });
-    if (depResult.isFail()) {
+    const models = contexts.map((context) => context.model);
+    const dependencyResult = this.modelDependencyResolver.execute({ models });
+    if (dependencyResult.isFail()) {
       return contexts;
     }
 
-    if (depResult.value.circular.length > 0) {
-      for (const cycle of depResult.value.circular) {
+    if (dependencyResult.value.circular.length > 0) {
+      for (const cycle of dependencyResult.value.circular) {
         this.logger.warn(
           `Circular dependency detected: ${cycle.join(" → ")}. Self-refs will resolve progressively.`,
         );
       }
     }
 
-    const contextByModelId = new Map(contexts.map((c) => [c.model.modelId, c]));
-    return depResult.value.ordered
-      .map((m) => contextByModelId.get(m.modelId))
-      .filter((c): c is ModelSeedContext => c !== undefined);
+    const contextByModelId = new Map(contexts.map((context) => [context.model.modelId, context]));
+    return dependencyResult.value.ordered
+      .map((model) => contextByModelId.get(model.modelId))
+      .filter((context): context is ModelSeedContext => context !== undefined);
   }
 
   private async sendMutation(
@@ -428,7 +517,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     mutation: string,
     variables: Record<string, unknown>,
     headers: Record<string, string>,
-    op: GqlOp,
+    operation: GraphQLOperation,
   ): Promise<EntryMutationResult> {
     const safeHeaders = { ...headers };
     if (safeHeaders["authorization"]) {
@@ -442,23 +531,50 @@ class SeedServiceImpl implements Abstraction.Interface {
     };
     const body = JSON.stringify({ query: mutation, variables });
 
-    let response: IHttpResponse;
-    let rawBody: string;
-    const maxRetries = 3;
+    let response: IHttpResponse | null = null;
+    let rawBody = "";
+    let thrown: Error | null = null;
 
     for (let attempt = 0; ; attempt++) {
-      response = await this.cmsManageClient.post(apiUrl, body, headers);
-      rawBody = await response.text().catch(() => "");
+      thrown = null;
 
-      if (response.status === 429 && attempt < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
-        this.logger.warn(
-          `HTTP ${response.status} on attempt ${attempt + 1}, retrying in ${delay}ms...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
+      try {
+        response = await this.cmsManageClient.post(apiUrl, body, headers);
+        rawBody = await response.text().catch(() => "");
+      } catch (error) {
+        /**
+         * A dropped connection used to escape this method entirely: the batch's `Promise.all`
+         * rejected, the outer catch marked the whole run FATAL, and one bad socket ended a seed of
+         * ten thousand entries. It is now retried like any other transient failure, and if it
+         * keeps failing it fails this entry alone.
+         */
+        response = null;
+        thrown = error instanceof Error ? error : new Error(String(error));
       }
-      break;
+
+      const retryable =
+        thrown !== null || (response !== null && isRetryableStatus(response.status));
+      if (!retryable || attempt >= MUTATION_MAX_RETRIES) {
+        break;
+      }
+
+      const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+      this.logger.warn(
+        `${thrown === null ? `HTTP ${response?.status}` : thrown.message} on attempt ${attempt + 1}, retrying in ${delay}ms...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    if (response === null) {
+      const message = thrown?.message ?? "the request could not be sent";
+      return {
+        entryId: "",
+        request,
+        responseBody: "",
+        httpStatus: null,
+        status: "failed",
+        error: `Request failed: ${message}`,
+      };
     }
 
     if (response.status !== 200) {
@@ -486,7 +602,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       };
     }
 
-    const result = op.getResult(json);
+    const result = operation.getResult(json);
 
     if (result.error) {
       return {
@@ -518,8 +634,8 @@ class SeedServiceImpl implements Abstraction.Interface {
     publishMutation: string,
     unpublishMutation: string,
     headers: Record<string, string>,
-    publishOp: GqlOp,
-    unpublishOp: GqlOp,
+    publishOperation: GraphQLOperation,
+    unpublishOperation: GraphQLOperation,
     firstRevisionId: string,
     lastRevisionId: string,
     strategy: PublishStrategy,
@@ -561,7 +677,7 @@ class SeedServiceImpl implements Abstraction.Interface {
       publishMutation,
       { revision: revisionToPublish },
       headers,
-      publishOp,
+      publishOperation,
     );
 
     if (includeUnpublish && Math.random() < 0.3) {
@@ -570,13 +686,13 @@ class SeedServiceImpl implements Abstraction.Interface {
         unpublishMutation,
         { revision: revisionToPublish },
         headers,
-        unpublishOp,
+        unpublishOperation,
       );
     }
   }
 
   private async preloadExistingRefs(
-    projectId: string,
+    environmentId: string,
     availableRefs: Map<string, string[]>,
   ): Promise<void> {
     let totalLoaded = 0;
@@ -585,7 +701,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 
     while (true) {
       const result = await this.listSeedEntriesRepository.execute({
-        projectId,
+        environmentId,
         limit: pageSize,
         offset,
       });
@@ -619,49 +735,64 @@ class SeedServiceImpl implements Abstraction.Interface {
   private async logEntry(
     jobId: string,
     projectId: string,
+    environmentId: string,
     tenant: string,
     modelId: string,
     entryData: Record<string, unknown>,
     result: EntryMutationResult,
   ): Promise<void> {
-    await this.createSeedEntryRepository.execute({
+    const logged = await this.createSeedEntryRepository.execute({
       jobId,
       projectId,
+      environmentId,
       tenant,
       modelId,
       entryId: result.entryId,
       entryData,
-      requestData: result.request as unknown as Record<string, unknown>,
+      requestData: result.request,
       responseData: result.responseBody,
       httpStatus: result.httpStatus,
       status: result.status,
       error: result.error,
     });
+
+    /**
+     * The entry itself is already sent; the audit row is what failed. Dropped, the stored count
+     * silently understates what was created, and a later cleanup misses the entry entirely
+     * because it has no record of it.
+     */
+    if (logged.isFail()) {
+      this.logger.warn(
+        `Entry "${result.entryId}" of model "${modelId}" was not written to the audit log: ${logged.error.message}`,
+      );
+    }
   }
 
   private async seedDryRun(
-    ctx: ModelSeedContext,
+    context: ModelSeedContext,
     availableRefs: Map<string, string[]>,
     jobId: string,
     projectId: string,
+    environmentId: string,
     tenant: string,
     filePool: ProjectFile[],
   ): Promise<Record<string, unknown>[]> {
     const entries: Record<string, unknown>[] = [];
-    for (let i = 0; i < ctx.amount; i++) {
+    for (let i = 0; i < context.amount; i++) {
       const entry = await createSingleEntryVariables(
         this.generatorRegistry,
-        { fields: ctx.model.fields },
+        { fields: context.model.fields },
         availableRefs,
         filePool,
       );
       const entryData = entry.values as Record<string, unknown>;
       entries.push(entryData);
-      await this.createSeedEntryRepository.execute({
+      const logged = await this.createSeedEntryRepository.execute({
         jobId,
         projectId,
+        environmentId,
         tenant,
-        modelId: ctx.modelId,
+        modelId: context.modelId,
         entryId: "",
         entryData,
         requestData: null,
@@ -670,9 +801,15 @@ class SeedServiceImpl implements Abstraction.Interface {
         status: "dry-run",
         error: null,
       });
+
+      if (logged.isFail()) {
+        this.logger.warn(
+          `Dry-run entry for model "${context.modelId}" was not written to the audit log: ${logged.error.message}`,
+        );
+      }
     }
     this.logger.info(
-      `[DRY RUN] Generated ${entries.length} entries for model "${ctx.model.name}" (not sent).`,
+      `[DRY RUN] Generated ${entries.length} entries for model "${context.model.name}" (not sent).`,
     );
     return entries;
   }
@@ -681,7 +818,7 @@ class SeedServiceImpl implements Abstraction.Interface {
 export const SeedService = Abstraction.createImplementation({
   implementation: SeedServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     GetProjectModelRepository,
     GeneratorRegistry,
     OperationRegistry,

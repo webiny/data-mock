@@ -4,6 +4,7 @@ import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGat
 import { TenantsGateway } from "~/ui/features/tenants/abstractions/TenantsGateway.js";
 import { ModelsGateway } from "~/ui/features/models/abstractions/ModelsGateway.js";
 import { LoadSeedConfigUseCase as Abstraction } from "./abstractions/LoadSeedConfigUseCase.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class LoadSeedConfigUseCaseImpl implements Abstraction.Interface {
   public constructor(
@@ -12,11 +13,11 @@ class LoadSeedConfigUseCaseImpl implements Abstraction.Interface {
     private readonly modelsGateway: ModelsGateway.Interface,
   ) {}
 
-  public async execute(projectId: string): Promise<Result<Abstraction.Output, HTTPError>> {
+  public async execute(ref: EnvironmentRef): Promise<Result<Abstraction.Output, HTTPError>> {
     const [projectResult, tenantsResult, modelsResult] = await Promise.all([
-      this.projectsGateway.getById(projectId),
-      this.tenantsGateway.listForProject(projectId),
-      this.modelsGateway.listModels(projectId),
+      this.projectsGateway.getById(ref.projectId),
+      this.tenantsGateway.listForProject(ref),
+      this.modelsGateway.listModels(ref),
     ]);
 
     if (projectResult.isFail()) {

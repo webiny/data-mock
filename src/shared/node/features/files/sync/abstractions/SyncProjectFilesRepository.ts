@@ -13,6 +13,7 @@ export interface ISyncFileInput {
 
 export interface ISyncProjectFilesRepositoryInput {
   projectId: string;
+  environmentId: string;
   tenant: string;
   files: ISyncFileInput[];
 }

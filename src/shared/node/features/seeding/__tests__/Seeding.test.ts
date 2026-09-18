@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
+import { Logger, Result } from "@webiny/stdlib";
+import { ProjectPersistenceError } from "~/shared/errors.js";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
-import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { SyncProjectModelsRepository } from "~/shared/node/features/models/sync/abstractions/SyncProjectModelsRepository.js";
 import { CreateSeedJobRepository } from "../create/abstractions/CreateSeedJobRepository.js";
 import { UpdateSeedJobRepository } from "../update/abstractions/UpdateSeedJobRepository.js";
@@ -45,21 +47,17 @@ const numberField: ApiCmsModelField = {
   listValidation: [],
 };
 
-async function setupProject(tc: ReturnType<typeof createTestContainer>) {
-  const createUseCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await createUseCase.execute({
-    name: "Seed Project",
-    apiUrl: "https://api.example.com/cms/manage",
-    apiToken: "seed-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
+/**
+ * Creates a project plus the model these tests seed into. The model is environment-scoped, so it
+ * is synced against the environment createTestProject returns.
+ */
+async function setupSeedProject(tc: ReturnType<typeof createTestContainer>) {
+  const project = await createTestProject(tc, { name: "Seed Project" });
 
   const syncModels = tc.container.resolve(SyncProjectModelsRepository);
   await syncModels.execute({
-    projectId: result.value.id,
+    projectId: project.projectId,
+    environmentId: project.environmentId,
     models: [
       {
         groupSlug: "blog",
@@ -73,7 +71,7 @@ async function setupProject(tc: ReturnType<typeof createTestContainer>) {
     ],
   });
 
-  return result.value;
+  return project;
 }
 
 describe("Seeding Feature", () => {
@@ -81,16 +79,17 @@ describe("Seeding Feature", () => {
     it("should create a seed job", async () => {
       const tc = createTestContainer();
       try {
-        const project = await setupProject(tc);
+        const project = await setupSeedProject(tc);
         const repo = tc.container.resolve(CreateSeedJobRepository);
         const result = await repo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 5 }] },
         });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
-          expect(result.value.projectId).toBe(project.id);
+          expect(result.value.projectId).toBe(project.projectId);
           expect(["pending", "running"]).toContain(result.value.status);
           expect(result.value.config.models).toHaveLength(1);
           expect(result.value.id).toBeDefined();
@@ -105,13 +104,14 @@ describe("Seeding Feature", () => {
     it("should update seed job status and result", async () => {
       const tc = createTestContainer();
       try {
-        const project = await setupProject(tc);
+        const project = await setupSeedProject(tc);
         const createRepo = tc.container.resolve(CreateSeedJobRepository);
         const updateRepo = tc.container.resolve(UpdateSeedJobRepository);
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
 
         const createResult = await createRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 5 }] },
         });
 
@@ -128,7 +128,7 @@ describe("Seeding Feature", () => {
 
         expect(updateResult.isOk()).toBe(true);
 
-        const listResult = await listRepo.execute({ projectId: project.id });
+        const listResult = await listRepo.execute({ environmentId: project.environmentId });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.seedJobs).toHaveLength(1);
@@ -145,21 +145,23 @@ describe("Seeding Feature", () => {
     it("should list seed jobs ordered by date desc", async () => {
       const tc = createTestContainer();
       try {
-        const project = await setupProject(tc);
+        const project = await setupSeedProject(tc);
         const createRepo = tc.container.resolve(CreateSeedJobRepository);
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
 
         await createRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 3 }] },
         });
 
         await createRepo.execute({
-          projectId: project.id,
+          projectId: project.projectId,
+          environmentId: project.environmentId,
           config: { models: [{ modelId: "article", amount: 10 }] },
         });
 
-        const result = await listRepo.execute({ projectId: project.id });
+        const result = await listRepo.execute({ environmentId: project.environmentId });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value.seedJobs).toHaveLength(2);
@@ -176,7 +178,7 @@ describe("Seeding Feature", () => {
       const tc = createTestContainer();
       try {
         const listRepo = tc.container.resolve(ListSeedJobsRepository);
-        const result = await listRepo.execute({ projectId: "any-id" });
+        const result = await listRepo.execute({ environmentId: "any-id" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value.seedJobs).toEqual([]);
@@ -202,11 +204,11 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 2 }],
           batchSize: 1,
@@ -231,12 +233,12 @@ describe("Seeding Feature", () => {
       }
     });
 
-    it("should return error for non-existent project", async () => {
+    it("should return error for a non-existent environment", async () => {
       const tc = createTestContainer();
       try {
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: "non-existent",
+          environmentId: "non-existent",
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
           batchSize: 1,
@@ -244,7 +246,7 @@ describe("Seeding Feature", () => {
 
         expect(result.isFail()).toBe(true);
         if (result.isFail()) {
-          expect(result.error.code).toBe("Project/NotFound");
+          expect(result.error.code).toBe("Environment/NotFound");
         }
       } finally {
         tc.cleanup();
@@ -253,17 +255,16 @@ describe("Seeding Feature", () => {
 
     it("should handle HTTP errors gracefully", async () => {
       const mockHttpClient = createMockHttpClient();
-      vi.mocked(mockHttpClient.post).mockResolvedValue(
-        createMockResponse(500, "Internal Server Error"),
-      );
+      // 400, not 500: a 5xx is retried, and this test is about reporting rather than retrying.
+      vi.mocked(mockHttpClient.post).mockResolvedValue(createMockResponse(400, "Bad Request"));
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
           batchSize: 1,
@@ -279,15 +280,196 @@ describe("Seeding Feature", () => {
       }
     });
 
+    it("sends the entry again after a gateway error, and keeps the entry it got", async () => {
+      const mockHttpClient = createMockHttpClient();
+      const created = createMockResponse(200, {
+        data: {
+          createArticle: {
+            data: { id: "entry-1", entryId: "entry-1", title: "Test", count: 42 },
+            error: null,
+          },
+        },
+      });
+      vi.mocked(mockHttpClient.post)
+        .mockResolvedValueOnce(createMockResponse(503, "Service Unavailable"))
+        .mockResolvedValue(created);
+
+      vi.useFakeTimers();
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const pending = tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
+        });
+
+        // Walk past the backoff rather than waiting it out.
+        await vi.advanceTimersByTimeAsync(2000);
+        const result = await pending;
+
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.created).toBe(1);
+        expect(result.isOk() && result.value.errors).toHaveLength(0);
+      } finally {
+        vi.useRealTimers();
+        tc.cleanup();
+      }
+    });
+
+    it("fails one entry, not the whole run, when the connection drops", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockRejectedValue(new Error("socket hang up"));
+
+      vi.useFakeTimers();
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const pending = tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
+        });
+
+        await vi.advanceTimersByTimeAsync(20000);
+        const result = await pending;
+
+        /**
+         * A thrown request used to escape sendMutation entirely: the batch's Promise.all rejected,
+         * the outer catch marked the run FATAL, and one dropped socket ended a seed of ten
+         * thousand entries.
+         */
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.errors[0]?.message).toContain("socket hang up");
+      } finally {
+        vi.useRealTimers();
+        tc.cleanup();
+      }
+    });
+
+    it("records a cancelled run as cancelled, not as completed", async () => {
+      const mockHttpClient = createMockHttpClient();
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const controller = new AbortController();
+        controller.abort();
+
+        const result = await tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 5 }],
+          batchSize: 1,
+          signal: controller.signal,
+        });
+
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.cancelled).toBe(true);
+
+        // The worker marks the job cancelled; a seed_jobs row saying "completed" makes Seed
+        // History and Jobs disagree about the same run.
+        const jobs = await tc.container
+          .resolve(ListSeedJobsRepository)
+          .execute({ environmentId: project.environmentId });
+        expect(jobs.isOk() && jobs.value.seedJobs[0]?.status).toBe("cancelled");
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("says how far it got when the first failure ends a model", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockResolvedValue(createMockResponse(400, "Bad Request"));
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const result = await tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 3 }],
+          batchSize: 1,
+        });
+
+        expect(result.isOk()).toBe(true);
+        // One error alone reads as "2 fine, 1 bad" rather than "stopped after 1 of 3".
+        const messages = result.isOk() ? result.value.errors.map((error) => error.message) : [];
+        expect(messages.some((message) => message.includes("Stopped after 1 of 3"))).toBe(true);
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("finishes the run even when the outcome cannot be stored, and says so", async () => {
+      const mockHttpClient = createMockHttpClient();
+      vi.mocked(mockHttpClient.post).mockResolvedValue(
+        createMockResponse(200, {
+          data: {
+            createArticle: {
+              data: { id: "entry-1", entryId: "entry-1", title: "Test", count: 42 },
+              error: null,
+            },
+          },
+        }),
+      );
+
+      const tc = createTestContainer({ httpClient: mockHttpClient });
+      try {
+        const project = await setupSeedProject(tc);
+
+        const logged: string[] = [];
+        // Built rather than spread: Logger's methods live on the prototype, so a spread of the
+        // resolved instance produces an object whose `info` is undefined.
+        const recordingLogger: Logger.Interface = {
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          fatal: () => {},
+          error: (message: string) => {
+            logged.push(message);
+          },
+          child: () => recordingLogger,
+        };
+        tc.container.registerInstance(Logger, recordingLogger);
+
+        // The row is created before this stub replaces the repository, so the run has a job.
+        tc.container.registerInstance(UpdateSeedJobRepository, {
+          execute: async () =>
+            Result.fail(new ProjectPersistenceError(new Error("database is locked"))),
+        });
+
+        const result = await tc.container.resolve(SeedService).execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+          models: [{ modelId: "article", amount: 1 }],
+          batchSize: 1,
+        });
+
+        // The entries were sent. Failing the run over a status write would misreport worse.
+        expect(result.isOk()).toBe(true);
+        expect(result.isOk() && result.value.created).toBe(1);
+        // A row stuck at "running" never corrects itself, so the failure must be said out loud.
+        expect(logged.some((message) => message.includes("could not be stored"))).toBe(true);
+      } finally {
+        tc.cleanup();
+      }
+    });
+
     it("should generate entries in dry-run mode without sending to Webiny", async () => {
       const mockHttpClient = createMockHttpClient();
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 3 }],
           batchSize: 1,
@@ -321,11 +503,11 @@ describe("Seeding Feature", () => {
 
       const tc = createTestContainer({ httpClient: mockHttpClient });
       try {
-        const project = await setupProject(tc);
+        const project = await setupSeedProject(tc);
 
         const seedService = tc.container.resolve(SeedService);
         const result = await seedService.execute({
-          projectId: project.id,
+          environmentId: project.environmentId,
           tenant: "root",
           models: [{ modelId: "article", amount: 1 }],
           batchSize: 1,

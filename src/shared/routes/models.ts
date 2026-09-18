@@ -4,16 +4,16 @@ import { projectModelSchema } from "../responses/models.js";
 import { jobSchema } from "./jobs.js";
 
 export const listProjectModelsRoute = defineListRoute("models", {
-  path: "/api/projects/:projectId/models",
+  path: "/api/projects/:projectId/environments/:environmentId/models",
   description: "List local models for a project",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   item: projectModelSchema,
 });
 
 export const syncProjectModelsRoute = defineOneRoute("job", {
   method: "POST",
-  path: "/api/projects/:projectId/models/pull",
+  path: "/api/projects/:projectId/environments/:environmentId/models/pull",
   description: "Pull models from Webiny for a project",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   item: jobSchema,
 });

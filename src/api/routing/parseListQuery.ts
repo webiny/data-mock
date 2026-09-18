@@ -9,9 +9,20 @@ export interface ListQueryParams {
   sortDir: "asc" | "desc";
 }
 
+/**
+ * Reads a number the caller gave, or the fallback when they gave nothing usable.
+ *
+ * `parseInt(...) || fallback` cannot tell `?limit=0` from `?limit=` — both are falsy — so an
+ * explicit zero silently became the default instead of being clamped like any other number.
+ */
+function parseNumber(value: string | undefined, fallback: number): number {
+  const parsed = parseInt(value ?? "", 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
 export function parseListQuery(query: Record<string, string | undefined>): ListQueryParams {
-  const limit = Math.min(Math.max(parseInt(query.limit ?? "", 10) || DEFAULT_LIMIT, 1), MAX_LIMIT);
-  const page = Math.max(parseInt(query.page ?? "", 10) || 1, 1);
+  const limit = Math.min(Math.max(parseNumber(query.limit, DEFAULT_LIMIT), 1), MAX_LIMIT);
+  const page = Math.max(parseNumber(query.page, 1), 1);
   const offset = (page - 1) * limit;
   const sortField = query.sortField || undefined;
   const sortDir = query.sortDir === "asc" ? "asc" : "desc";

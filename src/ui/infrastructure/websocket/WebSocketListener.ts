@@ -57,6 +57,7 @@ class WebSocketListenerImpl implements Abstraction.Interface {
       if (this.socket !== socket) {
         return;
       }
+      // Parse boundary: the server always sends text frames.
       this.handleMessage(event.data as string);
     };
 
@@ -80,6 +81,7 @@ class WebSocketListenerImpl implements Abstraction.Interface {
 
   private handleMessage(raw: string): void {
     try {
+      // Parse boundary: raw JSON off the wire, shape asserted rather than validated.
       const parsed = JSON.parse(raw) as { type: string; data: unknown };
       if (typeof parsed.type !== "string") {
         return;

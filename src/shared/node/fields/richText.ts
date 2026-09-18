@@ -1,7 +1,7 @@
 import { createField } from "./createField.js";
 
-export const createLongTextField = createField({
-  type: "long-text",
+export const createRichTextField = createField({
+  type: "rich-text",
   graphQlDefinition: (field) => {
     return field.fieldId;
   },

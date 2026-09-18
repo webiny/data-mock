@@ -4,7 +4,10 @@ import type { ISetProgressInput } from "./JobExecutor.js";
 export interface IJobExecutionContext {
   appendLog: (line: string) => void;
   setProgress: (input: ISetProgressInput) => void;
+  setResult: (value: unknown) => void;
   getLogs(): string;
+  /** The result the executor set, already serialized, or null when it set none. */
+  getResult(): string | null;
   wasProgressUsed(): boolean;
   dispose(): void;
 }
@@ -12,6 +15,7 @@ export interface IJobExecutionContext {
 export interface IJobExecutionContextFactoryInput {
   jobId: string;
   projectId: string | null;
+  environmentId: string | null;
 }
 
 export interface IJobExecutionContextFactory {

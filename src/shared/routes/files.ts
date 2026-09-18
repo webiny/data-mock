@@ -14,33 +14,37 @@ import {
 import { jobSchema } from "./jobs.js";
 
 export const listProjectFilesRoute = defineListRoute("files", {
-  path: "/api/projects/:projectId/files",
+  path: "/api/projects/:projectId/environments/:environmentId/files",
   description: "List uploaded files for a project",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   item: projectFileSchema,
 });
 
 export const uploadProjectFileRoute = defineOneRoute("file", {
   method: "POST",
-  path: "/api/projects/:projectId/files/upload",
+  path: "/api/projects/:projectId/environments/:environmentId/files/upload",
   description: "Upload a file to a Webiny project",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   body: uploadFileBodySchema,
   item: projectFileSchema,
 });
 
 export const deleteProjectFileRoute = defineVoidRoute({
   method: "DELETE",
-  path: "/api/projects/:projectId/files/:fileId",
+  path: "/api/projects/:projectId/environments/:environmentId/files/:fileId",
   description: "Remove an uploaded file reference",
-  params: z.object({ projectId: z.string(), fileId: z.string() }),
+  params: z.object({
+    projectId: z.string(),
+    environmentId: z.string(),
+    fileId: z.string(),
+  }),
 });
 
 export const pullProjectFilesRoute = defineOneRoute("result", {
   method: "POST",
-  path: "/api/projects/:projectId/files/pull",
+  path: "/api/projects/:projectId/environments/:environmentId/files/pull",
   description: "Pull files from a Webiny project's file manager",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   body: syncFilesBodySchema,
   item: syncFilesResponseSchema,
 });
@@ -79,9 +83,9 @@ export const deleteLocalFileRoute = defineVoidRoute({
 
 export const uploadGlobalFilesRoute = defineOneRoute("job", {
   method: "POST",
-  path: "/api/projects/:projectId/files/upload-global",
+  path: "/api/projects/:projectId/environments/:environmentId/files/upload-global",
   description: "Upload all unlinked global pool images to a project's Webiny file manager",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   body: uploadGlobalBodySchema,
   item: jobSchema,
 });

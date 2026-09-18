@@ -18,7 +18,7 @@ export const uploadProjectFile = routeFactory(
 
       const service = container.resolve(FileUploadService);
       const result = await service.execute({
-        projectId: params.projectId,
+        environmentId: params.environmentId,
         tenant: body.tenant,
         filePath: tmpPath,
       });

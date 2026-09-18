@@ -1,6 +1,10 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
-import type { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/errors.js";
+import type {
+  ProjectNotFoundError,
+  ProjectPersistenceError,
+  ValidationError,
+} from "~/shared/errors.js";
 
 export interface IRemoveProjectInput {
   id: string;
@@ -17,5 +21,5 @@ export const RemoveProjectUseCase = createAbstraction<IRemoveProjectUseCase>(
 export namespace RemoveProjectUseCase {
   export type Interface = IRemoveProjectUseCase;
   export type Input = IRemoveProjectInput;
-  export type Error = ProjectNotFoundError | ProjectPersistenceError;
+  export type Error = ProjectNotFoundError | ProjectPersistenceError | ValidationError;
 }

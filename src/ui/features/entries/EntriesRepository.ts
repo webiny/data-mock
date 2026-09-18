@@ -23,13 +23,13 @@ class EntriesRepositoryImpl implements Abstraction.Interface {
     this._total = total;
   }
 
-  public clearEntries(projectId: string): void {
-    this._entries = this._entries.filter((e) => e.projectId !== projectId);
+  public clearEntries(environmentId: string): void {
+    this._entries = this._entries.filter((entry) => entry.environmentId !== environmentId);
     this._total = 0;
   }
 
-  public getEntriesByProjectId(projectId: string): SeedEntry[] {
-    return this._entries.filter((e) => e.projectId === projectId);
+  public getEntriesByEnvironmentId(environmentId: string): SeedEntry[] {
+    return this._entries.filter((entry) => entry.environmentId === environmentId);
   }
 }
 

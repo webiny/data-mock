@@ -1,0 +1,401 @@
+import { useState } from "react";
+import { observer } from "mobx-react-lite";
+import {
+  Alert,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  List,
+  Loader,
+  Modal,
+  Stack,
+  Table,
+  Text,
+  Tooltip,
+} from "@mantine/core";
+import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
+import type {
+  IEnvironmentDeleteConfirmationVM,
+  IEnvironmentVM,
+  IStackVM,
+} from "../abstractions/ProjectDetailPresenter.js";
+
+interface EnvironmentsTabProps {
+  environments: IEnvironmentVM[];
+  archivedEnvironments: IEnvironmentVM[];
+  currentEnvironment: IEnvironmentVM | null;
+  stacks: IStackVM[];
+  isSyncing: boolean;
+  confirmation: IEnvironmentDeleteConfirmationVM;
+  /** Null for a project with no local checkout, where neither action applies. */
+  canDeploy: boolean;
+  onSync: () => void;
+  onDeploy: () => void;
+  onDestroy: () => void;
+  onSelectEnvironment: (stackName: string) => void;
+  onConfirmRemove: (environmentId: string, stackName: string) => void;
+  onCancelRemove: () => void;
+  onRequestPurge: () => void;
+  onArchive: () => void;
+  onPurge: () => void;
+  onRestore: (environmentId: string) => void;
+}
+
+function formatRelative(timestamp: number | null): string {
+  if (timestamp === null) {
+    return "never";
+  }
+  const minutes = Math.round((Date.now() - timestamp) / 60000);
+  if (minutes < 1) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
+}
+
+/**
+ * Three environment states, not two. "Partially deployed" is a real state on this machine — an
+ * environment with core deployed and api not — and it is the one that cannot be seeded, so it is
+ * called out rather than folded into "deployed".
+ */
+function environmentBadge(environment: IEnvironmentVM): { label: string; color: string } {
+  if (!environment.deployed) {
+    return { label: "not deployed", color: "gray" };
+  }
+  if (!environment.connectable) {
+    return { label: "partially deployed", color: "orange" };
+  }
+  return { label: "deployed", color: "green" };
+}
+
+const STACK_COLORS: Record<string, string> = {
+  deployed: "green",
+  "not-deployed": "gray",
+  unknown: "orange",
+};
+
+export const EnvironmentsTab = observer(function EnvironmentsTab({
+  environments,
+  archivedEnvironments,
+  currentEnvironment,
+  stacks,
+  isSyncing,
+  confirmation,
+  canDeploy,
+  onSync,
+  onDeploy,
+  onDestroy,
+  onSelectEnvironment,
+  onConfirmRemove,
+  onCancelRemove,
+  onRequestPurge,
+  onArchive,
+  onPurge,
+  onRestore,
+}: EnvironmentsTabProps) {
+  const [rawOutput, setRawOutput] = useState<{ app: string; value: string } | null>(null);
+  const isPurge = confirmation.mode === "purge";
+
+  return (
+    <Stack gap="md">
+      <Group justify="space-between">
+        <Text fw={600}>Environments</Text>
+        <Group gap="xs">
+          {canDeploy && currentEnvironment !== null && (
+            <>
+              <Button size="xs" onClick={onDeploy}>
+                Deploy
+              </Button>
+              <Button size="xs" variant="light" color="red" onClick={onDestroy}>
+                Destroy
+              </Button>
+            </>
+          )}
+          <Button size="xs" variant="light" loading={isSyncing} onClick={onSync}>
+            Sync from disk
+          </Button>
+        </Group>
+      </Group>
+
+      {environments.length === 0 && (
+        <Text c="dimmed" fs="italic">
+          None discovered. Sync reads this project&apos;s Pulumi state from disk to find them.
+        </Text>
+      )}
+
+      {environments.length > 0 && (
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Stack</Table.Th>
+              <Table.Th>Variant</Table.Th>
+              <Table.Th>Region</Table.Th>
+              <Table.Th>State</Table.Th>
+              <Table.Th>Synced</Table.Th>
+              <Table.Th />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {environments.map((environment) => {
+              const badge = environmentBadge(environment);
+              return (
+                <Table.Tr key={environment.id}>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <Text size="sm" fw={500}>
+                        {environment.env}
+                      </Text>
+                      {environment.id === currentEnvironment?.id && (
+                        <Badge size="xs" variant="outline">
+                          selected
+                        </Badge>
+                      )}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {environment.variant === "" ? "—" : environment.variant}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {environment.region ?? "—"}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Tooltip
+                      disabled={environment.connectable || !environment.deployed}
+                      label="The api app is not deployed, so this environment cannot be seeded."
+                    >
+                      <Badge size="sm" variant="light" color={badge.color}>
+                        {badge.label}
+                      </Badge>
+                    </Tooltip>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {formatRelative(environment.lastSyncedAt)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap={4} justify="flex-end" wrap="nowrap">
+                      {environment.id !== currentEnvironment?.id && (
+                        <Button
+                          size="compact-xs"
+                          variant="subtle"
+                          onClick={() => onSelectEnvironment(environment.stackName)}
+                        >
+                          Select
+                        </Button>
+                      )}
+                      <Button
+                        size="compact-xs"
+                        variant="subtle"
+                        color="red"
+                        onClick={() => onConfirmRemove(environment.id, environment.stackName)}
+                      >
+                        Remove
+                      </Button>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+      )}
+
+      {archivedEnvironments.length > 0 && (
+        <>
+          <Divider
+            my="xs"
+            label={`Archived (${archivedEnvironments.length})`}
+            labelPosition="left"
+          />
+          {archivedEnvironments.map((environment) => (
+            <Group key={environment.id} justify="space-between">
+              <Group gap="xs">
+                <Text size="sm">{environment.stackName}</Text>
+                <Badge size="xs" variant="light" color="gray">
+                  archived
+                </Badge>
+              </Group>
+              <Group gap="xs">
+                <Button size="compact-xs" variant="light" onClick={() => onRestore(environment.id)}>
+                  Restore
+                </Button>
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="red"
+                  onClick={() => onConfirmRemove(environment.id, environment.stackName)}
+                >
+                  Delete
+                </Button>
+              </Group>
+            </Group>
+          ))}
+        </>
+      )}
+
+      <Text fw={600} mt="sm">
+        Apps in {currentEnvironment?.stackName ?? "this environment"}
+      </Text>
+
+      {stacks.length === 0 && (
+        <Text c="dimmed" fs="italic">
+          No stack state stored yet. Sync to read it.
+        </Text>
+      )}
+
+      {stacks.length > 0 && (
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>App</Table.Th>
+              <Table.Th>State</Table.Th>
+              <Table.Th>Resources</Table.Th>
+              <Table.Th>Read</Table.Th>
+              <Table.Th />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {stacks.map((stack) => (
+              <Table.Tr key={stack.app}>
+                <Table.Td>
+                  <Text size="sm" fw={500}>
+                    {stack.app}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Badge size="sm" variant="light" color={STACK_COLORS[stack.readState] ?? "gray"}>
+                    {stack.stateLabel}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  {/* An unreadable stack shows a dash, never 0 — 0 would claim it is empty. */}
+                  <Text size="sm" c="dimmed">
+                    {stack.resourceCount === null ? "—" : stack.resourceCount}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm" c="dimmed">
+                    {formatRelative(stack.syncedAt)}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  {stack.rawOutput !== null && (
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      onClick={() => setRawOutput({ app: stack.app, value: stack.rawOutput ?? "" })}
+                    >
+                      Raw output
+                    </Button>
+                  )}
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      )}
+
+      <Modal
+        opened={confirmation.isOpen}
+        onClose={onCancelRemove}
+        title={isPurge ? "Delete environment permanently" : "Remove environment"}
+        centered
+      >
+        <Stack gap="sm">
+          <Text>
+            {isPurge ? "Permanently delete" : "Archive"} &ldquo;{confirmation.stackName}&rdquo;?
+          </Text>
+
+          {!isPurge && (
+            <Text size="sm" c="dimmed">
+              Archiving hides the environment and keeps everything below. Sync will skip it rather
+              than rediscovering it, and you can restore it at any time.
+            </Text>
+          )}
+
+          {confirmation.isLoadingImpact && (
+            <Group gap="xs">
+              <Loader size="xs" />
+              <Text size="sm" c="dimmed">
+                Counting what a permanent delete would destroy...
+              </Text>
+            </Group>
+          )}
+
+          {!confirmation.isLoadingImpact && confirmation.impact.length === 0 && (
+            <Text size="sm" c="dimmed">
+              No stored data was found for this environment.
+            </Text>
+          )}
+
+          {!confirmation.isLoadingImpact && confirmation.impact.length > 0 && (
+            <Alert color={isPurge ? "red" : "yellow"} variant="light">
+              <Text size="sm" fw={500}>
+                {isPurge
+                  ? `${confirmation.impactTotal} rows will be destroyed:`
+                  : `${confirmation.impactTotal} rows are kept by archiving:`}
+              </Text>
+              <List size="sm" mt="xs">
+                {confirmation.impact.map((line) => (
+                  <List.Item key={line.label}>
+                    {line.count} {line.label}
+                  </List.Item>
+                ))}
+              </List>
+              {isPurge && (
+                <Text size="sm" fw={600} mt="xs">
+                  This cannot be undone.
+                </Text>
+              )}
+            </Alert>
+          )}
+
+          <Group justify="space-between" mt="md">
+            {isPurge ? (
+              <Button variant="default" onClick={onCancelRemove}>
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="subtle" color="red" size="xs" onClick={onRequestPurge}>
+                Delete permanently instead
+              </Button>
+            )}
+            <Group gap="xs">
+              {!isPurge && (
+                <Button variant="default" onClick={onCancelRemove}>
+                  Cancel
+                </Button>
+              )}
+              {isPurge ? (
+                <Button color="red" onClick={onPurge}>
+                  Delete everything
+                </Button>
+              ) : (
+                <Button color="orange" onClick={onArchive}>
+                  Archive
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <CodeViewerModal
+        opened={rawOutput !== null}
+        onClose={() => setRawOutput(null)}
+        title={`${rawOutput?.app ?? ""} stack output`}
+        value={rawOutput?.value ?? ""}
+        language="json"
+      />
+    </Stack>
+  );
+});

@@ -22,14 +22,14 @@ class ProjectsRepositoryImpl implements Abstraction.Interface {
   }
 
   public updateProject(project: Project): void {
-    const index = this._projects.findIndex((p) => p.id === project.id);
+    const index = this._projects.findIndex((existingProject) => existingProject.id === project.id);
     if (index !== -1) {
       this._projects[index] = project;
     }
   }
 
   public removeProject(id: string): void {
-    this._projects = this._projects.filter((p) => p.id !== id);
+    this._projects = this._projects.filter((project) => project.id !== id);
   }
 }
 

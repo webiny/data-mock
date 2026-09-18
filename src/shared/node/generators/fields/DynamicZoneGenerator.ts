@@ -13,10 +13,17 @@ export class DynamicZoneGenerator extends BaseGenerator<GenericRecord> {
     if (!templates?.length) {
       return null;
     }
-    const random = faker.number.int({
-      min: params.field.settings?.current || 0,
-      max: templates.length - 1,
-    });
+    /**
+     * `current` is the first template to consider. Clamped, because a value past the last index
+     * reaches faker as `min > max` and throws — which fails the entry and, through the seed's
+     * stop-at-first-failure rule, abandons the rest of the model.
+     */
+    const lastIndex = templates.length - 1;
+    const first = Math.min(
+      Math.max(0, Number(params.field.settings?.current ?? 0) || 0),
+      lastIndex,
+    );
+    const random = faker.number.int({ min: first, max: lastIndex });
     const template = templates[random];
     if (!template) {
       return null;

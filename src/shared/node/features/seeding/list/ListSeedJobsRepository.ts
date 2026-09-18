@@ -25,7 +25,7 @@ class ListSeedJobsRepositoryImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     try {
-      const conditions: SQL[] = [eq(seedJobs.projectId, input.projectId)];
+      const conditions: SQL[] = [eq(seedJobs.environmentId, input.environmentId)];
       if (input.status) {
         conditions.push(eq(seedJobs.status, input.status));
       }
@@ -58,6 +58,7 @@ class ListSeedJobsRepositoryImpl implements Abstraction.Interface {
       const seedJobsList: SeedJob[] = rows.map((row) => ({
         id: row.id,
         projectId: row.projectId,
+        environmentId: row.environmentId,
         status: row.status as SeedJobStatus,
         config: JSON.parse(row.config) as SeedJobConfig,
         result: row.result ? (JSON.parse(row.result) as SeedJobResult) : null,

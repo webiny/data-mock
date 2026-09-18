@@ -9,6 +9,7 @@ export default {
             "concurrently",
             "typescript",
             "dotenv",
+	        "monaco-editor"
         ],
         devDependencies: true,
         peerDependencies: true

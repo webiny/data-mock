@@ -49,6 +49,7 @@ const FILE_POOL = [
   {
     id: "f1",
     projectId: "p1",
+    environmentId: "e1",
     tenant: "root",
     fileKey: "key1",
     fileUrl: "https://example.com/file1.png",
@@ -60,6 +61,7 @@ const FILE_POOL = [
   {
     id: "f2",
     projectId: "p1",
+    environmentId: "e1",
     tenant: "root",
     fileKey: "key2",
     fileUrl: "https://example.com/file2.png",

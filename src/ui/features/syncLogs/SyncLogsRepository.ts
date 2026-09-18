@@ -31,8 +31,8 @@ class SyncLogsRepositoryImpl implements Abstraction.Interface {
     this._logs = this._logs.filter((log) => log.id !== id);
   }
 
-  public getLogsByProjectId(projectId: string): SyncLog[] {
-    return this._logs.filter((log) => log.projectId === projectId);
+  public getLogsByEnvironmentId(environmentId: string): SyncLog[] {
+    return this._logs.filter((log) => log.environmentId === environmentId);
   }
 }
 

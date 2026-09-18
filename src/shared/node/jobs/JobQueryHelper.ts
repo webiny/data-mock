@@ -3,10 +3,7 @@ import type { SQL } from "drizzle-orm";
 import type { JobWorker } from "./abstractions/JobWorker.js";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { jobs } from "~/shared/node/db/schema.js";
-import { TERMINAL_JOB_STATUSES } from "~/shared/jobs/constants.js";
 import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
-
-const JOB_WAIT_POLL_INTERVAL_MS = 200;
 
 const JOB_SORT_COLUMNS = {
   createdAt: jobs.createdAt,
@@ -20,21 +17,66 @@ function isJobSortField(value: string | undefined): value is JobSortField {
   return value !== undefined && Object.hasOwn(JOB_SORT_COLUMNS, value);
 }
 
-function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
+/** Every column a list needs. `logs` is deliberately absent — see `IJobSummary`. */
+const JOB_SUMMARY_COLUMNS = {
+  id: jobs.id,
+  projectId: jobs.projectId,
+  environmentId: jobs.environmentId,
+  type: jobs.type,
+  status: jobs.status,
+  config: jobs.config,
+  result: jobs.result,
+  progress: jobs.progress,
+  progressLabel: jobs.progressLabel,
+  startedAt: jobs.startedAt,
+  completedAt: jobs.completedAt,
+  createdAt: jobs.createdAt,
+} as const;
+
+function toJobSummary(row: {
+  [K in keyof typeof JOB_SUMMARY_COLUMNS]: (typeof jobs.$inferSelect)[K];
+}): JobWorker.JobSummary {
   return {
     id: row.id,
     projectId: row.projectId,
+    environmentId: row.environmentId,
     type: row.type as JobType,
     status: row.status as JobStatus,
     config: row.config,
-    logs: row.logs,
+    result: row.result === null ? null : safeParse(row.result),
     progress: row.progress,
     progressLabel: row.progressLabel,
-    parentJobId: row.parentJobId,
     startedAt: row.startedAt,
     completedAt: row.completedAt,
     createdAt: row.createdAt,
   };
+}
+
+function toJob(row: typeof jobs.$inferSelect): JobWorker.Job {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    environmentId: row.environmentId,
+    type: row.type as JobType,
+    status: row.status as JobStatus,
+    config: row.config,
+    logs: row.logs,
+    result: row.result === null ? null : safeParse(row.result),
+    progress: row.progress,
+    progressLabel: row.progressLabel,
+    startedAt: row.startedAt,
+    completedAt: row.completedAt,
+    createdAt: row.createdAt,
+  };
+}
+
+/** A result written by an older build, or hand-edited, must not take the whole job row down. */
+function safeParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 export class JobQueryHelper {
@@ -47,6 +89,9 @@ export class JobQueryHelper {
 
   public async listJobs(input: JobWorker.ListJobsInput): Promise<JobWorker.ListJobsOutput> {
     const conditions: SQL[] = [];
+    if (input.environmentId !== undefined) {
+      conditions.push(eq(jobs.environmentId, input.environmentId));
+    }
     if (input.projectId !== undefined) {
       conditions.push(eq(jobs.projectId, input.projectId));
     }
@@ -74,7 +119,7 @@ export class JobQueryHelper {
     const offset = input.offset ?? 0;
 
     const rows = this.databaseClient.db
-      .select()
+      .select(JOB_SUMMARY_COLUMNS)
       .from(jobs)
       .where(whereClause)
       .orderBy(orderBy)
@@ -82,37 +127,6 @@ export class JobQueryHelper {
       .offset(offset)
       .all();
 
-    return { jobs: rows.map(toJob), total };
-  }
-
-  public async waitForJob(jobId: string, signal?: AbortSignal): Promise<JobWorker.Job> {
-    while (true) {
-      if (signal?.aborted) {
-        throw new Error("Job wait aborted");
-      }
-      const job = await this.getJob(jobId);
-      if (!job) {
-        throw new Error(`Job not found: ${jobId}`);
-      }
-      if (TERMINAL_JOB_STATUSES.has(job.status)) {
-        return job;
-      }
-      await new Promise<void>((resolve, reject) => {
-        let onAbort: (() => void) | undefined;
-        const timer = setTimeout(() => {
-          if (signal && onAbort) {
-            signal.removeEventListener("abort", onAbort);
-          }
-          resolve();
-        }, JOB_WAIT_POLL_INTERVAL_MS);
-        if (signal) {
-          onAbort = (): void => {
-            clearTimeout(timer);
-            reject(new Error("Job wait aborted"));
-          };
-          signal.addEventListener("abort", onAbort, { once: true });
-        }
-      });
-    }
+    return { jobs: rows.map(toJobSummary), total };
   }
 }

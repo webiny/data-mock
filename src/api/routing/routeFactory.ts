@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { TypedRouteDefinition } from "~/shared/routing/defineTypedRoutes.js";
 import { createSend } from "./sendTyped.js";
+import { checkEnvironmentOwnership } from "./environmentOwnership.js";
 import type { RouteHandler, RouteRegistrar } from "./types.js";
 
 type InferParams<T> =
@@ -43,6 +44,13 @@ export function routeFactory<
 
         const query = (request.query ?? {}) as Record<string, string | undefined>;
         const send = createSend(reply);
+
+        // Applies to every route whose path carries both ids — see checkEnvironmentOwnership.
+        const mismatch = await checkEnvironmentOwnership(params, request.container);
+        if (mismatch !== null) {
+          return send.error(mismatch);
+        }
+
         return handler({
           params,
           body,

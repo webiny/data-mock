@@ -11,6 +11,7 @@ describe("Sync Logs API routes", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let app: FastifyInstance;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -27,7 +28,8 @@ describe("Sync Logs API routes", () => {
     if (result.isFail()) {
       throw new Error("Failed to create project");
     }
-    projectId = result.value.id;
+    projectId = result.value.project.id;
+    environmentId = result.value.environment.id;
   });
 
   afterEach(async () => {
@@ -40,12 +42,14 @@ describe("Sync Logs API routes", () => {
 
     await createLog.execute({
       projectId,
+      environmentId,
       type: "tenants",
       status: "success",
       message: "Pulled tenants",
     });
     await createLog.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status: "success",
       message: 'Uploaded "photo.jpg"',
@@ -54,6 +58,7 @@ describe("Sync Logs API routes", () => {
     });
     await createLog.execute({
       projectId,
+      environmentId,
       type: "pull-files",
       status: "success",
       message: "Pulled 5 files",
@@ -62,7 +67,7 @@ describe("Sync Logs API routes", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: `/api/projects/${projectId}/sync-logs`,
+      url: `/api/projects/${projectId}/environments/${environmentId}/sync-logs`,
     });
 
     expect(response.statusCode).toBe(200);
@@ -80,6 +85,7 @@ describe("Sync Logs API routes", () => {
 
     await createLog.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status: "success",
       message: 'Uploaded "image.png"',
@@ -89,7 +95,7 @@ describe("Sync Logs API routes", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: `/api/projects/${projectId}/sync-logs`,
+      url: `/api/projects/${projectId}/environments/${environmentId}/sync-logs`,
     });
 
     expect(response.statusCode).toBe(200);
@@ -103,6 +109,7 @@ describe("Sync Logs API routes", () => {
     const createLog = tc.container.resolve(CreateSyncLogRepository);
     const result = await createLog.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status: "success",
       message: "Test log",
@@ -113,13 +120,13 @@ describe("Sync Logs API routes", () => {
 
     const deleteResponse = await app.inject({
       method: "DELETE",
-      url: `/api/projects/${projectId}/sync-logs/${result.value.id}`,
+      url: `/api/projects/${projectId}/environments/${environmentId}/sync-logs/${result.value.id}`,
     });
     expect(deleteResponse.statusCode).toBe(204);
 
     const listResponse = await app.inject({
       method: "GET",
-      url: `/api/projects/${projectId}/sync-logs`,
+      url: `/api/projects/${projectId}/environments/${environmentId}/sync-logs`,
     });
     expect(listResponse.json().syncLogs.items).toHaveLength(0);
   });

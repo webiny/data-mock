@@ -3,6 +3,7 @@ import { z } from "zod";
 export const projectGroupSchema = z.object({
   id: z.string(),
   projectId: z.string(),
+  environmentId: z.string(),
   slug: z.string(),
   name: z.string(),
   description: z.string().nullable(),
@@ -17,6 +18,7 @@ export type ProjectGroupResponse = z.infer<typeof projectGroupSchema>;
 export const projectModelSchema = z.object({
   id: z.string(),
   projectId: z.string(),
+  environmentId: z.string(),
   groupSlug: z.string(),
   modelId: z.string(),
   name: z.string(),

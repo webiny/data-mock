@@ -26,7 +26,7 @@ export interface ICache {
   enable(): void;
   get<T>(cacheKey: ICacheKey): T | null;
   set<T>(cacheKey: ICacheKey, value: T): T;
-  getOrSet<T>(cacheKey: ICacheKeyInput, cb: () => Promise<T>): Promise<T>;
-  getOrSet<T>(cacheKey: ICacheKeyInput, cb: () => T): T;
+  getOrSet<T>(cacheKey: ICacheKeyInput, callback: () => Promise<T>): Promise<T>;
+  getOrSet<T>(cacheKey: ICacheKeyInput, callback: () => T): T;
   clear(cacheKey?: ICacheKey | ICacheKey[]): void;
 }

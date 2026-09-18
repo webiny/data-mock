@@ -5,6 +5,7 @@ import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClie
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { EntriesGateway as Abstraction } from "./abstractions/EntriesGateway.js";
 import type { EntriesListResult, EntriesListParams } from "./abstractions/EntriesGateway.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 interface EntriesListResponse {
   seedEntries: { items: SeedEntry[]; total: number };
@@ -14,7 +15,7 @@ class EntriesGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
   public async list(
-    projectId: string,
+    ref: EnvironmentRef,
     params?: EntriesListParams,
   ): Promise<Result<EntriesListResult, HTTPError>> {
     const page = params?.page ?? 1;
@@ -35,7 +36,7 @@ class EntriesGatewayImpl implements Abstraction.Interface {
     const qs = parts.join("&");
 
     const result = await this.httpClient.get<EntriesListResponse>(
-      `/api/projects/${projectId}/entries?${qs}`,
+      `/api/projects/${ref.projectId}/entries?${qs}`,
     );
 
     if (result.isFail()) {
@@ -48,9 +49,9 @@ class EntriesGatewayImpl implements Abstraction.Interface {
     });
   }
 
-  public async get(projectId: string, entryId: string): Promise<Result<SeedEntry, HTTPError>> {
+  public async get(ref: EnvironmentRef, entryId: string): Promise<Result<SeedEntry, HTTPError>> {
     const result = await this.httpClient.request(getSeedEntryRoute, {
-      params: { projectId, entryId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId, entryId },
     });
 
     if (result.isFail()) {
@@ -60,9 +61,9 @@ class EntriesGatewayImpl implements Abstraction.Interface {
     return Result.ok(result.value.seedEntry);
   }
 
-  public async clear(projectId: string): Promise<Result<void, HTTPError>> {
+  public async clear(ref: EnvironmentRef): Promise<Result<void, HTTPError>> {
     return this.httpClient.request(deleteProjectEntriesRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
     });
   }
 }

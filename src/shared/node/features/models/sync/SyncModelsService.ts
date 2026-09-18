@@ -1,5 +1,5 @@
 import { Result, Logger } from "@webiny/stdlib";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { SyncProjectGroupsRepository } from "./abstractions/SyncProjectGroupsRepository.js";
@@ -36,7 +36,7 @@ interface RemoteModel {
 
 class SyncModelsServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly syncProjectGroupsRepository: SyncProjectGroupsRepository.Interface,
@@ -47,17 +47,21 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
 
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
 
-    const project = projectResult.value;
+    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
+      contextResult.value;
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
-      "x-tenant": project.tenant,
+      authorization: `Bearer ${apiToken}`,
+      "x-tenant": tenant,
     };
 
     const operations: OperationLog[] = [];
@@ -67,8 +71,8 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
     const groupsResult = await this.fetchWithOperation<RemoteGroup[]>(
       "listContentModelGroups",
-      project.webinyVersion,
-      project.apiUrl,
+      operationsVersion,
+      apiUrl,
       headers,
       operations,
     );
@@ -80,8 +84,8 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
     const modelsResult = await this.fetchWithOperation<RemoteModel[]>(
       "listContentModels",
-      project.webinyVersion,
-      project.apiUrl,
+      operationsVersion,
+      apiUrl,
       headers,
       operations,
     );
@@ -96,12 +100,13 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
     const syncGroupsResult = await this.syncProjectGroupsRepository.execute({
       projectId: project.id,
-      groups: groups.map((g) => ({
-        slug: g.slug,
-        name: g.name,
-        description: g.description,
-        icon: g.icon ? JSON.stringify(g.icon) : null,
-        remoteId: g.id,
+      environmentId: environment.id,
+      groups: groups.map((group) => ({
+        slug: group.slug,
+        name: group.name,
+        description: group.description,
+        icon: group.icon ? JSON.stringify(group.icon) : null,
+        remoteId: group.id,
       })),
     });
 
@@ -109,22 +114,23 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(syncGroupsResult.error);
     }
 
-    const userModels = models.filter((m) => !isExcludedModel(m.modelId));
+    const userModels = models.filter((model) => !isExcludedModel(model.modelId));
 
     onProgress?.(85, "Syncing models...");
 
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,
-      models: userModels.map((m) => ({
-        groupSlug: m.group,
-        modelId: m.modelId,
-        name: m.name,
-        singularApiName: m.singularApiName,
-        pluralApiName: m.pluralApiName,
-        description: m.description ?? null,
-        plugin: m.plugin,
-        fields: m.fields,
-        remoteId: m.modelId,
+      environmentId: environment.id,
+      models: userModels.map((model) => ({
+        groupSlug: model.group,
+        modelId: model.modelId,
+        name: model.name,
+        singularApiName: model.singularApiName,
+        pluralApiName: model.pluralApiName,
+        description: model.description ?? null,
+        plugin: model.plugin,
+        fields: model.fields,
+        remoteId: model.modelId,
       })),
     });
 
@@ -216,7 +222,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 export const SyncModelsService = Abstraction.createImplementation({
   implementation: SyncModelsServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     CmsManageEndpointClient,
     OperationRegistry,
     SyncProjectGroupsRepository,

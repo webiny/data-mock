@@ -1,5 +1,26 @@
-export { projectSchema, createProjectBodySchema, updateProjectBodySchema } from "./projects.js";
+export {
+  projectSchema,
+  createProjectBodySchema,
+  updateProjectBodySchema,
+  versionSourceSchema,
+  syncStatusSchema,
+  DEFAULT_OPERATIONS_VERSION,
+} from "./projects.js";
 export type { ProjectResponse, CreateProjectBody, UpdateProjectBody } from "./projects.js";
+
+export {
+  projectEnvironmentSchema,
+  projectStackSchema,
+  stackReadStateSchema,
+  createEnvironmentBodySchema,
+  updateEnvironmentBodySchema,
+} from "./environments.js";
+export type {
+  ProjectEnvironmentResponse,
+  ProjectStackResponse,
+  CreateEnvironmentBody,
+  UpdateEnvironmentBody,
+} from "./environments.js";
 
 export { projectTenantSchema } from "./tenants.js";
 export type { ProjectTenantResponse } from "./tenants.js";
@@ -25,3 +46,11 @@ export type { ProjectFileResponse, UploadFileBody } from "./files.js";
 
 export { syncLogSchema } from "./syncLogs.js";
 export type { SyncLogResponse } from "./syncLogs.js";
+
+export { syncPreviewSchema } from "./sync.js";
+export type {
+  SyncPreviewResponse,
+  SyncEnvironmentChangeResponse,
+  SyncStackChangeResponse,
+  SyncFieldChangeResponse,
+} from "./sync.js";

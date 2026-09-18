@@ -5,8 +5,8 @@ import { seedTemplates } from "~/shared/node/db/schema.js";
 import { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/errors.js";
 import { DeleteSeedTemplateRepository as Abstraction } from "./abstractions/DeleteSeedTemplateRepository.js";
 
-function toError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
 }
 
 class DeleteSeedTemplateRepositoryImpl implements Abstraction.Interface {

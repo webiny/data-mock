@@ -4,9 +4,9 @@ import { jobSchema } from "./jobs.js";
 
 export const importEntriesRoute = defineOneRoute("job", {
   method: "POST",
-  path: "/api/projects/:projectId/import",
+  path: "/api/projects/:projectId/environments/:environmentId/import",
   description: "Import existing entries from Webiny for selected models",
-  params: z.object({ projectId: z.string() }),
+  params: z.object({ projectId: z.string(), environmentId: z.string() }),
   body: z.object({
     tenant: z.string().min(1),
     models: z.array(z.string().min(1)),

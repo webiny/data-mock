@@ -12,10 +12,16 @@ export const CreateProjectUseCase =
 
 export namespace CreateProjectUseCase {
   export type Interface = ICreateProjectUseCase;
+  /** Mirrors the API create body: a system on disk, or a remote-only connection. */
   export type Input = {
     name: string;
-    apiUrl: string;
-    apiToken: string;
-    tenant?: string;
+    rootPath?: string | undefined;
+    operationsVersion?: string | undefined;
+    awsProfile?: string | undefined;
+    awsRegion?: string | undefined;
+    env?: string | undefined;
+    apiUrl?: string | undefined;
+    apiToken?: string | undefined;
+    tenant?: string | undefined;
   };
 }

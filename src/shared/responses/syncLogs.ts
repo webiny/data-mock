@@ -3,6 +3,7 @@ import { z } from "zod";
 export const syncLogSchema = z.object({
   id: z.string(),
   projectId: z.string(),
+  environmentId: z.string(),
   type: z.string(),
   status: z.string(),
   message: z.string(),

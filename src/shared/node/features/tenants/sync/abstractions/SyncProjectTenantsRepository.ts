@@ -10,6 +10,7 @@ export interface ISyncTenantInput {
 
 export interface ISyncProjectTenantsRepositoryInput {
   projectId: string;
+  environmentId: string;
   tenants: ISyncTenantInput[];
 }
 

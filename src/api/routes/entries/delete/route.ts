@@ -6,7 +6,7 @@ export const deleteProjectEntries = routeFactory(
   deleteProjectEntriesRoute,
   async ({ params, container, send }) => {
     const repository = container.resolve(DeleteProjectEntriesRepository);
-    const result = await repository.execute({ projectId: params.projectId });
+    const result = await repository.execute({ environmentId: params.environmentId });
 
     if (result.isFail()) {
       return send.error(result.error);

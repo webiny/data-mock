@@ -7,7 +7,7 @@ export const pullProjectFiles = routeFactory(
   async ({ params, body, container, send }) => {
     const service = container.resolve(SyncFilesService);
     const result = await service.execute({
-      projectId: params.projectId,
+      environmentId: params.environmentId,
       tenant: body.tenant,
     });
 

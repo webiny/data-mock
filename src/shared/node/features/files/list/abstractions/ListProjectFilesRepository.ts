@@ -4,7 +4,7 @@ import type { ProjectFile } from "~/shared/types.js";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListProjectFilesRepositoryInput {
-  projectId: string;
+  environmentId: string;
   tenant?: string;
   fileType?: string;
   limit?: number;

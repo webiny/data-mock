@@ -24,7 +24,7 @@ class ListProjectFilesRepositoryImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     try {
-      const conditions: SQL[] = [eq(projectFiles.projectId, input.projectId)];
+      const conditions: SQL[] = [eq(projectFiles.environmentId, input.environmentId)];
 
       if (input.tenant) {
         conditions.push(eq(projectFiles.tenant, input.tenant));

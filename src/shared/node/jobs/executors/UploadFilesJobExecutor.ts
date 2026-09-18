@@ -11,15 +11,15 @@ class UploadFilesJobExecutorImpl implements Abstraction.Interface {
     if (!context.configJson) {
       throw new Error("Upload files job requires config");
     }
-    if (!context.projectId) {
-      throw new Error("Upload files job requires a projectId");
+    if (!context.environmentId) {
+      throw new Error("Upload files job requires an environmentId");
     }
-    const projectId = context.projectId;
+    const environmentId = context.environmentId;
     const config = JSON.parse(context.configJson) as { tenant: string; fileNames?: string[] };
-    context.appendLog(`Uploading global images to project ${projectId}`);
+    context.appendLog(`Uploading global images to environment ${environmentId}`);
 
     const result = await this.uploadService.execute({
-      projectId,
+      environmentId,
       tenant: config.tenant,
       fileNames: config.fileNames,
       onProgress: (percent, label) => context.setProgress({ percent, label }),
@@ -29,7 +29,19 @@ class UploadFilesJobExecutorImpl implements Abstraction.Interface {
       throw new Error(result.error.message);
     }
 
-    context.appendLog(`Uploaded ${result.value.uploaded} file(s).`);
+    const { uploaded, failures } = result.value;
+
+    // Named on the job, not only in the server log. The job log is what the user reads, and a bare
+    // success count over a run that mostly failed reads as a clean run.
+    for (const failure of failures) {
+      context.appendLog(`  Failed "${failure.fileName}": ${failure.error}`);
+    }
+
+    context.appendLog(
+      failures.length === 0
+        ? `Uploaded ${uploaded} file(s).`
+        : `Uploaded ${uploaded} file(s), ${failures.length} failed.`,
+    );
   }
 }
 

@@ -22,11 +22,11 @@ class TemplatesRepositoryImpl implements Abstraction.Interface {
   };
 
   public removeTemplate = (id: string): void => {
-    this._templates = this._templates.filter((t) => t.id !== id);
+    this._templates = this._templates.filter((template) => template.id !== id);
   };
 
   public getTemplatesByProjectId = (projectId: string): SeedTemplate[] => {
-    return this._templates.filter((t) => t.projectId === projectId);
+    return this._templates.filter((template) => template.projectId === projectId);
   };
 }
 

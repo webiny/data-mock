@@ -22,10 +22,11 @@ export abstract class BaseValidator<T> implements IValidator<T> {
     if (!this.field.validation?.length) {
       return null;
     }
-    const value = this.field.validation.find((v) => v.name === name);
+    const value = this.field.validation.find((validationRule) => validationRule.name === name);
 
     const result = validationSchema.safeParse(value);
     if (result.success) {
+      // "as": validationSchema only validates the generic shape; T's specific settings are not checked at runtime.
       return value as IValidation<T>;
     }
     return null;
@@ -35,10 +36,11 @@ export abstract class BaseValidator<T> implements IValidator<T> {
     if (!this.field.listValidation?.length) {
       return null;
     }
-    const value = this.field.listValidation.find((v) => v.name === name);
+    const value = this.field.listValidation.find((validationRule) => validationRule.name === name);
 
     const result = validationSchema.safeParse(value);
     if (result.success) {
+      // "as": validationSchema only validates the generic shape; T's specific settings are not checked at runtime.
       return value as IValidation<T>;
     }
     return null;

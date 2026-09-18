@@ -1,5 +1,5 @@
 import { Result, Logger } from "@webiny/stdlib";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
 import { SyncProjectTenantsRepository } from "./abstractions/SyncProjectTenantsRepository.js";
@@ -10,7 +10,7 @@ import type { OperationLog } from "~/shared/types.js";
 
 class TenantSyncServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly syncProjectTenantsRepository: SyncProjectTenantsRepository.Interface,
@@ -21,34 +21,38 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
 
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
 
-    const project = projectResult.value;
+    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
+      contextResult.value;
+
     const operation = this.operationRegistry.resolve<void, Array<{ id: string; name: string }>>(
       "listTenants",
-      project.webinyVersion,
+      operationsVersion,
     );
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
-      "x-tenant": project.tenant,
+      authorization: `Bearer ${apiToken}`,
+      "x-tenant": tenant,
     };
 
     let tenants: Array<{ tenantId: string; name: string }>;
     const operations: OperationLog[] = [];
-    const url = `${project.apiUrl}${operation.path}`;
+    const url = `${apiUrl}${operation.path}`;
     const onProgress = input.onProgress;
 
     onProgress?.(20, "Fetching tenants...");
 
     try {
       const response = await this.cmsManageClient.post(
-        project.apiUrl,
+        apiUrl,
         JSON.stringify({ query: operation.query }),
         headers,
       );
@@ -65,7 +69,7 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
         this.logger.warn(
           `Could not list tenants for project "${project.name}": HTTP ${response.status}. Storing default tenant only.`,
         );
-        tenants = [{ tenantId: project.tenant, name: project.tenant }];
+        tenants = [{ tenantId: tenant, name: tenant }];
       } else {
         const json = (await response.json()) as Record<string, unknown>;
         operations.push({
@@ -81,16 +85,19 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
         });
 
         if (gqlResult.data) {
-          tenants = gqlResult.data.map((t) => ({ tenantId: t.id, name: t.name }));
-          if (!tenants.some((t) => t.tenantId === project.tenant)) {
-            tenants.unshift({ tenantId: project.tenant, name: project.tenant });
+          tenants = gqlResult.data.map((remoteTenant) => ({
+            tenantId: remoteTenant.id,
+            name: remoteTenant.name,
+          }));
+          if (!tenants.some((discoveredTenant) => discoveredTenant.tenantId === tenant)) {
+            tenants.unshift({ tenantId: tenant, name: tenant });
           }
           this.logger.info(`Discovered ${tenants.length} tenant(s) for project "${project.name}".`);
         } else {
           this.logger.warn(
             `Could not list tenants for project "${project.name}": ${gqlResult.error?.message ?? "Unknown error"}. Storing default tenant only.`,
           );
-          tenants = [{ tenantId: project.tenant, name: project.tenant }];
+          tenants = [{ tenantId: tenant, name: tenant }];
         }
       }
     } catch (error) {
@@ -104,32 +111,42 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
       this.logger.warn(
         `Could not list tenants for project "${project.name}": ${error instanceof Error ? error.message : "Unknown error"}. Storing default tenant only.`,
       );
-      tenants = [{ tenantId: project.tenant, name: project.tenant }];
+      tenants = [{ tenantId: tenant, name: tenant }];
     }
 
     const existingResult = await this.listProjectTenantsRepository.execute({
-      projectId: project.id,
+      environmentId: environment.id,
     });
 
     const existingTenantIds = new Set(
-      existingResult.isOk() ? existingResult.value.map((t) => t.tenantId) : [],
+      existingResult.isOk()
+        ? existingResult.value.map((existingTenant) => existingTenant.tenantId)
+        : [],
     );
-    const newTenantIds = new Set(tenants.map((t) => t.tenantId));
+    const newTenantIds = new Set(tenants.map((discoveredTenant) => discoveredTenant.tenantId));
 
     const diff: ITenantSyncDiff = {
-      added: tenants.filter((t) => !existingTenantIds.has(t.tenantId)),
+      added: tenants.filter(
+        (discoveredTenant) => !existingTenantIds.has(discoveredTenant.tenantId),
+      ),
       removed: existingResult.isOk()
         ? existingResult.value
-            .filter((t) => !newTenantIds.has(t.tenantId))
-            .map((t) => ({ tenantId: t.tenantId, name: t.name }))
+            .filter((existingTenant) => !newTenantIds.has(existingTenant.tenantId))
+            .map((existingTenant) => ({
+              tenantId: existingTenant.tenantId,
+              name: existingTenant.name,
+            }))
         : [],
-      unchanged: tenants.filter((t) => existingTenantIds.has(t.tenantId)),
+      unchanged: tenants.filter((discoveredTenant) =>
+        existingTenantIds.has(discoveredTenant.tenantId),
+      ),
     };
 
     onProgress?.(70, "Syncing tenants...");
 
     const syncResult = await this.syncProjectTenantsRepository.execute({
       projectId: project.id,
+      environmentId: environment.id,
       tenants,
     });
 
@@ -144,7 +161,7 @@ class TenantSyncServiceImpl implements Abstraction.Interface {
 export const TenantSyncService = Abstraction.createImplementation({
   implementation: TenantSyncServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     CmsManageEndpointClient,
     OperationRegistry,
     SyncProjectTenantsRepository,

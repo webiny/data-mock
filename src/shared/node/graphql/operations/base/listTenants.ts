@@ -39,5 +39,5 @@ export const listTenants = defineOperation<void, z.infer<typeof dataSchema>, Ten
       }
     }
   `,
-  transform: (data) => data.map((e) => ({ id: e.id, name: e.values.name })),
+  transform: (data) => data.map((tenant) => ({ id: tenant.id, name: tenant.values.name })),
 });

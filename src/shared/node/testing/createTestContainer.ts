@@ -4,11 +4,16 @@ import { PinoLoggerFeature, ProcessEnvFeature } from "@webiny/stdlib/node";
 import { createDatabaseClient } from "~/shared/node/db/client.js";
 import { runMigrations } from "~/shared/node/db/migrate.js";
 import { DatabaseFeature } from "~/shared/node/db/feature.js";
-import { CacheFeature } from "~/shared/node/cache/feature.js";
 import { EncryptionFeature } from "~/shared/node/encryption/feature.js";
 import { GeneratorFeature } from "~/shared/node/generators/feature.js";
 import { OperationsFeature } from "~/shared/node/graphql/operations/feature.js";
 import { ProjectsFeature } from "~/shared/node/features/projects/feature.js";
+import { EnvironmentsFeature } from "~/shared/node/features/environments/feature.js";
+import { DeletionFeature } from "~/shared/node/features/deletion/feature.js";
+import { ScanRootsFeature } from "~/shared/node/features/scanRoots/feature.js";
+import { FileSystemFeature } from "~/shared/node/features/filesystem/feature.js";
+import { ChildProcessesFeature } from "~/shared/node/features/childProcesses/feature.js";
+import { WebinyCliFeature } from "~/shared/node/features/webinyCli/feature.js";
 import { TenantsFeature } from "~/shared/node/features/tenants/feature.js";
 import { ModelsFeature } from "~/shared/node/features/models/feature.js";
 import { SeedingFeature } from "~/shared/node/features/seeding/feature.js";
@@ -17,8 +22,6 @@ import { FilesFeature } from "~/shared/node/features/files/feature.js";
 import { SyncLogsFeature } from "~/shared/node/features/syncLogs/feature.js";
 import { WebSocketBroadcaster } from "~/shared/node/websocket/abstractions/WebSocketBroadcaster.js";
 import { JobsFeature } from "~/shared/node/jobs/feature.js";
-import { GraphQLConfig } from "~/shared/node/graphql/abstractions/GraphQLConfig.js";
-import { GraphQLClient as GraphQLClientImpl } from "~/shared/node/graphql/GraphQLClient.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { EndpointsFeature } from "~/shared/node/graphql/endpoints/feature.js";
 import type { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
@@ -27,7 +30,7 @@ interface TestContainerOptions {
   httpClient?: HttpClient.Interface;
 }
 
-interface TestContainer {
+export interface TestContainer {
   container: Container;
   databaseClient: DatabaseClient.Interface;
   cleanup(): void;
@@ -43,8 +46,6 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   runMigrations(databaseClient.db);
   DatabaseFeature.register(container, { databaseClient });
 
-  CacheFeature.register(container, { cacheDir: "" });
-
   EncryptionFeature.register(container, { encryptionKey: randomBytes(32).toString("hex") });
 
   GeneratorFeature.register(container);
@@ -52,6 +53,12 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   TenantsFeature.register(container);
   ModelsFeature.register(container);
   ProjectsFeature.register(container);
+  EnvironmentsFeature.register(container);
+  DeletionFeature.register(container);
+  ScanRootsFeature.register(container);
+  FileSystemFeature.register(container);
+  ChildProcessesFeature.register(container);
+  WebinyCliFeature.register(container);
   SeedingFeature.register(container);
   TemplatesFeature.register(container);
   FilesFeature.register(container);
@@ -67,16 +74,6 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
   }
 
   EndpointsFeature.register(container);
-
-  container.registerInstance(GraphQLConfig, {
-    url: "http://localhost:0",
-    token: "test-token",
-    tenant: "root",
-    retries: 0,
-    retryMinTimeout: 0,
-  });
-
-  container.register(GraphQLClientImpl).inSingletonScope();
 
   return {
     container,

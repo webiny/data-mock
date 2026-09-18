@@ -9,6 +9,7 @@ export const triggerSeed = routeFactory(
     const jobWorker = container.resolve(JobWorker);
     const jobId = await jobWorker.enqueue({
       projectId: params.projectId,
+      environmentId: params.environmentId,
       type: "seed",
       config: {
         tenant: body.tenant,

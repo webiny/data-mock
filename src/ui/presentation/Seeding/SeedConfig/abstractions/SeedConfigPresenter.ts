@@ -1,6 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { PublishStrategy } from "~/shared/types.js";
 
+import type { EnvironmentRef } from "~/shared/types.js";
 export interface IModelConfigVM {
   modelId: string;
   name: string;
@@ -45,7 +46,7 @@ export interface ISeedConfigVM {
 
 export interface ISeedConfigPresenter {
   readonly vm: ISeedConfigVM;
-  load(projectId: string): Promise<void>;
+  load(ref: EnvironmentRef): Promise<void>;
   toggleModel(modelId: string): void;
   toggleGroup(groupSlug: string): void;
   selectAll(): void;

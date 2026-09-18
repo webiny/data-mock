@@ -10,17 +10,17 @@ export const updateProject = routeFactory(
     if (body.name !== undefined) {
       input.name = body.name;
     }
-    if (body.apiUrl !== undefined) {
-      input.apiUrl = body.apiUrl;
+    if (body.rootPath !== undefined) {
+      input.rootPath = body.rootPath;
     }
-    if (body.apiToken !== undefined) {
-      input.apiToken = body.apiToken;
+    if (body.operationsVersion !== undefined) {
+      input.operationsVersion = body.operationsVersion;
     }
-    if (body.tenant !== undefined) {
-      input.tenant = body.tenant;
+    if (body.awsProfile !== undefined) {
+      input.awsProfile = body.awsProfile;
     }
-    if (body.webinyVersion !== undefined) {
-      input.webinyVersion = body.webinyVersion;
+    if (body.awsRegion !== undefined) {
+      input.awsRegion = body.awsRegion;
     }
 
     const result = await repository.execute(input);
