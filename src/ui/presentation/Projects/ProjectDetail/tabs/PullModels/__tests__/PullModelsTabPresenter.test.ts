@@ -13,7 +13,7 @@ import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTa
 import { PullModelsTabFeature } from "../feature.js";
 import { PullModelsTabPresenter } from "../abstractions/PullModelsTabPresenter.js";
 
-const LIST_PATH = "/api/projects/p1/sync-logs";
+const LIST_PATH = "/api/projects/p1/environments/e1/sync-logs";
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
 

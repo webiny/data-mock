@@ -60,7 +60,7 @@ class SeedingGatewayImpl implements Abstraction.Interface {
     const qs = parts.join("&");
 
     const result = await this.httpClient.get<{ seedJobs: { items: SeedJob[]; total: number } }>(
-      `/api/projects/${ref.projectId}/seed-jobs?${qs}`,
+      `/api/projects/${ref.projectId}/environments/${ref.environmentId}/seed-jobs?${qs}`,
     );
 
     if (result.isFail()) {

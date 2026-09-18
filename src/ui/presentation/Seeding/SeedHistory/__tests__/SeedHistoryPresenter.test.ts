@@ -7,7 +7,7 @@ import { SeedHistoryPresentationFeature } from "../feature.js";
 import { SeedHistoryPresenter } from "../abstractions/SeedHistoryPresenter.js";
 
 // The seeding gateway builds this URL itself, query string and all.
-const SEED_JOBS_PATH = "/api/projects/p1/seed-jobs";
+const SEED_JOBS_PATH = "/api/projects/p1/environments/e1/seed-jobs";
 const REF = { projectId: "p1", environmentId: "e1" };
 
 function makeSeedJob(overrides: Record<string, unknown> = {}) {

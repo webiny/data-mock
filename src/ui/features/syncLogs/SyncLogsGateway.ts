@@ -31,7 +31,7 @@ class SyncLogsGatewayImpl implements Abstraction.Interface {
     const qs = parts.join("&");
 
     const result = await this.httpClient.get<SyncLogsListResponse>(
-      `/api/projects/${ref.projectId}/sync-logs?${qs}`,
+      `/api/projects/${ref.projectId}/environments/${ref.environmentId}/sync-logs?${qs}`,
     );
 
     if (result.isFail()) {

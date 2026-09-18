@@ -36,7 +36,7 @@ class EntriesGatewayImpl implements Abstraction.Interface {
     const qs = parts.join("&");
 
     const result = await this.httpClient.get<EntriesListResponse>(
-      `/api/projects/${ref.projectId}/entries?${qs}`,
+      `/api/projects/${ref.projectId}/environments/${ref.environmentId}/entries?${qs}`,
     );
 
     if (result.isFail()) {

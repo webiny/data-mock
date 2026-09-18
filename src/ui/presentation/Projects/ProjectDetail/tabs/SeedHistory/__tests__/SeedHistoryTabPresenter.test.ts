@@ -11,7 +11,7 @@ import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTa
 import { SeedHistoryTabFeature } from "../feature.js";
 import { SeedHistoryTabPresenter } from "../abstractions/SeedHistoryTabPresenter.js";
 
-const LIST_PATH = "/api/projects/p1/seed-jobs";
+const LIST_PATH = "/api/projects/p1/environments/e1/seed-jobs";
 const RESUME_PATH =
   "/api/projects/:projectId/environments/:environmentId/seed-jobs/:seedJobId/resume";
 const PROJECT_ID = "p1";

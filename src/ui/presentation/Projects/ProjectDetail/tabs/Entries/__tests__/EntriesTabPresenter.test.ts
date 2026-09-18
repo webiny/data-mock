@@ -12,7 +12,7 @@ import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTa
 import { EntriesTabFeature } from "../feature.js";
 import { EntriesTabPresenter } from "../abstractions/EntriesTabPresenter.js";
 
-const ENTRIES_LIST_PATH = "/api/projects/p1/entries";
+const ENTRIES_LIST_PATH = "/api/projects/p1/environments/e1/entries";
 const CLEAR_ENTRIES_PATH = "/api/projects/:projectId/environments/:environmentId/entries";
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
