@@ -3,11 +3,11 @@ import { Container } from "@webiny/di";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import { HTTPClientFeature } from "~/ui/infrastructure/httpClient/feature.js";
 import { StubHttpClient } from "~/ui/testing/StubHttpClient.js";
+import { listSeedJobsRoute } from "~/shared/routes/seeding.js";
 import { SeedHistoryPresentationFeature } from "../feature.js";
 import { SeedHistoryPresenter } from "../abstractions/SeedHistoryPresenter.js";
 
-// The seeding gateway builds this URL itself, query string and all.
-const SEED_JOBS_PATH = "/api/projects/p1/environments/e1/seed-jobs";
+const SEED_JOBS_PATH = listSeedJobsRoute.path;
 const REF = { projectId: "p1", environmentId: "e1" };
 
 function makeSeedJob(overrides: Record<string, unknown> = {}) {
@@ -35,7 +35,7 @@ describe("SeedHistoryPresenter", () => {
     SeedHistoryPresentationFeature.register(container);
     container.registerInstance(HTTPClient, http.client);
 
-    http.urlData.set(SEED_JOBS_PATH, { seedJobs: { items: [makeSeedJob()], total: 1 } });
+    http.data.set(SEED_JOBS_PATH, [makeSeedJob()]);
   });
 
   function presenter() {
@@ -43,23 +43,18 @@ describe("SeedHistoryPresenter", () => {
   }
 
   it("counts the models a run covered and the entries it created", async () => {
-    http.urlData.set(SEED_JOBS_PATH, {
-      seedJobs: {
-        items: [
-          makeSeedJob({
-            config: {
-              tenant: "root",
-              models: [
-                { modelId: "article", amount: 5 },
-                { modelId: "author", amount: 2 },
-              ],
-            },
-            result: { created: 7, errors: [] },
-          }),
-        ],
-        total: 1,
-      },
-    });
+    http.data.set(SEED_JOBS_PATH, [
+      makeSeedJob({
+        config: {
+          tenant: "root",
+          models: [
+            { modelId: "article", amount: 5 },
+            { modelId: "author", amount: 2 },
+          ],
+        },
+        result: { created: 7, errors: [] },
+      }),
+    ]);
 
     const p = presenter();
     await p.load(REF);
@@ -68,17 +63,12 @@ describe("SeedHistoryPresenter", () => {
   });
 
   it("counts the errors of a run that partly failed", async () => {
-    http.urlData.set(SEED_JOBS_PATH, {
-      seedJobs: {
-        items: [
-          makeSeedJob({
-            status: "failed",
-            result: { created: 3, errors: ["one", "two"] },
-          }),
-        ],
-        total: 1,
-      },
-    });
+    http.data.set(SEED_JOBS_PATH, [
+      makeSeedJob({
+        status: "failed",
+        result: { created: 3, errors: ["one", "two"] },
+      }),
+    ]);
 
     const p = presenter();
     await p.load(REF);
@@ -87,9 +77,7 @@ describe("SeedHistoryPresenter", () => {
   });
 
   it("reads a run with no result yet as nothing created", async () => {
-    http.urlData.set(SEED_JOBS_PATH, {
-      seedJobs: { items: [makeSeedJob({ status: "running", result: null })], total: 1 },
-    });
+    http.data.set(SEED_JOBS_PATH, [makeSeedJob({ status: "running", result: null })]);
 
     const p = presenter();
     await p.load(REF);
@@ -109,7 +97,7 @@ describe("SeedHistoryPresenter", () => {
   });
 
   it("is empty only once loading has finished", async () => {
-    http.urlData.set(SEED_JOBS_PATH, { seedJobs: { items: [], total: 1 } });
+    http.data.set(SEED_JOBS_PATH, []);
 
     const p = presenter();
     const loading = p.load(REF);

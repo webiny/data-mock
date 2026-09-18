@@ -7,14 +7,15 @@ import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListSt
 import { StubHttpClient, stubListStateFactory } from "~/ui/testing/StubHttpClient.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { Job } from "~/shared/types.js";
+import { listJobsRoute, getJobRoute, cancelJobRoute } from "~/shared/routes/jobs.js";
 import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTabContext.js";
 import { JobsTabFeature } from "../feature.js";
 import { JobsTabPresenter } from "../abstractions/JobsTabPresenter.js";
 
 const PROJECT_ID = "p1";
-const LIST_PATH = `/api/projects/${PROJECT_ID}/jobs`;
-const GET_PATH = "/api/projects/:projectId/jobs/:jobId";
-const CANCEL_PATH = "/api/projects/:projectId/jobs/:jobId/cancel";
+const LIST_PATH = listJobsRoute.path;
+const GET_PATH = getJobRoute.path;
+const CANCEL_PATH = cancelJobRoute.path;
 
 // Jobs is project-scoped: there is deliberately no environment on this context.
 const CONTEXT: ProjectDetailTabContext = {
@@ -43,10 +44,6 @@ function job(id: string, overrides: Partial<Job> = {}): Job {
   };
 }
 
-function listResponse(jobs: Job[]) {
-  return { jobs: { items: jobs, total: jobs.length } };
-}
-
 describe("JobsTabPresenter", () => {
   let container: Container;
   let http: StubHttpClient;
@@ -59,7 +56,7 @@ describe("JobsTabPresenter", () => {
     JobsTabFeature.register(container);
     container.registerInstance(HTTPClient, http.client);
     container.registerInstance(URLListStateFactory, stubListStateFactory());
-    http.urlData.set(LIST_PATH, listResponse([job("j1")]));
+    http.data.set(LIST_PATH, [job("j1")]);
     presenter = JobsTabFeature.resolve(container).presenter;
   });
 
@@ -101,38 +98,38 @@ describe("JobsTabPresenter", () => {
 
   it("loads a different page", async () => {
     await presenter.activate(CONTEXT);
-    const before = http.calls.filter((call) => call.path === LIST_PATH).length;
 
     presenter.loadJobsPage(2);
     await Promise.resolve();
     await Promise.resolve();
 
     expect(presenter.vm.jobsPage).toBe(2);
-    expect(http.calls.filter((call) => call.path === LIST_PATH).length).toBeGreaterThan(before);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ page: "2" });
   });
 
   it("filters by job type", async () => {
     await presenter.activate(CONTEXT);
-    const before = http.calls.filter((call) => call.path === LIST_PATH).length;
 
     presenter.setJobsFilter("jobType", "seed");
     await Promise.resolve();
     await Promise.resolve();
 
     expect(presenter.vm.jobsTypeFilter).toBe("seed");
-    expect(http.calls.filter((call) => call.path === LIST_PATH).length).toBeGreaterThan(before);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ type: "seed" });
   });
 
   it("filters by job status", async () => {
     await presenter.activate(CONTEXT);
-    const before = http.calls.filter((call) => call.path === LIST_PATH).length;
 
     presenter.setJobsFilter("jobStatus", "running");
     await Promise.resolve();
     await Promise.resolve();
 
     expect(presenter.vm.jobsStatusFilter).toBe("running");
-    expect(http.calls.filter((call) => call.path === LIST_PATH).length).toBeGreaterThan(before);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ status: "running" });
   });
 
   it("clears both filters at once", async () => {
@@ -208,7 +205,7 @@ describe("JobsTabPresenter", () => {
 
   it("reads again when a job that writes the jobs dataset finishes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([job("j1"), job("j2")]));
+    http.data.set(LIST_PATH, [job("j1"), job("j2")]);
 
     container.resolve(EventBridge).emit("job:status", {
       jobId: "j2",

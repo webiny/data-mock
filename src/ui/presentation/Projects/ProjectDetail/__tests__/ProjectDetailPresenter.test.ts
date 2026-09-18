@@ -5,6 +5,7 @@ import { StubHttpClient, stubListStateFactory } from "~/ui/testing/StubHttpClien
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
 import { HTTPClientFeature } from "~/ui/infrastructure/httpClient/feature.js";
+import { listJobsRoute } from "~/shared/routes/jobs.js";
 import { ProjectDetailPresentationFeature } from "../feature.js";
 import { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
 import type { Project, ProjectEnvironment, ProjectStack } from "~/shared/types.js";
@@ -70,8 +71,7 @@ function makeStack(overrides: Partial<ProjectStack> = {}): ProjectStack {
 
 const ENVIRONMENTS_PATH = "/api/projects/:projectId/environments";
 const STACKS_PATH = "/api/projects/:projectId/environments/:environmentId/stacks";
-// The jobs gateway builds this URL itself, query string and all.
-const JOBS_PATH = `/api/projects/${PROJECT_ID}/jobs`;
+const JOBS_PATH = listJobsRoute.path;
 const DEPLOYABLE_PATH = "/api/projects/:projectId/deployable-apps";
 const DEPLOY_PATH = "/api/projects/:projectId/environments/:environmentId/deploy";
 const DESTROY_PATH = "/api/projects/:projectId/environments/:environmentId/destroy";
@@ -115,7 +115,7 @@ describe("ProjectDetailPresenter", () => {
     http.data.set(DEPLOYABLE_PATH, { apps: ["core", "api", "admin"], versionMajor: 6 });
     http.data.set(HEALTH_PATH, { reachable: true, error: null });
     http.data.set(IMPACT_PATH, EMPTY_IMPACT);
-    http.urlData.set(JOBS_PATH, { jobs: { items: [], total: 0 } });
+    http.data.set(JOBS_PATH, []);
     http.data.set(ARCHIVE_PATH, makeEnvironment({ archivedAt: 999 }));
     http.data.set(RESTORE_PATH, makeEnvironment());
   });

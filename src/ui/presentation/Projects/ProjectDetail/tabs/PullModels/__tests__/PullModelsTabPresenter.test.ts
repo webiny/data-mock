@@ -7,13 +7,13 @@ import { StubHttpClient, stubListStateFactory } from "~/ui/testing/StubHttpClien
 import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { SyncLog, Job } from "~/shared/types.js";
-import { deleteSyncLogRoute } from "~/shared/routes/syncLogs.js";
+import { listSyncLogsRoute, deleteSyncLogRoute } from "~/shared/routes/syncLogs.js";
 import { syncProjectModelsRoute } from "~/shared/routes/models.js";
 import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTabContext.js";
 import { PullModelsTabFeature } from "../feature.js";
 import { PullModelsTabPresenter } from "../abstractions/PullModelsTabPresenter.js";
 
-const LIST_PATH = "/api/projects/p1/environments/e1/sync-logs";
+const LIST_PATH = listSyncLogsRoute.path;
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
 
@@ -39,10 +39,6 @@ function syncLog(id: string, overrides: Partial<SyncLog> = {}): SyncLog {
   };
 }
 
-function listResponse(logs: SyncLog[], total?: number) {
-  return { syncLogs: { items: logs, total: total ?? logs.length } };
-}
-
 function job(): Job {
   return {
     id: "j1",
@@ -61,11 +57,7 @@ function job(): Job {
   };
 }
 
-/**
- * The untyped `get` path (`SyncLogsGateway.list`) resolves through one more microtask hop than
- * the typed `request` path other gateways use, since it returns a promise from an async function
- * rather than awaiting it directly. A fixed handful of ticks flushes either.
- */
+/** Drains the microtask queue behind an unawaited `void reload()`. */
 async function flush(): Promise<void> {
   for (let i = 0; i < 5; i++) {
     await Promise.resolve();
@@ -84,7 +76,7 @@ describe("PullModelsTabPresenter", () => {
     PullModelsTabFeature.register(container);
     container.registerInstance(HTTPClient, http.client);
     container.registerInstance(URLListStateFactory, stubListStateFactory());
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l1")]));
+    http.data.set(LIST_PATH, [syncLog("l1")]);
     http.data.set(syncProjectModelsRoute.path, job());
     presenter = PullModelsTabFeature.resolve(container).presenter;
   });
@@ -129,7 +121,7 @@ describe("PullModelsTabPresenter", () => {
 
   it("reads again when a job that writes sync logs finishes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l1"), syncLog("l2")]));
+    http.data.set(LIST_PATH, [syncLog("l1"), syncLog("l2")]);
 
     const bridge = container.resolve(EventBridge);
     bridge.emit("job:status", {
@@ -191,14 +183,15 @@ describe("PullModelsTabPresenter", () => {
 
   it("reads the next page when the page changes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l2")], 30));
+    http.data.set(LIST_PATH, [syncLog("l2")]);
 
     presenter.loadSyncLogsPage(2);
     await flush();
 
     expect(presenter.vm.syncLogsPage).toBe(2);
     expect(presenter.vm.syncLogs[0]?.id).toBe("l2");
-    expect(presenter.vm.syncLogsTotalCount).toBe(30);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ page: "2" });
   });
 
   it("deletes a sync log and removes it from the vm", async () => {

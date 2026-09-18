@@ -7,6 +7,7 @@ export interface RecordedCall {
   method: string;
   path: string;
   params: unknown;
+  query: unknown;
   body: unknown;
 }
 
@@ -31,12 +32,13 @@ export class StubHttpClient {
         responseType: "list" | "one" | "none";
         responseKey?: string;
       };
-      const requestArgs = (args ?? {}) as { params?: unknown; body?: unknown };
+      const requestArgs = (args ?? {}) as { params?: unknown; query?: unknown; body?: unknown };
 
       this.calls.push({
         method: definition.method,
         path: definition.path,
         params: requestArgs.params ?? null,
+        query: requestArgs.query ?? null,
         body: requestArgs.body ?? null,
       });
 
@@ -74,7 +76,7 @@ export class StubHttpClient {
    */
   private answerUrl(method: string, url: string, body: unknown): Promise<Result<never, never>> {
     const path = url.split("?")[0] ?? url;
-    this.calls.push({ method, path, params: null, body });
+    this.calls.push({ method, path, params: null, query: null, body });
 
     const failure = this.failures.get(path);
     if (failure !== undefined) {

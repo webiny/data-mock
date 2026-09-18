@@ -1,15 +1,14 @@
 import { Result } from "@webiny/stdlib";
-import type { SeedEntry } from "~/shared/types.js";
-import { getSeedEntryRoute, deleteProjectEntriesRoute } from "~/shared/routes/entries.js";
+import {
+  listSeedEntriesRoute,
+  getSeedEntryRoute,
+  deleteProjectEntriesRoute,
+} from "~/shared/routes/entries.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { EntriesGateway as Abstraction } from "./abstractions/EntriesGateway.js";
 import type { EntriesListResult, EntriesListParams } from "./abstractions/EntriesGateway.js";
-import type { EnvironmentRef } from "~/shared/types.js";
-
-interface EntriesListResponse {
-  seedEntries: { items: SeedEntry[]; total: number };
-}
+import type { EnvironmentRef, SeedEntry } from "~/shared/types.js";
 
 class EntriesGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
@@ -20,24 +19,18 @@ class EntriesGatewayImpl implements Abstraction.Interface {
   ): Promise<Result<EntriesListResult, HTTPError>> {
     const page = params?.page ?? 1;
     const limit = params?.limit ?? 25;
-    const parts = [`page=${page}`, `limit=${limit}`];
-    if (params?.jobId) {
-      parts.push(`jobId=${params.jobId}`);
-    }
-    if (params?.modelId) {
-      parts.push(`modelId=${params.modelId}`);
-    }
-    if (params?.tenant) {
-      parts.push(`tenant=${params.tenant}`);
-    }
-    if (params?.status) {
-      parts.push(`status=${params.status}`);
-    }
-    const qs = parts.join("&");
 
-    const result = await this.httpClient.get<EntriesListResponse>(
-      `/api/projects/${ref.projectId}/environments/${ref.environmentId}/entries?${qs}`,
-    );
+    const result = await this.httpClient.request(listSeedEntriesRoute, {
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
+      query: {
+        page: String(page),
+        limit: String(limit),
+        ...(params?.jobId ? { jobId: params.jobId } : {}),
+        ...(params?.modelId ? { modelId: params.modelId } : {}),
+        ...(params?.tenant ? { tenant: params.tenant } : {}),
+        ...(params?.status ? { status: params.status } : {}),
+      },
+    });
 
     if (result.isFail()) {
       return Result.fail(result.error);

@@ -7,13 +7,13 @@ import { StubHttpClient, stubListStateFactory } from "~/ui/testing/StubHttpClien
 import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { SyncLog } from "~/shared/types.js";
-import { deleteSyncLogRoute } from "~/shared/routes/syncLogs.js";
+import { listSyncLogsRoute, deleteSyncLogRoute } from "~/shared/routes/syncLogs.js";
 import { syncProjectTenantsRoute } from "~/shared/routes/tenants.js";
 import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTabContext.js";
 import { PullTenantsTabFeature } from "../feature.js";
 import { PullTenantsTabPresenter } from "../abstractions/PullTenantsTabPresenter.js";
 
-const LIST_PATH = "/api/projects/p1/environments/e1/sync-logs";
+const LIST_PATH = listSyncLogsRoute.path;
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
 
@@ -39,15 +39,7 @@ function syncLog(id: string, overrides: Partial<SyncLog> = {}): SyncLog {
   };
 }
 
-function listResponse(logs: SyncLog[], total?: number) {
-  return { syncLogs: { items: logs, total: total ?? logs.length } };
-}
-
-/**
- * The untyped `get` path (`SyncLogsGateway.list`) resolves through one more microtask hop than
- * the typed `request` path other gateways use, since it returns a promise from an async function
- * rather than awaiting it directly. A fixed handful of ticks flushes either.
- */
+/** Drains the microtask queue behind an unawaited `void reload()`. */
 async function flush(): Promise<void> {
   for (let i = 0; i < 6; i++) {
     await Promise.resolve();
@@ -66,7 +58,7 @@ describe("PullTenantsTabPresenter", () => {
     PullTenantsTabFeature.register(container);
     container.registerInstance(HTTPClient, http.client);
     container.registerInstance(URLListStateFactory, stubListStateFactory());
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l1")]));
+    http.data.set(LIST_PATH, [syncLog("l1")]);
     presenter = PullTenantsTabFeature.resolve(container).presenter;
   });
 
@@ -99,8 +91,8 @@ describe("PullTenantsTabPresenter", () => {
   it("filters the read to tenant-type logs", async () => {
     await presenter.activate(CONTEXT);
 
-    const listCall = http.calls.find((call) => call.path.startsWith(LIST_PATH));
-    expect(listCall).toBeDefined();
+    const listCall = http.calls.find((call) => call.path === LIST_PATH);
+    expect(listCall?.query).toMatchObject({ type: "tenants" });
   });
 
   it("asks again after a failed read, rather than staying blank", async () => {
@@ -184,7 +176,7 @@ describe("PullTenantsTabPresenter", () => {
 
   it("reads again when a job that writes sync logs finishes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l1"), syncLog("l2")]));
+    http.data.set(LIST_PATH, [syncLog("l1"), syncLog("l2")]);
 
     const bridge = container.resolve(EventBridge);
     bridge.emit("job:status", {
@@ -246,13 +238,14 @@ describe("PullTenantsTabPresenter", () => {
 
   it("reads the next page when the page changes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l2")], 30));
+    http.data.set(LIST_PATH, [syncLog("l2")]);
 
     presenter.loadSyncLogsPage(2);
     await flush();
 
     expect(presenter.vm.syncLogsPage).toBe(2);
     expect(presenter.vm.syncLogs[0]?.id).toBe("l2");
-    expect(presenter.vm.syncLogsTotalCount).toBe(30);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ page: "2" });
   });
 });

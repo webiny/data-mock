@@ -8,12 +8,13 @@ import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListSt
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import { ModelsRepository } from "~/ui/features/models/abstractions/ModelsRepository.js";
 import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
+import { listSeedEntriesRoute, deleteProjectEntriesRoute } from "~/shared/routes/entries.js";
 import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTabContext.js";
 import { EntriesTabFeature } from "../feature.js";
 import { EntriesTabPresenter } from "../abstractions/EntriesTabPresenter.js";
 
-const ENTRIES_LIST_PATH = "/api/projects/p1/environments/e1/entries";
-const CLEAR_ENTRIES_PATH = "/api/projects/:projectId/environments/:environmentId/entries";
+const ENTRIES_LIST_PATH = listSeedEntriesRoute.path;
+const CLEAR_ENTRIES_PATH = deleteProjectEntriesRoute.path;
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
 
@@ -44,15 +45,7 @@ function entry(id: string, overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function entriesResponse(items: ReturnType<typeof entry>[]) {
-  return { seedEntries: { items, total: items.length } };
-}
-
-/**
- * The entries gateway goes through the client's untyped `get`, one more promise hop than the
- * typed routes the other tabs read through, so a fixed number of `Promise.resolve()` ticks is
- * fragile. This drains the microtask queue instead.
- */
+/** Drains the microtask queue behind an unawaited `void reload()`. */
 async function flush(): Promise<void> {
   for (let i = 0; i < 10; i++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -71,7 +64,7 @@ describe("EntriesTabPresenter", () => {
     EntriesTabFeature.register(container);
     container.registerInstance(HTTPClient, http.client);
     container.registerInstance(URLListStateFactory, stubListStateFactory());
-    http.urlData.set(ENTRIES_LIST_PATH, entriesResponse([entry("1")]));
+    http.data.set(ENTRIES_LIST_PATH, [entry("1")]);
     presenter = EntriesTabFeature.resolve(container).presenter;
   });
 
@@ -126,12 +119,14 @@ describe("EntriesTabPresenter", () => {
       URLListStateFactory,
       stubListStateFactoryWithInitial({ jobId: "job-1" }),
     );
-    http2.urlData.set(ENTRIES_LIST_PATH, entriesResponse([entry("1", { jobId: "job-1" })]));
+    http2.data.set(ENTRIES_LIST_PATH, [entry("1", { jobId: "job-1" })]);
     const presenter2 = EntriesTabFeature.resolve(container2).presenter;
 
     await presenter2.activate(CONTEXT);
 
     expect(presenter2.vm.entriesJobFilter).toBe("job-1");
+    const listCall = http2.calls.find((call) => call.path === ENTRIES_LIST_PATH);
+    expect(listCall?.query).toMatchObject({ jobId: "job-1" });
   });
 
   it("reloads on each of the four filters", async () => {
@@ -152,7 +147,14 @@ describe("EntriesTabPresenter", () => {
     await flush();
     await flush();
 
-    expect(http.calls.filter((call) => call.path === ENTRIES_LIST_PATH).length).toBeGreaterThan(1);
+    const calls = http.calls.filter((call) => call.path === ENTRIES_LIST_PATH);
+    expect(calls.length).toBeGreaterThan(1);
+    expect(calls.at(-1)?.query).toMatchObject({
+      modelId: "article",
+      tenant: "root",
+      status: "failed",
+      jobId: "job-9",
+    });
   });
 
   it("clears every filter and reloads", async () => {
@@ -168,6 +170,8 @@ describe("EntriesTabPresenter", () => {
     expect(presenter.vm.entriesStatusFilter).toBeNull();
     expect(presenter.vm.entriesJobFilter).toBeNull();
     expect(presenter.vm.entriesTenantFilter).toBeNull();
+    const calls = http.calls.filter((call) => call.path === ENTRIES_LIST_PATH);
+    expect(calls.at(-1)?.query).toEqual({ page: "1", limit: "25" });
   });
 
   it("pages through the list", async () => {
@@ -177,6 +181,8 @@ describe("EntriesTabPresenter", () => {
     await flush();
 
     expect(presenter.vm.entriesPage).toBe(2);
+    const calls = http.calls.filter((call) => call.path === ENTRIES_LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ page: "2" });
   });
 
   it("clears entries only after the confirmation is accepted", async () => {
@@ -184,12 +190,12 @@ describe("EntriesTabPresenter", () => {
 
     presenter.clearEntries();
     expect(presenter.vm.clearConfirmation.isOpen).toBe(true);
-    expect(http.calls.some((call) => call.path === CLEAR_ENTRIES_PATH)).toBe(false);
+    expect(http.callsTo(CLEAR_ENTRIES_PATH, "DELETE")).toHaveLength(0);
 
     await presenter.confirmClearEntries();
 
     expect(presenter.vm.clearConfirmation.isOpen).toBe(false);
-    expect(http.calls.some((call) => call.path === CLEAR_ENTRIES_PATH)).toBe(true);
+    expect(http.callsTo(CLEAR_ENTRIES_PATH, "DELETE")).toHaveLength(1);
   });
 
   it("closes the confirmation without clearing on cancel", async () => {
@@ -199,7 +205,7 @@ describe("EntriesTabPresenter", () => {
     presenter.cancelClearEntries();
 
     expect(presenter.vm.clearConfirmation.isOpen).toBe(false);
-    expect(http.calls.some((call) => call.path === CLEAR_ENTRIES_PATH)).toBe(false);
+    expect(http.callsTo(CLEAR_ENTRIES_PATH, "DELETE")).toHaveLength(0);
   });
 
   it("reads models and tenants for the filter dropdowns from their own repositories", async () => {
@@ -241,7 +247,7 @@ describe("EntriesTabPresenter", () => {
 
   it("reads again when a job that writes entries finishes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(ENTRIES_LIST_PATH, entriesResponse([entry("1"), entry("2")]));
+    http.data.set(ENTRIES_LIST_PATH, [entry("1"), entry("2")]);
 
     const bridge = container.resolve(EventBridge);
     bridge.emit("job:status", {

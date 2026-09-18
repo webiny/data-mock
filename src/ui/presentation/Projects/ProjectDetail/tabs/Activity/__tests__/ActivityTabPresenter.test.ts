@@ -7,12 +7,12 @@ import { StubHttpClient, stubListStateFactory } from "~/ui/testing/StubHttpClien
 import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import type { SyncLog } from "~/shared/types.js";
-import { deleteSyncLogRoute } from "~/shared/routes/syncLogs.js";
+import { listSyncLogsRoute, deleteSyncLogRoute } from "~/shared/routes/syncLogs.js";
 import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTabContext.js";
 import { ActivityTabFeature } from "../feature.js";
 import { ActivityTabPresenter } from "../abstractions/ActivityTabPresenter.js";
 
-const LIST_PATH = "/api/projects/p1/environments/e1/sync-logs";
+const LIST_PATH = listSyncLogsRoute.path;
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
 
@@ -38,15 +38,7 @@ function syncLog(id: string, overrides: Partial<SyncLog> = {}): SyncLog {
   };
 }
 
-function listResponse(logs: SyncLog[], total?: number) {
-  return { syncLogs: { items: logs, total: total ?? logs.length } };
-}
-
-/**
- * The untyped `get` path (`SyncLogsGateway.list`) resolves through one more microtask hop than
- * the typed `request` path other gateways use, since it returns a promise from an async function
- * rather than awaiting it directly. A fixed handful of ticks flushes either.
- */
+/** Drains the microtask queue behind an unawaited `void reload()`. */
 async function flush(): Promise<void> {
   for (let i = 0; i < 5; i++) {
     await Promise.resolve();
@@ -65,7 +57,7 @@ describe("ActivityTabPresenter", () => {
     ActivityTabFeature.register(container);
     container.registerInstance(HTTPClient, http.client);
     container.registerInstance(URLListStateFactory, stubListStateFactory());
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l1")]));
+    http.data.set(LIST_PATH, [syncLog("l1")]);
     presenter = ActivityTabFeature.resolve(container).presenter;
   });
 
@@ -109,7 +101,7 @@ describe("ActivityTabPresenter", () => {
 
   it("reads again when a job that writes sync logs finishes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l1"), syncLog("l2")]));
+    http.data.set(LIST_PATH, [syncLog("l1"), syncLog("l2")]);
 
     const bridge = container.resolve(EventBridge);
     bridge.emit("job:status", {
@@ -171,43 +163,48 @@ describe("ActivityTabPresenter", () => {
 
   it("reads the next page when the page changes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l2")], 30));
+    http.data.set(LIST_PATH, [syncLog("l2")]);
 
     presenter.loadSyncLogsPage(2);
     await flush();
 
     expect(presenter.vm.syncLogsPage).toBe(2);
     expect(presenter.vm.syncLog[0]?.id).toBe("l2");
-    expect(presenter.vm.syncLogsTotalCount).toBe(30);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ page: "2" });
   });
 
   it("reads with the type filter applied, and reflects it in the vm", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l2", { type: "models" })]));
+    http.data.set(LIST_PATH, [syncLog("l2", { type: "models" })]);
 
     presenter.setSyncLogsFilter("logType", "models");
     await flush();
 
     expect(presenter.vm.syncLogsTypeFilter).toBe("models");
     expect(presenter.vm.syncLog[0]?.type).toBe("models");
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ type: "models" });
   });
 
   it("reads with the status filter applied, and reflects it in the vm", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l2", { status: "error" })]));
+    http.data.set(LIST_PATH, [syncLog("l2", { status: "error" })]);
 
     presenter.setSyncLogsFilter("logStatus", "error");
     await flush();
 
     expect(presenter.vm.syncLogsStatusFilter).toBe("error");
     expect(presenter.vm.syncLog[0]?.status).toBe("error");
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ status: "error" });
   });
 
   it("clears both filters at once", async () => {
     await presenter.activate(CONTEXT);
     presenter.setSyncLogsFilter("logType", "models");
     presenter.setSyncLogsFilter("logStatus", "error");
-    http.urlData.set(LIST_PATH, listResponse([syncLog("l1")]));
+    http.data.set(LIST_PATH, [syncLog("l1")]);
     await flush();
 
     presenter.clearSyncLogsFilter();
@@ -215,6 +212,8 @@ describe("ActivityTabPresenter", () => {
 
     expect(presenter.vm.syncLogsTypeFilter).toBeNull();
     expect(presenter.vm.syncLogsStatusFilter).toBeNull();
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toEqual({ page: "1", limit: "25" });
   });
 
   it("deletes a sync log and removes it from the vm", async () => {

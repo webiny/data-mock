@@ -1,6 +1,6 @@
 import { Result } from "@webiny/stdlib";
-import type { SeedJob, Job } from "~/shared/types.js";
-import { resumeSeedRoute, triggerSeedRoute } from "~/shared/routes/seeding.js";
+import type { Job } from "~/shared/types.js";
+import { resumeSeedRoute, triggerSeedRoute, listSeedJobsRoute } from "~/shared/routes/seeding.js";
 import { importEntriesRoute } from "~/shared/routes/import.js";
 import { cleanupEntriesRoute } from "~/shared/routes/cleanup.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
@@ -44,24 +44,19 @@ class SeedingGatewayImpl implements Abstraction.Interface {
     ref: EnvironmentRef,
     params?: SeedJobsListParams,
   ): Promise<Result<SeedJobsListResult, HTTPError>> {
-    const parts: string[] = [];
     const page = params?.page ?? 1;
     const limit = params?.limit ?? 25;
-    parts.push(`page=${page}`, `limit=${limit}`);
-    if (params?.status) {
-      parts.push(`status=${params.status}`);
-    }
-    if (params?.sortField) {
-      parts.push(`sortField=${params.sortField}`);
-    }
-    if (params?.sortDir) {
-      parts.push(`sortDir=${params.sortDir}`);
-    }
-    const qs = parts.join("&");
 
-    const result = await this.httpClient.get<{ seedJobs: { items: SeedJob[]; total: number } }>(
-      `/api/projects/${ref.projectId}/environments/${ref.environmentId}/seed-jobs?${qs}`,
-    );
+    const result = await this.httpClient.request(listSeedJobsRoute, {
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
+      query: {
+        page: String(page),
+        limit: String(limit),
+        ...(params?.status ? { status: params.status } : {}),
+        ...(params?.sortField ? { sortField: params.sortField } : {}),
+        ...(params?.sortDir ? { sortDir: params.sortDir } : {}),
+      },
+    });
 
     if (result.isFail()) {
       return Result.fail(result.error);

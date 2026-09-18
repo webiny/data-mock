@@ -7,13 +7,13 @@ import { StubHttpClient, stubListStateFactory } from "~/ui/testing/StubHttpClien
 import { EventBridge } from "~/ui/infrastructure/events/abstractions/EventBridge.js";
 import { URLListStateFactory } from "~/ui/features/router/abstractions/URLListState.js";
 import type { SeedJob } from "~/shared/types.js";
+import { listSeedJobsRoute, resumeSeedRoute } from "~/shared/routes/seeding.js";
 import type { ProjectDetailTabContext } from "../../abstractions/ProjectDetailTabContext.js";
 import { SeedHistoryTabFeature } from "../feature.js";
 import { SeedHistoryTabPresenter } from "../abstractions/SeedHistoryTabPresenter.js";
 
-const LIST_PATH = "/api/projects/p1/environments/e1/seed-jobs";
-const RESUME_PATH =
-  "/api/projects/:projectId/environments/:environmentId/seed-jobs/:seedJobId/resume";
+const LIST_PATH = listSeedJobsRoute.path;
+const RESUME_PATH = resumeSeedRoute.path;
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
 
@@ -58,7 +58,7 @@ describe("SeedHistoryTabPresenter", () => {
     SeedHistoryTabFeature.register(container);
     container.registerInstance(HTTPClient, http.client);
     container.registerInstance(URLListStateFactory, stubListStateFactory());
-    http.urlData.set(LIST_PATH, { seedJobs: { items: [seedJob("j1")], total: 1 } });
+    http.data.set(LIST_PATH, [seedJob("j1")]);
     presenter = SeedHistoryTabFeature.resolve(container).presenter;
   });
 
@@ -102,7 +102,7 @@ describe("SeedHistoryTabPresenter", () => {
 
   it("reads again when a job that writes seed jobs finishes", async () => {
     await presenter.activate(CONTEXT);
-    http.urlData.set(LIST_PATH, { seedJobs: { items: [seedJob("j1"), seedJob("j2")], total: 2 } });
+    http.data.set(LIST_PATH, [seedJob("j1"), seedJob("j2")]);
 
     const bridge = container.resolve(EventBridge);
     bridge.emit("job:status", {
@@ -164,24 +164,24 @@ describe("SeedHistoryTabPresenter", () => {
 
   it("reads a new page when the page changes", async () => {
     await presenter.activate(CONTEXT);
-    const before = http.calls.filter((call) => call.path === LIST_PATH).length;
 
     presenter.loadSeedJobsPage(2);
     await flush();
 
     expect(presenter.vm.seedJobsPage).toBe(2);
-    expect(http.calls.filter((call) => call.path === LIST_PATH).length).toBeGreaterThan(before);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ page: "2" });
   });
 
   it("filters by status, and reads again", async () => {
     await presenter.activate(CONTEXT);
-    const before = http.calls.filter((call) => call.path === LIST_PATH).length;
 
     presenter.setSeedJobsFilter("seedStatus", "completed");
     await flush();
 
     expect(presenter.vm.seedJobsStatusFilter).toBe("completed");
-    expect(http.calls.filter((call) => call.path === LIST_PATH).length).toBeGreaterThan(before);
+    const calls = http.calls.filter((call) => call.path === LIST_PATH);
+    expect(calls.at(-1)?.query).toMatchObject({ status: "completed" });
   });
 
   it("clears the status filter", async () => {
