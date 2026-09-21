@@ -647,6 +647,7 @@ export const ProjectsFeature = createFeature({
 12. **Constructor deps are `private readonly`** with explicit access modifiers on all methods.
 13. **Barrels export abstractions only** — never a feature, never an implementation. A feature is registered once, imported from its own `feature.ts`.
 14. **An implementation is never imported outside its domain directory.** In practice its only importer is that domain's `feature.ts`; everything else depends on the abstraction. An implementation reached directly is one the container cannot substitute.
+15. **A UI gateway addresses the server through its typed route** — `httpClient.request(route, { params, query })`, never a URL built by hand. Every route carries an optional `query`, whether or not it declares a querystring schema, and the server reads the query loosely. Four gateways used to concatenate their own URL; three of them kept asking for a path that had moved and answered 404 for months, because nothing tied the string to the route and `StubHttpClient` answered whatever path the gateway invented.
 
 ### Scoping
 | Type | Scope |
