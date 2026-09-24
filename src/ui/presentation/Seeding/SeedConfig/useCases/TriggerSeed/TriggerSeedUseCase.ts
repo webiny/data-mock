@@ -8,7 +8,7 @@ class TriggerSeedUseCaseImpl implements Abstraction.Interface {
   public constructor(private readonly seedingGateway: SeedingGateway.Interface) {}
 
   public async execute(input: Abstraction.Input): Promise<Result<Job, HTTPError>> {
-    return this.seedingGateway.triggerSeed(input.projectId, {
+    return this.seedingGateway.triggerSeed(input.ref, {
       tenant: input.tenant,
       models: input.models,
       publishStrategy: input.publishStrategy,

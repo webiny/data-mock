@@ -38,8 +38,8 @@ export async function createEntryVariables(
       );
     }
     return entries;
-  } catch (ex) {
-    logger.error(ex instanceof Error ? ex.message : String(ex));
-    throw ex;
+  } catch (error) {
+    logger.error(error instanceof Error ? error.message : String(error));
+    throw error;
   }
 }

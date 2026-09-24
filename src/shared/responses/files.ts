@@ -3,6 +3,7 @@ import { z } from "zod";
 export const projectFileSchema = z.object({
   id: z.string(),
   projectId: z.string(),
+  environmentId: z.string(),
   tenant: z.string(),
   fileKey: z.string(),
   fileUrl: z.string(),
@@ -53,6 +54,7 @@ export type PullPicsumResponse = z.infer<typeof pullPicsumResponseSchema>;
 
 export const localFileProjectSchema = z.object({
   projectId: z.string(),
+  environmentId: z.string(),
   projectName: z.string(),
 });
 

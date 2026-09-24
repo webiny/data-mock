@@ -4,7 +4,7 @@ import type { SeedEntry, SeedEntryStatus } from "~/shared/types.js";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListSeedEntriesInput {
-  projectId: string;
+  environmentId: string;
   modelId?: string;
   tenant?: string;
   jobId?: string;

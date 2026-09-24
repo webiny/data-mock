@@ -13,15 +13,17 @@ export async function createServer(
 
   createRequestContext(app, container);
 
-  app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_request, body, done) => {
     if (!body || (typeof body === "string" && body.trim().length === 0)) {
       done(null, undefined);
       return;
     }
     try {
+      // JSON parse boundary: fastify types `body` as unknown for this hook, though `parseAs: "string"` guarantees a string at runtime.
       done(null, JSON.parse(body as string));
-    } catch (err) {
-      done(err as Error, undefined);
+    } catch (error) {
+      // JSON parse boundary: `done()` expects Error | null, the catch value is unknown.
+      done(error as Error, undefined);
     }
   });
 

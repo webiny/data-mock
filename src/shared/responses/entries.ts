@@ -4,6 +4,7 @@ export const seedEntrySchema = z.object({
   id: z.string(),
   jobId: z.string().nullable(),
   projectId: z.string(),
+  environmentId: z.string(),
   tenant: z.string(),
   modelId: z.string(),
   entryId: z.string(),

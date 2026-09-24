@@ -28,3 +28,4 @@ dryRuns/*
 .projects.json
 .codegraph
 .webiny
+coverage/

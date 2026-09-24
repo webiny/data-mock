@@ -26,7 +26,7 @@ class ListSyncLogsRepositoryImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     try {
-      const conditions: SQL[] = [eq(syncLogs.projectId, input.projectId)];
+      const conditions: SQL[] = [eq(syncLogs.environmentId, input.environmentId)];
       if (input.type) {
         conditions.push(eq(syncLogs.type, input.type));
       }
@@ -62,6 +62,7 @@ class ListSyncLogsRepositoryImpl implements Abstraction.Interface {
       const logs: SyncLog[] = rows.map((row) => ({
         id: row.id,
         projectId: row.projectId,
+        environmentId: row.environmentId,
         type: row.type as SyncLogType,
         status: row.status as SyncLogStatus,
         message: row.message,

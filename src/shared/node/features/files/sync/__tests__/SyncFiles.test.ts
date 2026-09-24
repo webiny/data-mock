@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
 import { SyncFilesService } from "../abstractions/SyncFilesService.js";
 import { SyncProjectFilesRepository } from "../abstractions/SyncProjectFilesRepository.js";
@@ -108,7 +109,10 @@ describe("Sync Files", () => {
         );
 
         const syncService = tc.container.resolve(SyncFilesService);
-        const result = await syncService.execute({ projectId: project.id, tenant: "root" });
+        const result = await syncService.execute({
+          environmentId: project.environment.id,
+          tenant: "root",
+        });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -120,7 +124,7 @@ describe("Sync Files", () => {
         expect(mockHttpClient.post).toHaveBeenCalledTimes(1);
 
         const listRepo = tc.container.resolve(ListProjectFilesRepository);
-        const listResult = await listRepo.execute({ projectId: project.id });
+        const listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(2);
@@ -170,7 +174,10 @@ describe("Sync Files", () => {
           );
 
         const syncService = tc.container.resolve(SyncFilesService);
-        const result = await syncService.execute({ projectId: project.id, tenant: "root" });
+        const result = await syncService.execute({
+          environmentId: project.environment.id,
+          tenant: "root",
+        });
 
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
@@ -206,7 +213,10 @@ describe("Sync Files", () => {
         );
 
         const syncService = tc.container.resolve(SyncFilesService);
-        const result = await syncService.execute({ projectId: project.id, tenant: "root" });
+        const result = await syncService.execute({
+          environmentId: project.environment.id,
+          tenant: "root",
+        });
 
         expect(result.isFail()).toBe(true);
         if (result.isFail()) {
@@ -228,7 +238,10 @@ describe("Sync Files", () => {
         vi.mocked(mockHttpClient.post).mockResolvedValue(createMockResponse(500, "Server Error"));
 
         const syncService = tc.container.resolve(SyncFilesService);
-        const result = await syncService.execute({ projectId: project.id, tenant: "root" });
+        const result = await syncService.execute({
+          environmentId: project.environment.id,
+          tenant: "root",
+        });
 
         expect(result.isFail()).toBe(true);
         if (result.isFail()) {
@@ -239,16 +252,16 @@ describe("Sync Files", () => {
       }
     });
 
-    it("should return error for non-existent project", async () => {
+    it("should return error for a non-existent environment", async () => {
       const tc = createTestContainer();
 
       try {
         const syncService = tc.container.resolve(SyncFilesService);
-        const result = await syncService.execute({ projectId: "non-existent", tenant: "root" });
+        const result = await syncService.execute({ environmentId: "non-existent", tenant: "root" });
 
         expect(result.isFail()).toBe(true);
         if (result.isFail()) {
-          expect(result.error.code).toBe("Project/NotFound");
+          expect(result.error.code).toBe("Environment/NotFound");
         }
       } finally {
         tc.cleanup();
@@ -261,11 +274,12 @@ describe("Sync Files", () => {
       const tc = createTestContainer();
 
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const syncRepo = tc.container.resolve(SyncProjectFilesRepository);
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "root",
           files: [
             {
@@ -286,14 +300,15 @@ describe("Sync Files", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectFilesRepository);
-        let listResult = await listRepo.execute({ projectId: project.id });
+        let listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(2);
         }
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "root",
           files: [
             {
@@ -306,7 +321,7 @@ describe("Sync Files", () => {
           ],
         });
 
-        listResult = await listRepo.execute({ projectId: project.id });
+        listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(1);
@@ -321,11 +336,12 @@ describe("Sync Files", () => {
       const tc = createTestContainer();
 
       try {
-        const project = await createProject(tc);
+        const project = await createTestProject(tc);
         const syncRepo = tc.container.resolve(SyncProjectFilesRepository);
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "root",
           files: [
             {
@@ -339,7 +355,8 @@ describe("Sync Files", () => {
         });
 
         await syncRepo.execute({
-          projectId: project.id,
+          projectId: project.project.id,
+          environmentId: project.environment.id,
           tenant: "tenant-2",
           files: [
             {
@@ -353,7 +370,7 @@ describe("Sync Files", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectFilesRepository);
-        const listResult = await listRepo.execute({ projectId: project.id });
+        const listResult = await listRepo.execute({ environmentId: project.environment.id });
         expect(listResult.isOk()).toBe(true);
         if (listResult.isOk()) {
           expect(listResult.value.files).toHaveLength(2);

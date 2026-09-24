@@ -2,13 +2,15 @@ import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { ProjectFile } from "~/shared/types.js";
 import type {
+  EnvironmentNotFoundError,
+  EnvironmentNotConnectedError,
   ProjectNotFoundError,
   ProjectPersistenceError,
   GraphQLRequestError,
 } from "~/shared/errors.js";
 
 export interface ISyncFilesServiceInput {
-  projectId: string;
+  environmentId: string;
   tenant: string;
 }
 
@@ -29,5 +31,10 @@ export namespace SyncFilesService {
   export type Interface = ISyncFilesService;
   export type Input = ISyncFilesServiceInput;
   export type Output = ISyncFilesServiceOutput;
-  export type Error = ProjectNotFoundError | GraphQLRequestError | ProjectPersistenceError;
+  export type Error =
+    | EnvironmentNotFoundError
+    | EnvironmentNotConnectedError
+    | ProjectNotFoundError
+    | GraphQLRequestError
+    | ProjectPersistenceError;
 }

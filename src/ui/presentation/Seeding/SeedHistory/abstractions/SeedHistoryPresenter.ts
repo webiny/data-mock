@@ -1,6 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { SeedJobStatus } from "~/shared/types.js";
 
+import type { EnvironmentRef } from "~/shared/types.js";
 export interface SeedHistoryJobVM {
   id: string;
   status: SeedJobStatus;
@@ -14,11 +15,13 @@ export interface SeedHistoryVM {
   jobs: SeedHistoryJobVM[];
   isLoading: boolean;
   isEmpty: boolean;
+  /** Why the history is empty, when it is empty because it could not be read. */
+  error: string | null;
 }
 
 export interface ISeedHistoryPresenter {
   readonly vm: SeedHistoryVM;
-  load(projectId: string): Promise<void>;
+  load(ref: EnvironmentRef): Promise<void>;
 }
 
 export const SeedHistoryPresenter =

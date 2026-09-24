@@ -7,7 +7,7 @@ export interface ISyncLogsRepository {
   setLogs(logs: SyncLog[], total: number): void;
   addLog(log: SyncLog): void;
   removeLog(id: string): void;
-  getLogsByProjectId(projectId: string): SyncLog[];
+  getLogsByEnvironmentId(environmentId: string): SyncLog[];
 }
 
 export const SyncLogsRepository = createAbstraction<ISyncLogsRepository>("Ui/SyncLogsRepository");

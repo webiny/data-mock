@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
-import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { JobWorker } from "../abstractions/JobWorker.js";
 import { JobExecutorRegistry } from "../abstractions/JobExecutorRegistry.js";
 import { JobRecoveryHelper } from "../JobRecoveryHelper.js";
@@ -12,27 +12,16 @@ import { createServer } from "~/api/server.js";
 import { registerApiRoutes } from "~/api/routes/index.js";
 import type { FastifyInstance } from "fastify";
 
-async function createProject(tc: ReturnType<typeof createTestContainer>): Promise<string> {
-  const useCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await useCase.execute({
-    name: "Job Test Project",
-    apiUrl: "https://api.example.com",
-    apiToken: "test-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
-  return result.value.id;
-}
-
 describe("Jobs System", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
-    projectId = await createProject(tc);
+    const project = await createTestProject(tc);
+    projectId = project.projectId;
+    environmentId = project.environmentId;
   });
 
   afterEach(() => {
@@ -181,6 +170,43 @@ describe("Jobs System", () => {
       expect(job!.config).toBe(JSON.stringify(config));
     });
 
+    it("narrows a list to one environment, leaving the project's other jobs out", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      const scoped = await worker.enqueue({ projectId, environmentId, type: "seed" });
+      await worker.enqueue({ projectId, type: "sync-system" });
+
+      const result = await worker.listJobs({ environmentId });
+
+      expect(result.total).toBe(1);
+      expect(result.jobs.map((job) => job.id)).toEqual([scoped]);
+    });
+
+    it("leaves the log out of a list, and keeps it on the job itself", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      const id = await worker.enqueue({ projectId, type: "deploy" });
+      const logLines = "Deploying core...\n".repeat(2000);
+      tc.databaseClient.db.update(jobs).set({ logs: logLines }).where(eq(jobs.id, id)).run();
+
+      const listed = await worker.listJobs({ projectId });
+
+      // A page of fifty deploys would otherwise carry every line of every log to render a table
+      // that shows none of them.
+      expect(listed.jobs[0]).not.toHaveProperty("logs");
+
+      const job = await worker.getJob(id);
+      expect(job!.logs).toBe(logLines);
+    });
+
+    it("reads a job whose result is not valid JSON as having none", async () => {
+      const worker = tc.container.resolve(JobWorker);
+      const id = await worker.enqueue({ projectId, type: "sync-preview" });
+      // Written by an older build, or hand-edited: it must not take the whole row down.
+      tc.databaseClient.db.update(jobs).set({ result: "{not json" }).where(eq(jobs.id, id)).run();
+
+      const job = await worker.getJob(id);
+      expect(job!.result).toBeNull();
+    });
+
     it("should recover stale jobs on startup", async () => {
       const worker = tc.container.resolve(JobWorker);
       const id1 = await worker.enqueue({ projectId, type: "seed" });
@@ -200,46 +226,26 @@ describe("Jobs System", () => {
   });
 
   describe("JobExecutorRegistry", () => {
-    it("should resolve seed executor", () => {
+    it("resolves every job type to the executor that declares it", () => {
       const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("seed");
-      expect(executor.type).toBe("seed");
-    });
 
-    it("should resolve pull-tenants executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("pull-tenants");
-      expect(executor.type).toBe("pull-tenants");
-    });
+      const types = [
+        "seed",
+        "pull-tenants",
+        "pull-models",
+        "cleanup",
+        "import",
+        "upload-files",
+        "pull-picsum",
+        "sync-system",
+        "sync-preview",
+        "deploy",
+        "destroy",
+      ];
 
-    it("should resolve pull-models executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("pull-models");
-      expect(executor.type).toBe("pull-models");
-    });
-
-    it("should resolve cleanup executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("cleanup");
-      expect(executor.type).toBe("cleanup");
-    });
-
-    it("should resolve import executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("import");
-      expect(executor.type).toBe("import");
-    });
-
-    it("should resolve upload-files executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("upload-files");
-      expect(executor.type).toBe("upload-files");
-    });
-
-    it("should resolve pull-picsum executor", () => {
-      const registry = tc.container.resolve(JobExecutorRegistry);
-      const executor = registry.getExecutor("pull-picsum");
-      expect(executor.type).toBe("pull-picsum");
+      for (const type of types) {
+        expect(registry.getExecutor(type).type).toBe(type);
+      }
     });
 
     it("should throw for unknown executor type", () => {
@@ -314,6 +320,7 @@ describe("Jobs API routes", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let app: FastifyInstance;
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -331,6 +338,12 @@ describe("Jobs API routes", () => {
       },
     });
     projectId = createResponse.json().project.id;
+
+    const environmentsResponse = await app.inject({
+      method: "GET",
+      url: `/api/projects/${projectId}/environments`,
+    });
+    environmentId = environmentsResponse.json().environments.items[0].id;
   });
 
   afterEach(async () => {
@@ -345,6 +358,7 @@ describe("Jobs API routes", () => {
         url: `/api/projects/${projectId}/jobs`,
         payload: {
           type: "pull-tenants",
+          config: { environmentId },
         },
       });
 
@@ -363,7 +377,7 @@ describe("Jobs API routes", () => {
         url: `/api/projects/${projectId}/jobs`,
         payload: {
           type: "seed",
-          config: { tenant: "root", models: [{ modelId: "article", amount: 5 }] },
+          config: { environmentId, tenant: "root", models: [{ modelId: "article", amount: 5 }] },
         },
       });
 
@@ -404,7 +418,7 @@ describe("Jobs API routes", () => {
         await app.inject({
           method: "POST",
           url: `/api/projects/${projectId}/jobs`,
-          payload: { type },
+          payload: { type, config: { environmentId } },
         });
       }
 
@@ -430,12 +444,12 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "seed" },
+        payload: { type: "seed", config: { environmentId } },
       });
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "cleanup" },
+        payload: { type: "cleanup", config: { environmentId } },
       });
 
       const response = await app.inject({
@@ -452,7 +466,7 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "seed" },
+        payload: { type: "seed", config: { environmentId } },
       });
 
       const response = await app.inject({
@@ -474,12 +488,12 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "pull-tenants" },
+        payload: { type: "pull-tenants", config: { environmentId } },
       });
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "pull-models" },
+        payload: { type: "pull-models", config: { environmentId } },
       });
 
       const response = await app.inject({
@@ -499,7 +513,7 @@ describe("Jobs API routes", () => {
       const createResponse = await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "cleanup" },
+        payload: { type: "cleanup", config: { environmentId } },
       });
       const jobId = createResponse.json().job.id;
 
@@ -529,7 +543,7 @@ describe("Jobs API routes", () => {
       await app.inject({
         method: "POST",
         url: `/api/projects/${projectId}/jobs`,
-        payload: { type: "seed" },
+        payload: { type: "seed", config: { environmentId } },
       });
 
       const worker = tc.container.resolve(JobWorker);

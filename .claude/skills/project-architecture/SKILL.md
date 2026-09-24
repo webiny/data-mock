@@ -48,7 +48,7 @@ import { z } from "zod";
 | Abstraction (interface + token + namespace) | `abstractions/Xxx.ts` | `abstractions/` |
 | Implementation (class + createImplementation) | `Xxx.ts` | feature root |
 | Feature registration | `feature.ts` | feature root |
-| Barrel export | `index.ts` | feature root + `abstractions/` |
+| Barrel export | `index.ts` | feature root + `abstractions/` — abstractions only, never a feature or an implementation |
 
 A file with `createAbstraction()` must not contain `createImplementation()` or `createFeature()`.
 
@@ -277,15 +277,27 @@ Internal code that receives already-validated data does not need re-validation.
 
 ## Barrel Exports
 
-Export abstractions and features. Never export implementations.
-
-Implementation classes (`*Impl`) are private to their module — never add `export` to the class declaration. Consumers get implementations through the DI container, not by instantiating classes directly.
+Export **abstractions only** — tokens and their types. Never a feature, never an implementation.
 
 ```ts
 // index.ts
-export { CreateProjectUseCase } from "./abstractions/index.ts";
-export { ProjectsFeature } from "./feature.ts";
+export { ProjectRepository } from "./abstractions/index.js"; // abstraction token
+// NEVER: export { ProjectsFeature } from "./feature.js"       // feature
+// NEVER: export { ProjectRepository } from "./ProjectRepository.js" // implementation
 ```
+
+A feature is registered once, and whoever registers it imports it from that domain's own
+`feature.ts`. Routing it through a barrel gives a second way in, and the two drift.
+
+**An implementation is never imported outside its own domain directory.** In practice its only
+importer is that domain's `feature.ts`. Everything else — presenters, use cases, other features,
+tests — depends on the abstraction and lets the container supply the implementation. An
+implementation reached directly is one the container cannot substitute, which is the whole point
+of having it.
+
+Implementation classes (`*Impl`) are private to their module — never add `export` to the class
+declaration. Consumers get implementations through the DI container, not by instantiating classes
+directly.
 
 ## Layer-Specific Skills
 

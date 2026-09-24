@@ -195,14 +195,23 @@ register(container) {
 
 ## Barrel Exports (index.ts)
 
-Export **abstractions** (tokens + types) and **features**. Never export implementations.
+Export **abstractions only** — tokens and their types. Never a feature, never an implementation.
 
 ```ts
 // index.ts
 export { ProjectRepository } from "./abstractions/index.js"; // abstraction token
-export { ProjectsFeature } from "./feature.js"; // feature registration
-// NEVER: export { ProjectRepository } from "./ProjectRepository.js"  // implementation
+// NEVER: export { ProjectsFeature } from "./feature.js"       // feature
+// NEVER: export { ProjectRepository } from "./ProjectRepository.js" // implementation
 ```
+
+A feature is registered once, and whoever registers it imports it from that domain's own
+`feature.ts`. Routing it through a barrel gives a second way in, and the two drift.
+
+**An implementation is never imported outside its own domain directory.** In practice its only
+importer is that domain's `feature.ts`. Everything else — presenters, use cases, other features,
+tests — depends on the abstraction and lets the container supply the implementation. An
+implementation reached directly is one the container cannot substitute, which is the whole point
+of having it.
 
 ## Lifetime Scopes
 

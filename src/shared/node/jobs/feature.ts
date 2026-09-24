@@ -9,6 +9,10 @@ import { CleanupJobExecutor } from "./executors/CleanupJobExecutor.js";
 import { ImportJobExecutor } from "./executors/ImportJobExecutor.js";
 import { UploadFilesJobExecutor } from "./executors/UploadFilesJobExecutor.js";
 import { PullPicsumJobExecutor } from "./executors/PullPicsumJobExecutor.js";
+import { SyncSystemJobExecutor } from "./executors/SyncSystemJobExecutor.js";
+import { SyncPreviewJobExecutor } from "./executors/SyncPreviewJobExecutor.js";
+import { DeployJobExecutor } from "./executors/DeployJobExecutor.js";
+import { DestroyJobExecutor } from "./executors/DestroyJobExecutor.js";
 
 export const JobsFeature = createFeature({
   name: "Jobs/JobsFeature",
@@ -20,6 +24,10 @@ export const JobsFeature = createFeature({
     container.register(ImportJobExecutor).inSingletonScope();
     container.register(UploadFilesJobExecutor).inSingletonScope();
     container.register(PullPicsumJobExecutor).inSingletonScope();
+    container.register(SyncSystemJobExecutor).inSingletonScope();
+    container.register(SyncPreviewJobExecutor).inSingletonScope();
+    container.register(DeployJobExecutor).inSingletonScope();
+    container.register(DestroyJobExecutor).inSingletonScope();
     container.register(JobExecutorRegistry).inSingletonScope();
     container.register(JobExecutionContextFactory).inSingletonScope();
     container.register(JobWorker).inSingletonScope();

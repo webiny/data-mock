@@ -16,7 +16,7 @@ class ListProjectModelsRepositoryImpl implements Abstraction.Interface {
       const rows = this.databaseClient.db
         .select()
         .from(projectModels)
-        .where(eq(projectModels.projectId, input.projectId))
+        .where(eq(projectModels.environmentId, input.environmentId))
         .all();
 
       const models: ProjectModel[] = rows.map((row) => ({

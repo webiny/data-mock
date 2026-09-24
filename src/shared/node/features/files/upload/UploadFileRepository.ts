@@ -16,6 +16,7 @@ class UploadFileRepositoryImpl implements Abstraction.Interface {
       const row = {
         id,
         projectId: input.projectId,
+        environmentId: input.environmentId,
         tenant: input.tenant,
         fileKey: input.fileKey,
         fileUrl: input.fileUrl,

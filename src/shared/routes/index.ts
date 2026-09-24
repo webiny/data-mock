@@ -3,8 +3,37 @@ export {
   getProjectRoute,
   createProjectRoute,
   updateProjectRoute,
-  removeProjectRoute,
+  archiveProjectRoute,
+  restoreProjectRoute,
+  purgeProjectRoute,
+  projectDeletionImpactRoute,
 } from "./projects.js";
+
+export {
+  listProjectEnvironmentsRoute,
+  getProjectEnvironmentRoute,
+  createProjectEnvironmentRoute,
+  updateProjectEnvironmentRoute,
+  archiveProjectEnvironmentRoute,
+  restoreProjectEnvironmentRoute,
+  purgeProjectEnvironmentRoute,
+  environmentDeletionImpactRoute,
+  deployEnvironmentRoute,
+  destroyEnvironmentRoute,
+  listDeployableAppsRoute,
+  listEnvironmentStacksRoute,
+  syncProjectRoute,
+  previewProjectSyncRoute,
+  healthCheckEnvironmentRoute,
+} from "./environments.js";
+
+export {
+  browseDirectoryRoute,
+  scanForProjectsRoute,
+  listScanRootsRoute,
+  createScanRootRoute,
+  removeScanRootRoute,
+} from "./filesystem.js";
 
 export { listProjectTenantsRoute, syncProjectTenantsRoute } from "./tenants.js";
 

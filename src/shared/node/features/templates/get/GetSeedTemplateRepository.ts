@@ -6,8 +6,8 @@ import { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/errors.j
 import { GetSeedTemplateRepository as Abstraction } from "./abstractions/GetSeedTemplateRepository.js";
 import type { SeedTemplate, SeedTemplateConfig } from "~/shared/types.js";
 
-function toError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
 }
 
 class GetSeedTemplateRepositoryImpl implements Abstraction.Interface {

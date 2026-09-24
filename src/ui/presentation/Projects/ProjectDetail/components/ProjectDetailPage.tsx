@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import {
+  Alert,
+  Select,
   Badge,
   Box,
-  Button,
   Divider,
   Group,
   Loader,
@@ -16,28 +17,36 @@ import {
   Tooltip,
 } from "@mantine/core";
 import type { ProjectDetailPresenter } from "../abstractions/ProjectDetailPresenter.js";
+import { SyncPreviewDialog } from "~/ui/components/SyncPreviewDialog.js";
 import { useFeature } from "~/ui/di/useFeature.js";
 import { SeedConfigPresentationFeature } from "~/ui/presentation/Seeding/SeedConfig/feature.js";
 import { SeedConfigPage } from "~/ui/presentation/Seeding/SeedConfig/components/SeedConfigPage.js";
-import { TenantsTab } from "./TenantsTab.js";
-import { ModelsTab } from "./ModelsTab.js";
-import { SeedHistoryTab } from "./SeedHistoryTab.js";
-import { TemplatesTab } from "./TemplatesTab.js";
-import { FilesTab } from "./FilesTab.js";
-import { AuditLogTab } from "./AuditLogTab.js";
-import { SyncTenantsTab } from "./SyncTenantsTab.js";
-import { SyncModelsTab } from "./SyncModelsTab.js";
-import { PullImagesTab } from "./PullImagesTab.js";
-import { SyncLogTable } from "./SyncLogTable.js";
-import { ImportEntriesTab } from "./ImportEntriesTab.js";
-import { JobsTab } from "./JobsTab.js";
+import { EnvironmentsTab } from "./EnvironmentsTab.js";
+import { DeploymentDialog } from "./DeploymentDialog.js";
+import { SystemInfoTab } from "./SystemInfoTab.js";
 import { EditProjectForm } from "./EditProjectForm.js";
+import type { ProjectDetailTabContext } from "../tabs/abstractions/ProjectDetailTabContext.js";
+import { TenantsTab } from "../tabs/Tenants/components/TenantsTab.js";
+import { ModelsTab } from "../tabs/Models/components/ModelsTab.js";
+import { FilesTab } from "../tabs/Files/components/FilesTab.js";
+import { EntriesTab } from "../tabs/Entries/components/EntriesTab.js";
+import { SeedHistoryTab } from "../tabs/SeedHistory/components/SeedHistoryTab.js";
+import { TemplatesTab } from "../tabs/Templates/components/TemplatesTab.js";
+import { JobsTab } from "../tabs/Jobs/components/JobsTab.js";
+import { ActivityTab } from "../tabs/Activity/components/ActivityTab.js";
+import { PullTenantsTab } from "../tabs/PullTenants/components/PullTenantsTab.js";
+import { PullModelsTab } from "../tabs/PullModels/components/PullModelsTab.js";
+import { PullImagesTab } from "../tabs/PullImages/components/PullImagesTab.js";
+import { ImportEntriesTab } from "../tabs/ImportEntries/components/ImportEntriesTab.js";
 import { navigate } from "~/ui/features/router/Router.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 import { AppRoutes } from "~/ui/features/router/routePaths.js";
 
 interface ProjectDetailPageProps {
   presenter: ProjectDetailPresenter.Interface;
   projectId: string;
+  /** Stack name from the URL, or null when the URL addresses no specific environment. */
+  envName: string | null;
   subPath: string;
 }
 
@@ -53,39 +62,43 @@ function resolveView(subPath: string): string {
 export const ProjectDetailPage = observer(function ProjectDetailPage({
   presenter,
   projectId,
+  envName,
   subPath,
 }: ProjectDetailPageProps) {
   const activeView = resolveView(subPath);
-
-  useEffect(() => {
-    void presenter.load(projectId);
-    return () => presenter.dispose();
-  }, [presenter, projectId]);
-
-  useEffect(() => {
-    void presenter.activateView(activeView);
-  }, [presenter, activeView]);
-
   const vm = presenter.vm;
-  const {
-    project,
-    tenants,
-    groups,
-    models,
-    seedJobs,
-    templates,
-    entries,
-    syncLog,
-    isLoading,
-    isSyncingTenants,
-    isSyncingModels,
-    isImporting,
-    isClearingEntries,
-    isCleaningUp,
-    isUploadingGlobal,
-    showEditDialog,
-    showCleanupDialog,
-  } = vm;
+  const currentEnvironmentId = vm.currentEnvironment?.id ?? null;
+
+  useEffect(() => {
+    void presenter.load(projectId, envName);
+    return () => presenter.dispose();
+  }, [presenter, projectId, envName]);
+
+  /**
+   * The two views this page draws itself — Environments and System Info — both read the selected
+   * environment's stacks. The presenter reads them once per environment; asking here is what makes
+   * the read happen when one of those views is on screen and not before.
+   */
+  useEffect(() => {
+    if (activeView === "environments" || activeView === "system") {
+      void presenter.loadStacks();
+    }
+  }, [presenter, activeView, currentEnvironmentId]);
+
+  /**
+   * What every tab needs to know about the page it is mounted on. Each tab owns its own presenter
+   * and asks for its own data; this page no longer loads anything on their behalf. The environment
+   * resolves asynchronously, so a tab first mounts with `ref: null`, reads nothing, and reads for
+   * real when this value changes.
+   */
+  const tabContext: ProjectDetailTabContext = {
+    projectId,
+    ref: currentEnvironmentId === null ? null : { projectId, environmentId: currentEnvironmentId },
+    envName: vm.currentEnvironment?.stackName ?? envName,
+    tenant: vm.currentEnvironment?.tenant ?? "root",
+  };
+
+  const { project, isLoading, showEditDialog, loadError } = vm;
 
   if (isLoading) {
     return (
@@ -93,6 +106,14 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
         <Loader size="lg" />
         <Text c="dimmed">Loading project details...</Text>
       </Stack>
+    );
+  }
+
+  if (loadError !== null) {
+    return (
+      <Alert color="red" title="Could not load this project" mt="xl">
+        {loadError}
+      </Alert>
     );
   }
 
@@ -105,11 +126,13 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
   }
 
   const goTo = (tab: string) => {
-    if (tab === VIEW_DEFAULT) {
-      navigate(AppRoutes.projectDetail(projectId));
-    } else {
-      navigate(AppRoutes.projectTab(projectId, tab));
+    const stackName = vm.currentEnvironment?.stackName;
+    if (stackName) {
+      navigate(AppRoutes.environmentTab(projectId, stackName, tab));
+      return;
     }
+    // No environment resolved yet — keep the bare project URL, which resolves to the first one.
+    navigate(AppRoutes.projectTab(projectId, tab));
   };
 
   return (
@@ -119,22 +142,64 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           <Stack gap={4}>
             <Group gap="sm">
               <Title order={2}>{project.name}</Title>
-              <Badge variant="light">v{project.webinyVersion}</Badge>
+              <Badge variant="light">
+                {project.webinyVersion ? `v${project.webinyVersion}` : "workspace root"}
+              </Badge>
+              {vm.showEnvironmentSelector && (
+                <Select
+                  size="xs"
+                  w={180}
+                  aria-label="Environment"
+                  value={vm.currentEnvironment?.stackName ?? null}
+                  data={vm.environments.map((environment) => ({
+                    value: environment.stackName,
+                    label: environment.deployed
+                      ? environment.stackName
+                      : `${environment.stackName} (not deployed)`,
+                  }))}
+                  onChange={(value) => {
+                    if (value) {
+                      navigate(AppRoutes.environmentTab(projectId, value, activeView));
+                    }
+                  }}
+                />
+              )}
               <HealthBadge
                 status={vm.projectHealth}
                 error={vm.projectHealthError}
                 onCheck={() => void presenter.checkHealth()}
               />
             </Group>
+            {/*
+              Both, not one or the other. The API URL used to replace the checkout path, so the
+              directory a project lives in — the thing that says which of several checkouts this
+              is — disappeared the moment an environment was deployed.
+            */}
             <Text size="sm" c="dimmed">
-              {project.apiUrl}
+              {project.rootPath ?? "no local checkout"}
             </Text>
+            {vm.currentEnvironment?.apiUrl && (
+              <Text size="sm" c="dimmed">
+                {vm.currentEnvironment.apiUrl}
+              </Text>
+            )}
+            {vm.environmentError && (
+              <Text size="sm" c="orange">
+                {vm.environmentError}
+              </Text>
+            )}
+            {vm.currentEnvironment && !vm.currentEnvironment.connectable && (
+              <Text size="xs" c="orange">
+                Partially deployed — the api app is not deployed, so this environment cannot be
+                seeded.
+              </Text>
+            )}
             <Group gap="xs">
               <Text size="xs" c="dimmed">
-                Default tenant:
+                Tenant:
               </Text>
               <Badge size="xs" variant="outline">
-                {project.tenant}
+                {vm.currentEnvironment?.tenant ?? "root"}
               </Badge>
             </Group>
           </Stack>
@@ -150,6 +215,22 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           >
             <Stack gap={2}>
               <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pt="xs" pb={4}>
+                System
+              </Text>
+              <NavLink
+                label="Environments"
+                active={activeView === "environments"}
+                onClick={() => goTo("environments")}
+              />
+              <NavLink
+                label="System Info"
+                active={activeView === "system"}
+                onClick={() => goTo("system")}
+              />
+
+              <Divider my="xs" />
+
+              <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" pb={4}>
                 Data
               </Text>
               <NavLink
@@ -222,10 +303,10 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onClick={() => goTo("import")}
               />
               <NavLink
-                label="Cleanup Seeded Data"
-                disabled={isCleaningUp}
-                description={isCleaningUp ? "Cleaning..." : undefined}
-                onClick={() => presenter.openCleanupDialog()}
+                label="Sync from disk"
+                description={vm.isSyncing ? "Starting..." : undefined}
+                disabled={vm.isSyncing || project.rootPath === null}
+                onClick={() => void presenter.syncProject()}
               />
               <NavLink label="Edit Project" onClick={() => presenter.openEditDialog()} />
             </Stack>
@@ -234,120 +315,69 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           <Divider orientation="vertical" mx="md" />
 
           <Box style={{ flex: 1, minWidth: 0 }}>
-            {activeView === "tenants" && <TenantsTab tenants={tenants} />}
-            {activeView === "models" && <ModelsTab groups={groups} models={models} />}
-            {activeView === "files" && (
-              <FilesTab
-                mergedFiles={vm.mergedFiles}
-                onUploadFiles={(files) => void presenter.uploadFilesToProject(files)}
-                onUploadAllGlobal={() => void presenter.uploadAllGlobalImages()}
-                onUploadSelected={(names) => void presenter.uploadSelectedGlobalImages(names)}
-                onPullFiles={() => void presenter.pullFiles()}
-                onDelete={(id) => void presenter.deleteFile(id)}
-                isUploadingGlobal={isUploadingGlobal}
-                isPullingFiles={vm.isPullingFiles}
-                selectedTenant={project.tenant}
+            {activeView === "environments" && (
+              <EnvironmentsTab
+                environments={vm.environments}
+                archivedEnvironments={vm.archivedEnvironments}
+                currentEnvironment={vm.currentEnvironment}
+                stacks={vm.stacks}
+                isSyncing={vm.isSyncing}
+                confirmation={vm.environmentDeleteConfirmation}
+                canDeploy={project.rootPath !== null}
+                onSync={() => void presenter.syncProject()}
+                onDeploy={() => presenter.openDeploymentDialog("deploy")}
+                onDestroy={() => presenter.openDeploymentDialog("destroy")}
+                onSelectEnvironment={(stackName) =>
+                  navigate(AppRoutes.environmentTab(projectId, stackName, "environments"))
+                }
+                onConfirmRemove={(id, stackName) =>
+                  presenter.confirmRemoveEnvironment(id, stackName)
+                }
+                onCancelRemove={() => presenter.cancelRemoveEnvironment()}
+                onRequestPurge={() => presenter.requestPurgeEnvironment()}
+                onArchive={() => void presenter.archiveEnvironment()}
+                onPurge={() => void presenter.purgeEnvironment()}
+                onRestore={(id) => void presenter.restoreEnvironment(id)}
               />
             )}
-            {activeView === "entries" && (
-              <AuditLogTab
-                entries={entries}
-                totalCount={vm.entriesTotalCount}
-                page={vm.entriesPage}
-                jobFilter={vm.entriesJobFilter}
-                modelFilter={vm.entriesModelFilter}
-                tenantFilter={vm.entriesTenantFilter}
-                statusFilter={vm.entriesStatusFilter}
-                models={vm.models}
-                tenants={vm.tenants}
-                isClearing={isClearingEntries}
-                onPageChange={(p) => void presenter.loadEntriesPage(p)}
-                onFilterChange={(k, v) => void presenter.setEntriesFilter(k, v)}
-                onClearFilter={() => void presenter.clearEntriesFilter()}
-                onClear={() => void presenter.clearEntries()}
-              />
+            {activeView === "system" && (
+              <SystemInfoTab sections={vm.systemInfo} notice={vm.systemInfoNotice} />
             )}
-            {activeView === "history" && (
-              <SeedHistoryTab
-                seedJobs={seedJobs}
-                totalCount={vm.seedJobsTotalCount}
-                page={vm.seedJobsPage}
-                statusFilter={vm.seedJobsStatusFilter}
-                onPageChange={(p) => presenter.loadSeedJobsPage(p)}
-                onFilterChange={(k, v) => presenter.setSeedJobsFilter(k, v)}
-                onClearFilter={() => presenter.clearSeedJobsFilter()}
-                onJobClick={(jobId) => void presenter.viewJobEntries(jobId)}
-              />
+            {activeView === "tenants" && <TenantsTab context={tabContext} />}
+            {activeView === "models" && <ModelsTab context={tabContext} />}
+            {activeView === "files" && <FilesTab context={tabContext} />}
+            {activeView === "entries" && <EntriesTab context={tabContext} />}
+            {activeView === "history" && <SeedHistoryTab context={tabContext} />}
+            {activeView === "jobs" && <JobsTab context={tabContext} />}
+            {activeView === "activity" && <ActivityTab context={tabContext} />}
+            {activeView === "templates" && <TemplatesTab context={tabContext} />}
+            {activeView === "pull-tenants" && <PullTenantsTab context={tabContext} />}
+            {activeView === "pull-models" && <PullModelsTab context={tabContext} />}
+            {activeView === "pull-images" && <PullImagesTab context={tabContext} />}
+            {activeView === "seed" && vm.currentEnvironment && (
+              <EmbeddedSeedConfig envRef={{ projectId, environmentId: vm.currentEnvironment.id }} />
             )}
-            {activeView === "jobs" && (
-              <JobsTab
-                jobs={vm.jobs}
-                totalCount={vm.jobsTotalCount}
-                page={vm.jobsPage}
-                typeFilter={vm.jobsTypeFilter}
-                statusFilter={vm.jobsStatusFilter}
-                onPageChange={(p) => presenter.loadJobsPage(p)}
-                onFilterChange={(k, v) => presenter.setJobsFilter(k, v)}
-                onClearFilter={() => presenter.clearJobsFilter()}
-                onCancel={(jobId) => void presenter.cancelJob(jobId)}
-              />
-            )}
-            {activeView === "activity" && (
-              <SyncLogTable
-                logs={syncLog}
-                totalCount={vm.syncLogsTotalCount}
-                page={vm.syncLogsPage}
-                typeFilter={vm.syncLogsTypeFilter}
-                statusFilter={vm.syncLogsStatusFilter}
-                onPageChange={(p) => presenter.loadSyncLogsPage(p)}
-                onFilterChange={(k, v) => presenter.setSyncLogsFilter(k, v)}
-                onClearFilter={() => presenter.clearSyncLogsFilter()}
-                onDelete={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
-            {activeView === "templates" && (
-              <TemplatesTab
-                templates={templates}
-                onLoad={(id) => presenter.loadTemplate(id)}
-                onDelete={(id) => void presenter.deleteTemplate(id)}
-              />
-            )}
-            {activeView === "pull-tenants" && (
-              <SyncTenantsTab
-                logs={syncLog}
-                isSyncing={isSyncingTenants}
-                onSync={() => void presenter.pullTenants()}
-                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
-            {activeView === "pull-models" && (
-              <SyncModelsTab
-                logs={syncLog}
-                isSyncing={isSyncingModels}
-                onSync={() => void presenter.pullModels()}
-                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
-            {activeView === "pull-images" && (
-              <PullImagesTab
-                logs={syncLog}
-                isPulling={vm.isPullingFiles}
-                onPull={() => void presenter.pullFiles()}
-                onDeleteLog={(id) => void presenter.deleteSyncLog(id)}
-              />
-            )}
-            {activeView === "seed" && <EmbeddedSeedConfig projectId={projectId} />}
-            {activeView === "import" && (
-              <ImportEntriesTab
-                tenants={tenants}
-                models={models}
-                isImporting={isImporting}
-                onImport={(tenant, modelIds) => void presenter.importEntries(tenant, modelIds)}
-              />
-            )}
+            {activeView === "import" && <ImportEntriesTab context={tabContext} />}
           </Box>
         </Group>
       </Stack>
+
+      <DeploymentDialog
+        vm={vm.deploymentDialog}
+        onClose={() => presenter.closeDeploymentDialog()}
+        onToggleApp={(app) => presenter.toggleDeploymentApp(app)}
+        onRegionChange={(region) => presenter.setDeploymentRegion(region)}
+        onTogglePreview={() => presenter.toggleDeploymentPreview()}
+        onReview={() => presenter.reviewDeployment()}
+        onTypedNameChange={(value) => presenter.setDeploymentTypedName(value)}
+        onSubmit={() => void presenter.submitDeployment()}
+      />
+
+      <SyncPreviewDialog
+        vm={vm.syncPreview}
+        onApply={() => void presenter.applySync()}
+        onClose={() => presenter.closeSyncPreview()}
+      />
 
       <Modal
         opened={showEditDialog}
@@ -360,26 +390,6 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           onSubmit={(input) => presenter.submitEdit(input)}
           onCancel={() => presenter.closeEditDialog()}
         />
-      </Modal>
-
-      <Modal
-        opened={showCleanupDialog}
-        onClose={() => presenter.closeCleanupDialog()}
-        title="Cleanup Seeded Data"
-        centered
-      >
-        <Text>
-          Delete all seeded entries from Webiny? This removes entries created by this tool from the
-          target CMS instance. Entries are deleted in reverse dependency order.
-        </Text>
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={() => presenter.closeCleanupDialog()}>
-            Cancel
-          </Button>
-          <Button color="red" onClick={() => void presenter.confirmCleanup()}>
-            Delete All Seeded Entries
-          </Button>
-        </Group>
       </Modal>
     </>
   );
@@ -419,7 +429,7 @@ function HealthBadge({ status, error, onCheck }: HealthBadgeProps) {
   return badge;
 }
 
-function EmbeddedSeedConfig({ projectId }: { projectId: string }) {
+function EmbeddedSeedConfig({ envRef }: { envRef: EnvironmentRef }) {
   const { presenter } = useFeature(SeedConfigPresentationFeature);
-  return <SeedConfigPage presenter={presenter} projectId={projectId} />;
+  return <SeedConfigPage presenter={presenter} envRef={envRef} />;
 }

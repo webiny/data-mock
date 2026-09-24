@@ -1,4 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { ActionConfirmation } from "~/ui/presentation/shared/confirmation/ActionConfirmation.js";
 import { LocalFilesGateway } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
 import { LocalFilesRepository } from "~/ui/features/localFiles/abstractions/LocalFilesRepository.js";
 import type { ILocalFileVM } from "~/ui/features/localFiles/abstractions/LocalFilesGateway.js";
@@ -22,12 +23,13 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
   private _error: string | null = null;
   private _previewFileName: string | null = null;
   private readonly disposeJobSubscription: () => void;
+  private readonly actionConfirmation = new ActionConfirmation();
 
   public constructor(
     private readonly localFilesGateway: LocalFilesGateway.Interface,
     private readonly localFilesRepository: LocalFilesRepository.Interface,
     private readonly notifications: NotificationService.Interface,
-    eventBridge: EventBridge.Interface,
+    private readonly eventBridge: EventBridge.Interface,
   ) {
     this.disposeJobSubscription = eventBridge.on("job:status", this.handleJobStatus);
     makeAutoObservable(this);
@@ -43,6 +45,7 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
       picsumCount: this._picsumCount,
       error: this._error,
       previewFile: files.find((file) => file.fileName === this._previewFileName) ?? null,
+      confirmation: this.actionConfirmation.vm,
     };
   }
 
@@ -84,7 +87,26 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
     }
   };
 
-  public pullPicsum = async (): Promise<void> => {
+  public pullPicsum = (): void => {
+    this.actionConfirmation.request({
+      title: "Download placeholder images",
+      message:
+        `Download ${this._picsumCount} image(s) from picsum.photos into the local file store? ` +
+        `Files with a name that is already taken are overwritten.`,
+      confirmLabel: `Download ${this._picsumCount} image(s)`,
+      run: this.runPullPicsum,
+    });
+  };
+
+  public confirmAction = async (): Promise<void> => {
+    await this.actionConfirmation.confirm();
+  };
+
+  public cancelAction = (): void => {
+    this.actionConfirmation.cancel();
+  };
+
+  private runPullPicsum = async (): Promise<void> => {
     this._isPullingPicsum = true;
     this._error = null;
     try {
@@ -178,11 +200,27 @@ class FileManagerPresenterImpl implements Abstraction.Interface {
     if (event.status === "completed") {
       this.notifications.success("Picsum images downloaded.");
       void this.load();
-    } else if (event.status === "failed") {
-      runInAction(() => {
-        this._error = "Picsum download job failed.";
-      });
+      return;
     }
+
+    /**
+     * Every other terminal status says something too. A cancelled or interrupted download used to
+     * just stop the spinner, which reads as "it worked" — and some images may well have landed
+     * before it stopped, so the list is reloaded either way.
+     *
+     * The message is set after that reload, not before: `load` clears the error it may set itself,
+     * and would take this one with it.
+     */
+    const message =
+      event.status === "failed"
+        ? "Picsum download job failed."
+        : `Picsum download ${event.status}. Some images may already have been downloaded.`;
+
+    void this.load().finally(() => {
+      runInAction(() => {
+        this._error = message;
+      });
+    });
   };
 }
 

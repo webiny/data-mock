@@ -9,6 +9,7 @@ export const importEntries = routeFactory(
     const jobWorker = container.resolve(JobWorker);
     const jobId = await jobWorker.enqueue({
       projectId: params.projectId,
+      environmentId: params.environmentId,
       type: "import",
       config: {
         tenant: body.tenant,

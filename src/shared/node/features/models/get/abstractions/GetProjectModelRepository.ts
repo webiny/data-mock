@@ -4,7 +4,7 @@ import type { ProjectModel } from "~/shared/types.js";
 import type { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IGetProjectModelRepositoryInput {
-  projectId: string;
+  environmentId: string;
   modelId: string;
 }
 

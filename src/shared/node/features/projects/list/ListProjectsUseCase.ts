@@ -5,8 +5,10 @@ import { ListProjectsUseCase as Abstraction } from "./abstractions/ListProjectsU
 class ListProjectsUseCaseImpl implements Abstraction.Interface {
   public constructor(private readonly listProjectsRepository: ListProjectsRepository.Interface) {}
 
-  public async execute(): Promise<Result<Abstraction.UseCaseResult, Abstraction.Error>> {
-    const result = await this.listProjectsRepository.execute();
+  public async execute(
+    input?: Abstraction.Input,
+  ): Promise<Result<Abstraction.UseCaseResult, Abstraction.Error>> {
+    const result = await this.listProjectsRepository.execute(input);
 
     if (result.isFail()) {
       return Result.fail(result.error);

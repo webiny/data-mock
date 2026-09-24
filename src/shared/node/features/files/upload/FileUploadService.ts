@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { basename } from "node:path";
 import { Result, Logger } from "@webiny/stdlib";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import { UploadFileRepository } from "./abstractions/UploadFileRepository.js";
 import { CreateSyncLogRepository } from "~/shared/node/features/syncLogs/create/abstractions/CreateSyncLogRepository.js";
@@ -21,7 +21,7 @@ interface PresignedPostFile {
   key: string;
 }
 
-interface CreatedFmFile {
+interface CreatedFileManagerFile {
   id: string;
   key: string;
   src: string;
@@ -32,7 +32,7 @@ interface CreatedFmFile {
 
 class FileUploadServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly httpClient: HttpClient.Interface,
     private readonly uploadFileRepository: UploadFileRepository.Interface,
     private readonly createSyncLogRepository: CreateSyncLogRepository.Interface,
@@ -42,12 +42,15 @@ class FileUploadServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
+
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
 
-    const project = projectResult.value;
+    const { project, environment, apiUrl, apiToken } = contextResult.value;
     const fileName = basename(input.filePath);
     const stat = statSync(input.filePath);
     const fileSize = stat.size;
@@ -55,10 +58,10 @@ class FileUploadServiceImpl implements Abstraction.Interface {
 
     this.logger.debug(`Uploading file "${fileName}" (${fileSize} bytes, ${fileType})`);
 
-    const graphqlUrl = `${project.apiUrl.replace(/\/cms\/manage.*$/, "")}/graphql`;
+    const graphqlUrl = `${apiUrl.replace(/\/cms\/manage.*$/, "")}/graphql`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
+      authorization: `Bearer ${apiToken}`,
       "x-tenant": input.tenant,
     };
 
@@ -88,7 +91,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     });
     if (presignedResult.isFail()) {
       await this.logUpload(
-        input.projectId,
+        project.id,
+        environment.id,
         fileName,
         "error",
         presignedResult.error.message,
@@ -113,7 +117,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     });
     if (uploadResult.isFail()) {
       await this.logUpload(
-        input.projectId,
+        project.id,
+        environment.id,
         fileName,
         "error",
         uploadResult.error.message,
@@ -155,7 +160,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     });
     if (createFileResult.isFail()) {
       await this.logUpload(
-        input.projectId,
+        project.id,
+        environment.id,
         fileName,
         "error",
         createFileResult.error.message,
@@ -168,7 +174,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
 
     // Step 4: store the file reference locally.
     const storeResult = await this.uploadFileRepository.execute({
-      projectId: input.projectId,
+      projectId: project.id,
+      environmentId: environment.id,
       tenant: input.tenant,
       fileKey: createdFile.key,
       fileUrl: createdFile.src,
@@ -182,7 +189,8 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     }
 
     await this.logUpload(
-      input.projectId,
+      project.id,
+      environment.id,
       fileName,
       "success",
       `Uploaded "${fileName}" to File Manager`,
@@ -196,6 +204,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
 
   private async logUpload(
     projectId: string,
+    environmentId: string,
     fileName: string,
     status: "success" | "error",
     message: string,
@@ -204,6 +213,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
   ): Promise<void> {
     await this.createSyncLogRepository.execute({
       projectId,
+      environmentId,
       type: "upload-file",
       status,
       message,
@@ -342,7 +352,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
     fileName: string,
     fileType: string,
     fileSize: number,
-  ): Promise<Result<CreatedFmFile, GraphQLRequestError>> {
+  ): Promise<Result<CreatedFileManagerFile, GraphQLRequestError>> {
     const mutation = `
       mutation CreateFile($data: FmFileCreateInput!) {
         fileManager {
@@ -402,7 +412,7 @@ class FileUploadServiceImpl implements Abstraction.Interface {
       return Result.fail(new GraphQLRequestError(error.message, 200, error));
     }
 
-    const fileData = createFile?.["data"] as CreatedFmFile | undefined;
+    const fileData = createFile?.["data"] as CreatedFileManagerFile | undefined;
     if (!fileData) {
       return Result.fail(new GraphQLRequestError("Unexpected response from file manager", 200));
     }
@@ -437,7 +447,7 @@ function guessContentType(fileName: string): string {
 export const FileUploadService = Abstraction.createImplementation({
   implementation: FileUploadServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     HttpClient,
     UploadFileRepository,
     CreateSyncLogRepository,

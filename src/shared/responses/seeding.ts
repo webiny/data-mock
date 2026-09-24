@@ -14,7 +14,8 @@ export const publishStrategySchema = z.enum(["none", "all", "random", "first", "
 export const seedJobSchema = z.object({
   id: z.string(),
   projectId: z.string(),
-  status: z.enum(["pending", "running", "completed", "failed", "dry-run"]),
+  environmentId: z.string(),
+  status: z.enum(["pending", "running", "completed", "failed", "cancelled", "dry-run"]),
   config: z.object({
     models: z.array(
       z.object({

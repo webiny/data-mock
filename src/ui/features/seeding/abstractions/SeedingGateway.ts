@@ -2,6 +2,7 @@ import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { SeedJob, Job, Revisions, PublishStrategy } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 export interface ITriggerSeedModelInput {
   modelId: string;
@@ -33,16 +34,18 @@ export interface SeedJobsListResult {
 }
 
 export interface ISeedingGateway {
-  triggerSeed(projectId: string, input: ITriggerSeedInput): Promise<Result<Job, HTTPError>>;
+  triggerSeed(ref: EnvironmentRef, input: ITriggerSeedInput): Promise<Result<Job, HTTPError>>;
+  /** Seeds whatever a cancelled or failed run did not finish. The remainder is worked out server-side. */
+  resumeSeed(ref: EnvironmentRef, seedJobId: string): Promise<Result<Job, HTTPError>>;
   listSeedJobs(
-    projectId: string,
+    ref: EnvironmentRef,
     params?: SeedJobsListParams,
   ): Promise<Result<SeedJobsListResult, HTTPError>>;
   importEntries(
-    projectId: string,
+    ref: EnvironmentRef,
     input: { tenant: string; models: string[] },
   ): Promise<Result<Job, HTTPError>>;
-  cleanupEntries(projectId: string, input?: { jobId?: string }): Promise<Result<Job, HTTPError>>;
+  cleanupEntries(ref: EnvironmentRef, input?: { jobId?: string }): Promise<Result<Job, HTTPError>>;
 }
 
 export const SeedingGateway = createAbstraction<ISeedingGateway>("Ui/SeedingGateway");

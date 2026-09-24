@@ -33,8 +33,8 @@ class GeneratorRegistryImpl implements IGeneratorRegistry {
             return this.createRegistryGenerator<T>(generator);
           }
         }
-        const name = type.constructor?.name || type.name || type || typeof type;
-        throw new Error(`Generator for type "${name}" not found!`);
+        // `type.constructor.name` is "Function" for every class, so the message named nothing.
+        throw new Error(`Generator for type "${type.name}" not found!`);
       },
       getGeneratorByField: <T extends IGenerator<unknown>>(
         field: ApiCmsModelField,

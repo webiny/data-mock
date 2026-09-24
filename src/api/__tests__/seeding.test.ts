@@ -5,11 +5,29 @@ import { createServer } from "../server.js";
 import { registerApiRoutes } from "../routes/index.js";
 import type { FastifyInstance } from "fastify";
 
+/**
+ * The create route returns the project only, so the first environment is fetched. That also
+ * exercises the environments endpoint the rest of these tests depend on.
+ */
+async function firstEnvironmentId(app: FastifyInstance, projectId: string): Promise<string> {
+  const response = await app.inject({
+    method: "GET",
+    url: `/api/projects/${projectId}/environments`,
+  });
+  const environments = response.json().environments.items as Array<{ id: string }>;
+  const first = environments[0];
+  if (!first) {
+    throw new Error(`Project ${projectId} has no environments`);
+  }
+  return first.id;
+}
+
 describe("Seeding API routes", () => {
   let tc: ReturnType<typeof createTestContainer>;
   let app: FastifyInstance;
 
   let projectId: string;
+  let environmentId: string;
 
   beforeEach(async () => {
     tc = createTestContainer();
@@ -27,6 +45,7 @@ describe("Seeding API routes", () => {
       },
     });
     projectId = createResponse.json().project.id;
+    environmentId = await firstEnvironmentId(app, projectId);
   });
 
   afterEach(async () => {
@@ -44,7 +63,7 @@ describe("Seeding API routes", () => {
     it("should accept a valid body and return 202 with a job", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: validBody,
       });
 
@@ -57,7 +76,7 @@ describe("Seeding API routes", () => {
     it("should accept optional fields (revisions, publishStrategy, publishPercent, includeUnpublish, dryRun)", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "product", amount: 10, revisions: { min: 2, max: 5 } }],
@@ -75,7 +94,7 @@ describe("Seeding API routes", () => {
     it("should reject an empty tenant", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: { ...validBody, tenant: "" },
       });
 
@@ -86,7 +105,7 @@ describe("Seeding API routes", () => {
     it("should reject a missing models array", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: { tenant: "root", batchSize: 1 },
       });
 
@@ -96,7 +115,7 @@ describe("Seeding API routes", () => {
     it("should reject an empty modelId", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "", amount: 10 }],
@@ -110,7 +129,7 @@ describe("Seeding API routes", () => {
     it("should reject amount below 1", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "product", amount: 0 }],
@@ -124,7 +143,7 @@ describe("Seeding API routes", () => {
     it("should reject amount above 100000", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "product", amount: 100001 }],
@@ -138,7 +157,7 @@ describe("Seeding API routes", () => {
     it("should reject a non-integer revisions number above 50", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "product", amount: 10, revisions: 51 }],
@@ -152,7 +171,7 @@ describe("Seeding API routes", () => {
     it("should reject revisions object where min > max", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "product", amount: 10, revisions: { min: 10, max: 2 } }],
@@ -166,7 +185,7 @@ describe("Seeding API routes", () => {
     it("should reject revisions object where max exceeds 50", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "product", amount: 10, revisions: { min: 1, max: 51 } }],
@@ -180,7 +199,7 @@ describe("Seeding API routes", () => {
     it("should accept a valid revisions range object", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: {
           tenant: "root",
           models: [{ modelId: "product", amount: 10, revisions: { min: 1, max: 50 } }],
@@ -194,7 +213,7 @@ describe("Seeding API routes", () => {
     it("should reject an invalid publishStrategy", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: { ...validBody, publishStrategy: "invalid" },
       });
 
@@ -204,7 +223,7 @@ describe("Seeding API routes", () => {
     it("should reject publishPercent of 0", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: { ...validBody, publishPercent: 0 },
       });
 
@@ -214,7 +233,7 @@ describe("Seeding API routes", () => {
     it("should reject publishPercent above 100", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: { ...validBody, publishPercent: 101 },
       });
 
@@ -224,7 +243,7 @@ describe("Seeding API routes", () => {
     it("should reject batchSize above 50", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: { ...validBody, batchSize: 51 },
       });
 
@@ -234,7 +253,7 @@ describe("Seeding API routes", () => {
     it("should reject a missing batchSize", async () => {
       const response = await app.inject({
         method: "POST",
-        url: `/api/projects/${projectId}/seed`,
+        url: `/api/projects/${projectId}/environments/${environmentId}/seed`,
         payload: { tenant: "root", models: [{ modelId: "product", amount: 10 }] },
       });
 

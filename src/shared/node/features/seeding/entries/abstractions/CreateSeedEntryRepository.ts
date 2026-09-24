@@ -6,6 +6,7 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 export interface ICreateSeedEntryInput {
   jobId: string | null;
   projectId: string;
+  environmentId: string;
   tenant: string;
   modelId: string;
   entryId: string;

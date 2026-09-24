@@ -12,7 +12,7 @@ class DeleteProjectEntriesRepositoryImpl implements Abstraction.Interface {
     try {
       this.databaseClient.db
         .delete(seedEntries)
-        .where(eq(seedEntries.projectId, input.projectId))
+        .where(eq(seedEntries.environmentId, input.environmentId))
         .run();
 
       return Result.ok(undefined);

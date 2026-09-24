@@ -4,7 +4,7 @@ import type { ProjectGroup } from "~/shared/types.js";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListProjectGroupsRepositoryInput {
-  projectId: string;
+  environmentId: string;
 }
 
 export interface IListProjectGroupsRepository {

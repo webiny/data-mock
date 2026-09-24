@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { generateId, Logger } from "@webiny/stdlib";
 import { JobWorker as Abstraction } from "./abstractions/JobWorker.js";
 import { JobExecutionContextFactory } from "./abstractions/JobExecutionContextFactory.js";
@@ -10,9 +10,30 @@ import { JobQueryHelper } from "./JobQueryHelper.js";
 import { JobRecoveryHelper } from "./JobRecoveryHelper.js";
 import type { JobType, JobStatus } from "~/shared/jobs/constants.js";
 
+const DEFAULT_MAX_CONCURRENT_JOBS = 4;
+
+/**
+ * How many jobs may run at once across every project. A deploy holds a child process for tens of
+ * minutes, so an unbounded launcher would put every pending row on the machine simultaneously.
+ *
+ * Read once, at module load, from `MAX_CONCURRENT_JOBS`. Anything that is not a positive number
+ * falls back to the default rather than uncapping the launcher.
+ */
+const MAX_CONCURRENT_JOBS = readMaxConcurrentJobs();
+
+function readMaxConcurrentJobs(): number {
+  const configured = Number.parseInt(process.env.MAX_CONCURRENT_JOBS ?? "", 10);
+  return Number.isNaN(configured) || configured < 1 ? DEFAULT_MAX_CONCURRENT_JOBS : configured;
+}
+
+/** Shown on a job that is queued behind another job for the same project. Cleared on claim. */
+const WAITING_LABEL = "waiting: project busy";
+
 class JobWorkerImpl implements Abstraction.Interface {
   private readonly controllers = new Map<string, AbortController>();
   private readonly inFlight = new Set<Promise<void>>();
+  /** Projects with a job running right now. Used to serialize per project. */
+  private readonly busyProjectIds = new Set<string>();
   private readonly queryHelper: JobQueryHelper;
   private readonly recoveryHelper: JobRecoveryHelper;
   private processing = false;
@@ -39,10 +60,10 @@ class JobWorkerImpl implements Abstraction.Interface {
       .values({
         id,
         projectId: input.projectId,
+        environmentId: input.environmentId ?? null,
         type: input.type,
         status: "pending",
         config: input.config ? JSON.stringify(input.config) : null,
-        parentJobId: input.parentJobId ?? null,
         createdAt: Date.now(),
       })
       .run();
@@ -69,19 +90,44 @@ class JobWorkerImpl implements Abstraction.Interface {
     }
   }
 
+  /**
+   * Claims and launches pending jobs under two limits: a global cap, and one running job per
+   * project.
+   *
+   * Per-project serialization is what stops a sync from reading a checkpoint that a
+   * deploy is halfway through rewriting. Skipped jobs stay `pending` — there is no third status —
+   * and carry a label saying why, so a queued job does not look stuck.
+   *
+   * `projectId === null` is never blocked: global jobs (pulling placeholder images) belong to no
+   * project and would otherwise queue behind whichever project happened to be busy.
+   */
   private async processPendingJobs(): Promise<void> {
+    // Ordered, because once rows are skipped the natural order becomes rowid luck and a job can
+    // sit behind later arrivals indefinitely.
     const pendingJobs = this.databaseClient.db
       .select()
       .from(jobs)
       .where(eq(jobs.status, "pending"))
+      .orderBy(asc(jobs.createdAt))
       .all();
 
     for (const job of pendingJobs) {
-      this.databaseClient.db
-        .update(jobs)
-        .set({ status: "running", startedAt: Date.now() })
-        .where(eq(jobs.id, job.id))
-        .run();
+      if (this.inFlight.size >= MAX_CONCURRENT_JOBS) {
+        break;
+      }
+
+      if (job.projectId !== null && this.busyProjectIds.has(job.projectId)) {
+        this.markWaiting(job);
+        continue;
+      }
+
+      if (!this.claim(job)) {
+        continue;
+      }
+
+      if (job.projectId !== null) {
+        this.busyProjectIds.add(job.projectId);
+      }
 
       this.webSocketBroadcaster.broadcast("job:status", {
         jobId: job.id,
@@ -90,11 +136,48 @@ class JobWorkerImpl implements Abstraction.Interface {
         status: "running" as JobStatus,
       });
 
+      const projectId = job.projectId;
       const promise = this.executeJob(job)
         .catch(() => {})
-        .finally(() => this.inFlight.delete(promise));
+        .finally(() => {
+          this.inFlight.delete(promise);
+          if (projectId !== null) {
+            this.busyProjectIds.delete(projectId);
+          }
+        });
       this.inFlight.add(promise);
     }
+  }
+
+  /**
+   * Flips one row to `running`, guarded on it still being `pending`.
+   *
+   * The guard matters because `recoverStaleJobs` and `cancelJob` write the same rows: an
+   * unguarded update would resurrect a job that was cancelled between the select and the claim.
+   * `progressLabel` is cleared here rather than at completion — `finishJobWithLogs` only nulls it
+   * when `setProgress` was used, so a waiting label on a job that never reports progress would
+   * survive the whole run.
+   */
+  private claim(job: typeof jobs.$inferSelect): boolean {
+    const result = this.databaseClient.db
+      .update(jobs)
+      .set({ status: "running", startedAt: Date.now(), progressLabel: null })
+      .where(and(eq(jobs.id, job.id), eq(jobs.status, "pending")))
+      .run();
+
+    return result.changes > 0;
+  }
+
+  private markWaiting(job: typeof jobs.$inferSelect): void {
+    if (job.progressLabel === WAITING_LABEL) {
+      return;
+    }
+
+    this.databaseClient.db
+      .update(jobs)
+      .set({ progressLabel: WAITING_LABEL })
+      .where(and(eq(jobs.id, job.id), eq(jobs.status, "pending")))
+      .run();
   }
 
   public async cancelJob(jobId: string): Promise<void> {
@@ -115,6 +198,7 @@ class JobWorkerImpl implements Abstraction.Interface {
     const context = this.executionContextFactory.create({
       jobId: job.id,
       projectId: job.projectId,
+      environmentId: job.environmentId,
     });
 
     try {
@@ -122,9 +206,11 @@ class JobWorkerImpl implements Abstraction.Interface {
       await executor.execute({
         jobId: job.id,
         projectId: job.projectId,
+        environmentId: job.environmentId,
         configJson: job.config,
         appendLog: context.appendLog,
         setProgress: context.setProgress,
+        setResult: context.setResult,
         signal: controller.signal,
       });
 
@@ -135,7 +221,13 @@ class JobWorkerImpl implements Abstraction.Interface {
       const status: JobStatus = controller.signal.aborted ? "cancelled" : "failed";
       const errorLog = `${context.getLogs()}\nERROR: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`;
       this.logger.error(`Job ${job.id} (${job.type}) failed`, { error: String(error) });
-      await this.finishJobWithLogs(job, status, errorLog, context.wasProgressUsed());
+      await this.finishJobWithLogs(
+        job,
+        status,
+        errorLog,
+        context.wasProgressUsed(),
+        context.getResult(),
+      );
     } finally {
       this.controllers.delete(job.id);
     }
@@ -146,7 +238,13 @@ class JobWorkerImpl implements Abstraction.Interface {
     status: JobStatus,
     context: JobExecutionContextFactory.Context,
   ): Promise<void> {
-    await this.finishJobWithLogs(job, status, context.getLogs(), context.wasProgressUsed());
+    await this.finishJobWithLogs(
+      job,
+      status,
+      context.getLogs(),
+      context.wasProgressUsed(),
+      context.getResult(),
+    );
   }
 
   private async finishJobWithLogs(
@@ -154,17 +252,46 @@ class JobWorkerImpl implements Abstraction.Interface {
     status: JobStatus,
     logs: string,
     progressUsed: boolean,
+    result: string | null = null,
   ): Promise<void> {
     const updateFields: Record<string, unknown> = {
       status,
       completedAt: Date.now(),
       logs,
     };
+    /**
+     * Written only when the executor produced one. A failed run keeps whatever partial result it
+     * managed to set rather than having it blanked on the way out.
+     */
+    if (result !== null) {
+      updateFields["result"] = result;
+    }
     if (progressUsed) {
       updateFields["progress"] = 100;
       updateFields["progressLabel"] = null;
     }
-    this.databaseClient.db.update(jobs).set(updateFields).where(eq(jobs.id, job.id)).run();
+
+    try {
+      this.databaseClient.db.update(jobs).set(updateFields).where(eq(jobs.id, job.id)).run();
+    } catch (error) {
+      this.logger.error(`Failed to write terminal status for job ${job.id} (${job.type})`, {
+        error: String(error),
+      });
+      try {
+        // The full write may have failed on account of what it carries — a huge log, a result
+        // that does not fit — rather than the row itself. A bare status flip is what stops the
+        // row from reading "running" forever; everything else is best-effort from here.
+        this.databaseClient.db
+          .update(jobs)
+          .set({ status, completedAt: Date.now() })
+          .where(eq(jobs.id, job.id))
+          .run();
+      } catch (fallbackError) {
+        this.logger.error(`Fallback status write also failed for job ${job.id} (${job.type})`, {
+          error: String(fallbackError),
+        });
+      }
+    }
 
     this.webSocketBroadcaster.broadcast("job:status", {
       jobId: job.id,

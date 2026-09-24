@@ -16,7 +16,7 @@ class ListProjectGroupsRepositoryImpl implements Abstraction.Interface {
       const rows = this.databaseClient.db
         .select()
         .from(projectGroups)
-        .where(eq(projectGroups.projectId, input.projectId))
+        .where(eq(projectGroups.environmentId, input.environmentId))
         .all();
 
       return Result.ok(rows);

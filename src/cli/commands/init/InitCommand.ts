@@ -3,10 +3,17 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { InitCommand as Abstraction } from "./abstractions/InitCommand.js";
 
-const ENV_PATH = join(process.cwd(), ".env");
+/**
+ * The .env the CLI reads and writes, resolved when the command runs rather than when the module is
+ * loaded. A constant captured at import time is the wrong file the moment the process changes
+ * directory, and it is the one file here whose contents are not recoverable.
+ */
+function envPath(): string {
+  return join(process.cwd(), ".env");
+}
 
 class InitCommandImpl implements Abstraction.Interface {
   public readonly name = "init";
@@ -20,12 +27,14 @@ class InitCommandImpl implements Abstraction.Interface {
   public async execute(): Promise<void> {
     this.ui.intro("Initialize webiny-mock-data");
 
-    if (existsSync(ENV_PATH)) {
+    const path = envPath();
+
+    if (existsSync(path)) {
       const overwrite = await this.prompts.confirm({
         message: ".env file already exists. Overwrite?",
       });
 
-      if (isCancel(overwrite) || !overwrite) {
+      if (isCancelled(overwrite) || !overwrite) {
         this.ui.cancel("Cancelled — existing .env kept.");
         return;
       }
@@ -36,7 +45,7 @@ class InitCommandImpl implements Abstraction.Interface {
       defaultValue: "4000",
       placeholder: "4000",
     });
-    if (isCancel(apiPort)) {
+    if (isCancelled(apiPort)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -46,7 +55,7 @@ class InitCommandImpl implements Abstraction.Interface {
       defaultValue: "4001",
       placeholder: "4001",
     });
-    if (isCancel(uiPort)) {
+    if (isCancelled(uiPort)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -64,12 +73,16 @@ class InitCommandImpl implements Abstraction.Interface {
       `API_PORT=${apiPort || "4000"}`,
       `UI_PORT=${uiPort || "4001"}`,
       "",
+      "# How many jobs may run at once across every project. One running job per project is",
+      "# enforced regardless, so this only binds with several projects active at the same time.",
+      "MAX_CONCURRENT_JOBS=4",
+      "",
       "# Optional: custom database path (default: .webiny/data-mock.db)",
       "# DB_PATH=./.webiny/data-mock.db",
       "",
     ].join("\n");
 
-    writeFileSync(ENV_PATH, envContent, "utf-8");
+    writeFileSync(path, envContent, "utf-8");
 
     this.ui.log.success(".env file created with a fresh encryption key.");
     this.ui.log.info(`API port: ${apiPort || "4000"}, UI port: ${uiPort || "4001"}`);

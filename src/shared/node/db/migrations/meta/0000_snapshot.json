@@ -1,9 +1,315 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e41104aa-1a2f-403e-b7e0-c05d627897b2",
+  "id": "000dc706-32f5-4b80-9d8c-f4ee6c687c51",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "child_processes": {
+      "name": "child_processes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pid": {
+          "name": "pid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "owner_pid": {
+          "name": "owner_pid",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "command": {
+          "name": "command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cwd": {
+          "name": "cwd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "jobs": {
+      "name": "jobs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "config": {
+          "name": "config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "logs": {
+          "name": "logs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "progress": {
+          "name": "progress",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "progress_label": {
+          "name": "progress_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "jobs_project_id_projects_id_fk": {
+          "name": "jobs_project_id_projects_id_fk",
+          "tableFrom": "jobs",
+          "tableTo": "projects",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jobs_environment_id_project_environments_id_fk": {
+          "name": "jobs_environment_id_project_environments_id_fk",
+          "tableFrom": "jobs",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "project_environments": {
+      "name": "project_environments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "env": {
+          "name": "env",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "variant": {
+          "name": "variant",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "deployed": {
+          "name": "deployed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "api_url": {
+          "name": "api_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "admin_url": {
+          "name": "admin_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "api_token": {
+          "name": "api_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tenant": {
+          "name": "tenant",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'root'"
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "project_environment_unique": {
+          "name": "project_environment_unique",
+          "columns": ["project_id", "env", "variant"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "project_environments_project_id_projects_id_fk": {
+          "name": "project_environments_project_id_projects_id_fk",
+          "tableFrom": "project_environments",
+          "tableTo": "projects",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "project_files": {
       "name": "project_files",
       "columns": {
@@ -16,6 +322,13 @@
         },
         "project_id": {
           "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -74,7 +387,7 @@
       "indexes": {
         "project_file_unique": {
           "name": "project_file_unique",
-          "columns": ["project_id", "file_key"],
+          "columns": ["environment_id", "file_key"],
           "isUnique": true
         }
       },
@@ -84,6 +397,15 @@
           "tableFrom": "project_files",
           "tableTo": "projects",
           "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_files_environment_id_project_environments_id_fk": {
+          "name": "project_files_environment_id_project_environments_id_fk",
+          "tableFrom": "project_files",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -105,6 +427,13 @@
         },
         "project_id": {
           "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -163,7 +492,7 @@
       "indexes": {
         "project_group_unique": {
           "name": "project_group_unique",
-          "columns": ["project_id", "slug"],
+          "columns": ["environment_id", "slug"],
           "isUnique": true
         }
       },
@@ -173,6 +502,15 @@
           "tableFrom": "project_groups",
           "tableTo": "projects",
           "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_groups_environment_id_project_environments_id_fk": {
+          "name": "project_groups_environment_id_project_environments_id_fk",
+          "tableFrom": "project_groups",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -194,6 +532,13 @@
         },
         "project_id": {
           "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -288,7 +633,7 @@
       "indexes": {
         "project_model_unique": {
           "name": "project_model_unique",
-          "columns": ["project_id", "model_id"],
+          "columns": ["environment_id", "model_id"],
           "isUnique": true
         }
       },
@@ -298,6 +643,98 @@
           "tableFrom": "project_models",
           "tableTo": "projects",
           "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_models_environment_id_project_environments_id_fk": {
+          "name": "project_models_environment_id_project_environments_id_fk",
+          "tableFrom": "project_models",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "project_stacks": {
+      "name": "project_stacks",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "app": {
+          "name": "app",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deployed": {
+          "name": "deployed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "resource_count": {
+          "name": "resource_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "stack_output": {
+          "name": "stack_output",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "read_state": {
+          "name": "read_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "synced_at": {
+          "name": "synced_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "project_stack_unique": {
+          "name": "project_stack_unique",
+          "columns": ["environment_id", "app"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "project_stacks_environment_id_project_environments_id_fk": {
+          "name": "project_stacks_environment_id_project_environments_id_fk",
+          "tableFrom": "project_stacks",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -319,6 +756,13 @@
         },
         "project_id": {
           "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -349,7 +793,7 @@
       "indexes": {
         "project_tenant_unique": {
           "name": "project_tenant_unique",
-          "columns": ["project_id", "tenant_id"],
+          "columns": ["environment_id", "tenant_id"],
           "isUnique": true
         }
       },
@@ -359,6 +803,15 @@
           "tableFrom": "project_tenants",
           "tableTo": "projects",
           "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_tenants_environment_id_project_environments_id_fk": {
+          "name": "project_tenants_environment_id_project_environments_id_fk",
+          "tableFrom": "project_tenants",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -385,35 +838,83 @@
           "notNull": true,
           "autoincrement": false
         },
-        "api_url": {
-          "name": "api_url",
+        "root_path": {
+          "name": "root_path",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
-        },
-        "api_token": {
-          "name": "api_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tenant": {
-          "name": "tenant",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'root'"
         },
         "webiny_version": {
           "name": "webiny_version",
           "type": "text",
           "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "version_source": {
+          "name": "version_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "version_major": {
+          "name": "version_major",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "operations_version": {
+          "name": "operations_version",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
           "default": "'6.0.0'"
+        },
+        "pulumi_backend": {
+          "name": "pulumi_backend",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aws_profile": {
+          "name": "aws_profile",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aws_region": {
+          "name": "aws_region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_sync_status": {
+          "name": "last_sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -431,6 +932,43 @@
         }
       },
       "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "scan_roots": {
+      "name": "scan_roots",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "scan_roots_path_unique": {
+          "name": "scan_roots_path_unique",
+          "columns": ["path"],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -455,6 +993,13 @@
         },
         "project_id": {
           "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -486,6 +1031,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "request_data": {
+          "name": "request_data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "response_data": {
@@ -543,6 +1095,15 @@
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "seed_entries_environment_id_project_environments_id_fk": {
+          "name": "seed_entries_environment_id_project_environments_id_fk",
+          "tableFrom": "seed_entries",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -561,6 +1122,13 @@
         },
         "project_id": {
           "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "environment_id": {
+          "name": "environment_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -616,6 +1184,15 @@
           "tableFrom": "seed_jobs",
           "tableTo": "projects",
           "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "seed_jobs_environment_id_project_environments_id_fk": {
+          "name": "seed_jobs_environment_id_project_environments_id_fk",
+          "tableFrom": "seed_jobs",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -703,6 +1280,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "environment_id": {
+          "name": "environment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "type": {
           "name": "type",
           "type": "text",
@@ -753,6 +1337,15 @@
           "tableFrom": "sync_logs",
           "tableTo": "projects",
           "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "sync_logs_environment_id_project_environments_id_fk": {
+          "name": "sync_logs_environment_id_project_environments_id_fk",
+          "tableFrom": "sync_logs",
+          "tableTo": "project_environments",
+          "columnsFrom": ["environment_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"

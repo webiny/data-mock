@@ -1,66 +1,84 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { SyncPreviewState } from "~/ui/presentation/shared/syncPreview/SyncPreviewState.js";
 import { ProjectsGateway } from "~/ui/features/projects/abstractions/ProjectsGateway.js";
 import { ProjectsRepository } from "~/ui/features/projects/abstractions/ProjectsRepository.js";
-import { TenantsRepository } from "~/ui/features/tenants/abstractions/TenantsRepository.js";
+import { EnvironmentsGateway } from "~/ui/features/environments/abstractions/EnvironmentsGateway.js";
+import { EnvironmentsRepository } from "~/ui/features/environments/abstractions/EnvironmentsRepository.js";
 import { NotificationService } from "~/ui/features/notifications/abstractions/NotificationService.js";
+import { JobsGateway } from "~/ui/features/jobs/abstractions/JobsGateway.js";
 import { LoadProjectsUseCase } from "./useCases/LoadProjects/abstractions/LoadProjectsUseCase.js";
-import { DeleteProjectUseCase } from "./useCases/DeleteProject/abstractions/DeleteProjectUseCase.js";
-import { LoadTenantsUseCase } from "./useCases/LoadTenants/abstractions/LoadTenantsUseCase.js";
-import { SyncTenantsUseCase } from "./useCases/SyncTenants/abstractions/SyncTenantsUseCase.js";
-import { SyncModelsUseCase } from "./useCases/SyncModels/abstractions/SyncModelsUseCase.js";
+import { ArchiveProjectUseCase } from "./useCases/ArchiveProject/abstractions/ArchiveProjectUseCase.js";
+import { RestoreProjectUseCase } from "./useCases/RestoreProject/abstractions/RestoreProjectUseCase.js";
+import { PurgeProjectUseCase } from "./useCases/PurgeProject/abstractions/PurgeProjectUseCase.js";
 import { ProjectListPresenter as Abstraction } from "./abstractions/ProjectListPresenter.js";
-import type { ProjectListVM } from "./abstractions/ProjectListPresenter.js";
-
-type HealthStatus = "unknown" | "checking" | "reachable" | "unreachable";
+import type {
+  DeletionImpactLineVM,
+  ProjectHealth,
+  ProjectItemVM,
+  ProjectListVM,
+} from "./abstractions/ProjectListPresenter.js";
+import type { DeletionImpact, Project, ProjectEnvironment } from "~/shared/types.js";
+import { toDeletionImpactLines, totalDeletionImpact } from "~/shared/deletion/impactLines.js";
 
 class ProjectListPresenterImpl implements Abstraction.Interface {
   private _isLoading = false;
   private _loaded = false;
-  private _syncingProjectIds = new Set<string>();
-  private _syncingModelsProjectIds = new Set<string>();
-  private _removeProjectId: string | null = null;
-  private _removeProjectName: string | null = null;
-  private _healthMap = new Map<string, HealthStatus>();
+  /** Per project: how many of its environments answered, and how many were asked. */
+  private readonly _health = new Map<string, { reachable: number; checked: number }>();
+  private readonly _checkingHealth = new Set<string>();
+  private _deleteProjectId: string | null = null;
+  private _deleteProjectName: string | null = null;
+  private _deleteMode: "archive" | "purge" = "archive";
+  private _deleteProjectSeeded = false;
+  private _impact: DeletionImpact | null = null;
+  private _isLoadingImpact = false;
+  private _loadError: string | null = null;
+  private readonly syncPreviewState: SyncPreviewState;
 
   public constructor(
     private readonly loadProjectsUseCase: LoadProjectsUseCase.Interface,
-    private readonly deleteProjectUseCase: DeleteProjectUseCase.Interface,
-    private readonly loadTenantsUseCase: LoadTenantsUseCase.Interface,
-    private readonly syncTenantsUseCase: SyncTenantsUseCase.Interface,
-    private readonly syncModelsUseCase: SyncModelsUseCase.Interface,
+    private readonly archiveProjectUseCase: ArchiveProjectUseCase.Interface,
+    private readonly restoreProjectUseCase: RestoreProjectUseCase.Interface,
+    private readonly purgeProjectUseCase: PurgeProjectUseCase.Interface,
     private readonly projectsGateway: ProjectsGateway.Interface,
     private readonly projectsRepository: ProjectsRepository.Interface,
-    private readonly tenantsRepository: TenantsRepository.Interface,
+    private readonly environmentsGateway: EnvironmentsGateway.Interface,
+    private readonly environmentsRepository: EnvironmentsRepository.Interface,
     private readonly notificationService: NotificationService.Interface,
+    private readonly jobsGateway: JobsGateway.Interface,
   ) {
+    this.syncPreviewState = new SyncPreviewState(
+      environmentsGateway,
+      jobsGateway,
+      notificationService,
+    );
     makeAutoObservable(this);
   }
 
   public get vm(): ProjectListVM {
-    const projects = this.projectsRepository.projects.map((p) => {
-      const tenants = this.tenantsRepository.getTenantsByProjectId(p.id);
-      return {
-        id: p.id,
-        name: p.name,
-        apiUrl: p.apiUrl,
-        tenant: p.tenant,
-        webinyVersion: p.webinyVersion,
-        tenants: tenants.map((t) => ({ tenantId: t.tenantId, name: t.name })),
-        health: this._healthMap.get(p.id) ?? "unknown",
-        isSyncing: this._syncingProjectIds.has(p.id),
-        isSyncingModels: this._syncingModelsProjectIds.has(p.id),
-      };
-    });
+    const all = this.projectsRepository.projects.map((project) => this.toItem(project));
+    const projects = all.filter((project) => project.archivedAt === null);
+    const archivedProjects = all.filter((project) => project.archivedAt !== null);
 
     return {
       projects,
+      isSyncingAll: this.isReadingDiffFor(null),
+      syncableCount: projects.filter((project) => project.syncable).length,
+      archivedProjects,
       isLoading: this._isLoading,
-      isEmpty: !this._isLoading && projects.length === 0,
-      removeConfirmation: {
-        isOpen: this._removeProjectId !== null,
-        projectId: this._removeProjectId,
-        projectName: this._removeProjectName,
+      loadError: this._loadError,
+      isEmpty: !this._isLoading && all.length === 0,
+      deleteConfirmation: {
+        isOpen: this._deleteProjectId !== null,
+        mode: this._deleteMode,
+        projectId: this._deleteProjectId,
+        projectName: this._deleteProjectName,
+        isLoadingImpact: this._isLoadingImpact,
+        impact: this.impactLines,
+        impactTotal: this.impactTotal,
+        seeded: this._deleteProjectSeeded,
       },
+      syncPreview: this.syncPreviewState.vm,
     };
   }
 
@@ -69,100 +87,333 @@ class ProjectListPresenterImpl implements Abstraction.Interface {
       return;
     }
     this._isLoading = true;
+    this._loadError = null;
+    let loadedProjects = false;
     try {
-      await this.loadProjectsUseCase.execute();
+      const result = await this.loadProjectsUseCase.execute();
+      if (result.isFail()) {
+        /**
+         * An empty list and a list that could not be read look identical on screen, and the empty
+         * one invites the user to add a project that is probably already there.
+         */
+        runInAction(() => {
+          this._loadError = result.error.message;
+        });
+        return;
+      }
+      loadedProjects = true;
       const projects = this.projectsRepository.projects;
-      await Promise.all(projects.map((p) => this.loadTenantsUseCase.execute(p.id)));
+      const loaded = await Promise.all(
+        projects.map((project) => this.loadEnvironments(project.id)),
+      );
+
+      /**
+       * Reported once for the whole pass rather than per project: a server that is down fails
+       * every one of them, and a toast each would bury the page.
+       */
+      // Fire and forget: the list renders with "Not checked" and fills in as answers arrive.
+      void this.checkAllHealth();
+
+      const failed = loaded.filter((ok) => !ok).length;
+      if (failed > 0) {
+        this.notificationService.error(
+          `Could not load the environments of ${failed} project(s). Their cards are incomplete.`,
+        );
+      }
     } finally {
       runInAction(() => {
         this._isLoading = false;
-        this._loaded = true;
+        /**
+         * Only a load that actually loaded counts. Marking a failed one done blocks every retry
+         * for the life of the presenter, and the page sits on an error banner with no way back.
+         */
+        this._loaded = loadedProjects;
       });
     }
-    void this.checkAllHealth();
   };
 
+  /**
+   * Opens the removal confirmation.
+   *
+   * An archived project opens straight on the permanent delete: archiving is the reversible step,
+   * and it has already been taken. Offering it again asks the user to archive what is archived,
+   * and buries the only action left behind a second click.
+   */
+  public confirmDelete = (projectId: string, projectName: string): void => {
+    const project = this.projectsRepository.projects.find(
+      (candidate) => candidate.id === projectId,
+    );
+
+    this._deleteProjectId = projectId;
+    this._deleteProjectName = projectName;
+    this._deleteProjectSeeded = project?.seeded === true;
+    /**
+     * A seeded project can be archived but never deleted, so it opens on the reversible step
+     * whatever its state — the permanent delete it would otherwise land on is refused.
+     */
+    this._deleteMode =
+      project === undefined || project.archivedAt === null || project.seeded ? "archive" : "purge";
+    this._impact = null;
+    void this.loadImpact(projectId);
+  };
+
+  public cancelDelete = (): void => {
+    this._deleteProjectId = null;
+    this._deleteProjectName = null;
+    this._deleteProjectSeeded = false;
+    this._deleteMode = "archive";
+    this._impact = null;
+  };
+
+  public requestPurge = (): void => {
+    this._deleteMode = "purge";
+  };
+
+  public archive = async (): Promise<void> => {
+    const id = this._deleteProjectId;
+    const name = this._deleteProjectName;
+    if (id === null) {
+      return;
+    }
+    this.cancelDelete();
+
+    const result = await this.archiveProjectUseCase.execute(id);
+    if (result.isFail()) {
+      this.notificationService.error(`Failed to archive project: ${result.error.message}`);
+      return;
+    }
+
+    this.notificationService.success(`Project "${name}" archived. Its data is kept.`);
+  };
+
+  public purge = async (): Promise<void> => {
+    const id = this._deleteProjectId;
+    const name = this._deleteProjectName;
+    if (id === null) {
+      return;
+    }
+    /**
+     * The confirmation has to have been moved to "purge" first. This destroys the project and
+     * every environment, seed entry, sync log, model and job that cascades from it, so it must not
+     * be reachable from the dialog's reversible first step by any route.
+     */
+    if (this._deleteMode !== "purge") {
+      return;
+    }
+    this.cancelDelete();
+
+    const result = await this.purgeProjectUseCase.execute(id);
+    if (result.isFail()) {
+      this.notificationService.error(`Failed to delete project: ${result.error.message}`);
+      return;
+    }
+
+    this.notificationService.success(`Project "${name}" and all of its data were deleted.`);
+  };
+
+  public restore = async (projectId: string): Promise<void> => {
+    const result = await this.restoreProjectUseCase.execute(projectId);
+    if (result.isFail()) {
+      this.notificationService.error(`Failed to restore project: ${result.error.message}`);
+      return;
+    }
+    await this.loadEnvironments(projectId);
+  };
+
+  /**
+   * Opens the diff rather than syncing.
+   *
+   * Syncing is project-scoped: it reads the Pulumi checkpoints on disk and rediscovers that
+   * project's environments, overwriting what is stored with whatever the checkout currently says.
+   * Pulling tenants or models needs a specific environment, so those actions live on the project
+   * detail page where one is selected.
+   */
+  public syncProject = (projectId: string): void => {
+    void this.syncPreviewState.open([projectId]);
+  };
+
+  /** The same diff, over every project with a checkout. */
+  public syncAll = (): void => {
+    void this.syncPreviewState.open(this.syncableProjects.map((project) => project.id));
+  };
+
+  public applySync = async (): Promise<void> => {
+    await this.syncPreviewState.apply();
+  };
+
+  public closeSyncPreview = (): void => {
+    this.syncPreviewState.close();
+  };
+
+  /**
+   * True only while the diff is being read — not while the user is reading it. A spinner that runs
+   * for as long as the dialog is open would suggest the button is still doing something.
+   *
+   * `null` asks about the "sync all" button, which is busy only for a diff covering more than one
+   * project.
+   */
+  private isReadingDiffFor(projectId: string | null): boolean {
+    if (!this.syncPreviewState.vm.isLoading) {
+      return false;
+    }
+    const active = this.syncPreviewState.activeProjectIds;
+    return projectId === null ? active.length > 1 : active.includes(projectId);
+  }
+
+  private get syncableProjects(): Project[] {
+    return this.projectsRepository.projects.filter(
+      (project) => project.rootPath !== null && project.archivedAt === null,
+    );
+  }
+
+  private get impactLines(): DeletionImpactLineVM[] {
+    return this._impact === null ? [] : toDeletionImpactLines(this._impact);
+  }
+
+  private get impactTotal(): number {
+    return totalDeletionImpact(this.impactLines);
+  }
+
+  private toItem = (project: Project): ProjectItemVM => {
+    const environments = this.environmentsRepository.getEnvironmentsByProjectId(project.id);
+
+    return {
+      id: project.id,
+      name: project.name,
+      rootPath: project.rootPath,
+      webinyVersion: project.webinyVersion,
+      environmentCount: environments.length,
+      deployedCount: environments.filter((environment) => environment.deployed).length,
+      lastSyncedAt: project.lastSyncedAt,
+      archivedAt: project.archivedAt,
+      seeded: project.seeded,
+      syncable: project.rootPath !== null,
+      seedable: this.reachableEnvironments(environments).length > 0,
+      isSyncing: this.isReadingDiffFor(project.id),
+      health: this.healthOf(project.id, environments),
+      healthLabel: this.healthLabelOf(project.id, environments),
+    };
+  };
+
+  /** The environments worth asking: active, and with an API to ask. */
+  private reachableEnvironments(environments: ProjectEnvironment[]): ProjectEnvironment[] {
+    return environments.filter(
+      (environment) => environment.archivedAt === null && environment.apiUrl !== null,
+    );
+  }
+
+  private healthOf(projectId: string, environments: ProjectEnvironment[]): ProjectHealth {
+    if (this.reachableEnvironments(environments).length === 0) {
+      return "no-endpoint";
+    }
+    if (this._checkingHealth.has(projectId)) {
+      return "checking";
+    }
+
+    const counted = this._health.get(projectId);
+    if (counted === undefined || counted.checked === 0) {
+      return "unknown";
+    }
+    if (counted.reachable === counted.checked) {
+      return "online";
+    }
+    return counted.reachable === 0 ? "unreachable" : "partial";
+  }
+
+  private healthLabelOf(projectId: string, environments: ProjectEnvironment[]): string {
+    const asked = this.reachableEnvironments(environments);
+    if (asked.length === 0) {
+      return "No API to check — deploy or add an endpoint";
+    }
+    if (this._checkingHealth.has(projectId)) {
+      return "Checking...";
+    }
+
+    const counted = this._health.get(projectId);
+    if (counted === undefined || counted.checked === 0) {
+      return "Not checked";
+    }
+    if (counted.reachable === counted.checked) {
+      return counted.checked === 1 ? "Online" : `Online (${counted.checked} environments)`;
+    }
+    return `${counted.reachable} of ${counted.checked} environments online`;
+  }
+
+  /**
+   * Asks every project's environments whether they answer.
+   *
+   * Per environment, not per project: health is an environment-level fact — one stack can be up
+   * while another is torn down — and the badge says how many of them answered.
+   */
   private checkAllHealth = async (): Promise<void> => {
-    const projects = this.projectsRepository.projects;
-    for (const p of projects) {
-      void this.checkHealth(p.id);
-    }
+    await Promise.all(
+      this.projectsRepository.projects
+        .filter((project) => project.archivedAt === null)
+        // The cached answer is fine on load; only an explicit click asks again.
+        .map((project) => this.refreshHealth(project.id, false)),
+    );
   };
 
-  public refreshHealth = (projectId: string): void => {
-    void this.checkHealth(projectId, true);
-  };
+  /**
+   * `force` on purpose: the server caches a health answer for ten minutes, so without it clicking
+   * the badge returns the same answer and reads as the click having done nothing.
+   */
+  public refreshHealth = async (projectId: string, force = true): Promise<void> => {
+    const environments = this.reachableEnvironments(
+      this.environmentsRepository.getEnvironmentsByProjectId(projectId),
+    );
 
-  private checkHealth = async (projectId: string, force = false): Promise<void> => {
-    if (this._healthMap.get(projectId) === "checking") {
+    if (environments.length === 0 || this._checkingHealth.has(projectId)) {
       return;
     }
+
     runInAction(() => {
-      this._healthMap.set(projectId, "checking");
+      this._checkingHealth.add(projectId);
     });
-    const result = await this.projectsGateway.healthCheck(projectId, force);
-    runInAction(() => {
-      if (result.isFail()) {
-        this._healthMap.set(projectId, "unreachable");
-        return;
-      }
-      this._healthMap.set(projectId, result.value.reachable ? "reachable" : "unreachable");
-    });
-  };
 
-  public remove = async (id: string): Promise<void> => {
-    await this.deleteProjectUseCase.execute(id);
-  };
-
-  public confirmRemove = (projectId: string, projectName: string): void => {
-    this._removeProjectId = projectId;
-    this._removeProjectName = projectName;
-  };
-
-  public cancelRemove = (): void => {
-    this._removeProjectId = null;
-    this._removeProjectName = null;
-  };
-
-  public executeRemove = async (): Promise<void> => {
-    const id = this._removeProjectId;
-    const name = this._removeProjectName;
-    if (!id) {
-      return;
-    }
-    this._removeProjectId = null;
-    this._removeProjectName = null;
-    await this.deleteProjectUseCase.execute(id);
-    this.notificationService.success(`Project "${name}" removed.`);
-    await this.load();
-  };
-
-  public pullTenants = async (projectId: string): Promise<void> => {
-    this._syncingProjectIds.add(projectId);
     try {
-      await this.syncTenantsUseCase.execute(projectId);
-      this.notificationService.success("Tenants pulled successfully.");
-    } catch {
-      this.notificationService.error("Failed to pull tenants.");
+      const results = await Promise.all(
+        environments.map((environment) =>
+          this.projectsGateway.healthCheck({ projectId, environmentId: environment.id }, force),
+        ),
+      );
+
+      const reachable = results.filter((result) => result.isOk() && result.value.reachable).length;
+
+      runInAction(() => {
+        this._health.set(projectId, { reachable, checked: results.length });
+      });
     } finally {
       runInAction(() => {
-        this._syncingProjectIds.delete(projectId);
+        this._checkingHealth.delete(projectId);
       });
     }
   };
 
-  public pullModels = async (projectId: string): Promise<void> => {
-    this._syncingModelsProjectIds.add(projectId);
+  private loadImpact = async (projectId: string): Promise<void> => {
+    this._isLoadingImpact = true;
     try {
-      await this.syncModelsUseCase.execute(projectId);
-      this.notificationService.success("Models pulled successfully.");
-    } catch {
-      this.notificationService.error("Failed to pull models.");
+      const result = await this.projectsGateway.deletionImpact(projectId);
+      runInAction(() => {
+        // A failed count must not become a silent "nothing will be lost": the modal keeps showing
+        // the loading state rather than an empty list it cannot vouch for.
+        this._impact = result.isOk() ? result.value : null;
+      });
     } finally {
       runInAction(() => {
-        this._syncingModelsProjectIds.delete(projectId);
+        this._isLoadingImpact = false;
       });
     }
+  };
+
+  /** Returns whether the read succeeded, so the caller can report the pass as a whole. */
+  private loadEnvironments = async (projectId: string): Promise<boolean> => {
+    const result = await this.environmentsGateway.listForProject(projectId);
+    if (result.isFail()) {
+      return false;
+    }
+    this.environmentsRepository.setEnvironments(projectId, result.value);
+    return true;
   };
 }
 
@@ -170,13 +421,14 @@ export const ProjectListPresenter = Abstraction.createImplementation({
   implementation: ProjectListPresenterImpl,
   dependencies: [
     LoadProjectsUseCase,
-    DeleteProjectUseCase,
-    LoadTenantsUseCase,
-    SyncTenantsUseCase,
-    SyncModelsUseCase,
+    ArchiveProjectUseCase,
+    RestoreProjectUseCase,
+    PurgeProjectUseCase,
     ProjectsGateway,
     ProjectsRepository,
-    TenantsRepository,
+    EnvironmentsGateway,
+    EnvironmentsRepository,
     NotificationService,
+    JobsGateway,
   ],
 });

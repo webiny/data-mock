@@ -3,6 +3,7 @@ import type { Result } from "@webiny/stdlib";
 import type { Job } from "~/shared/types.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
+import type { EnvironmentRef } from "~/shared/types.js";
 export interface ILocalFileUploadedProjectVM {
   projectId: string;
   projectName: string;
@@ -37,7 +38,7 @@ export interface ILocalFilesGateway {
   remove(fileName: string): Promise<Result<void, HTTPError>>;
   pullPicsum(input: ILocalFilesPullPicsumInput): Promise<Result<Job, HTTPError>>;
   uploadGlobalToProject(
-    projectId: string,
+    ref: EnvironmentRef,
     input: ILocalFilesUploadGlobalToProjectInput,
   ): Promise<Result<Job, HTTPError>>;
 }

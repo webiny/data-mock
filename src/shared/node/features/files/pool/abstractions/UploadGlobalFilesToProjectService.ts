@@ -8,14 +8,24 @@ import type {
 } from "~/shared/errors.js";
 
 export interface IUploadGlobalFilesToProjectServiceInput {
-  projectId: string;
+  environmentId: string;
   tenant: string;
   fileNames?: string[] | undefined;
   onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
+export interface IUploadFailure {
+  fileName: string;
+  error: string;
+}
+
 export interface IUploadGlobalFilesToProjectServiceOutput {
   uploaded: number;
+  /**
+   * Files that could not be uploaded. Reported rather than only logged: the caller is a job, and
+   * "Uploaded 1 file(s)." over nine failures is a success message for a run that mostly failed.
+   */
+  failures: IUploadFailure[];
   files: ProjectFile[];
 }
 
@@ -34,5 +44,6 @@ export namespace UploadGlobalFilesToProjectService {
   export type Interface = IUploadGlobalFilesToProjectService;
   export type Input = IUploadGlobalFilesToProjectServiceInput;
   export type Output = IUploadGlobalFilesToProjectServiceOutput;
+  export type Failure = IUploadFailure;
   export type Error = ProjectPersistenceError | ProjectNotFoundError | GraphQLRequestError;
 }

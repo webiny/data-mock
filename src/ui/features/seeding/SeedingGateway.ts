@@ -1,22 +1,23 @@
 import { Result } from "@webiny/stdlib";
-import type { SeedJob, Job } from "~/shared/types.js";
-import { triggerSeedRoute } from "~/shared/routes/seeding.js";
+import type { Job } from "~/shared/types.js";
+import { resumeSeedRoute, triggerSeedRoute, listSeedJobsRoute } from "~/shared/routes/seeding.js";
 import { importEntriesRoute } from "~/shared/routes/import.js";
 import { cleanupEntriesRoute } from "~/shared/routes/cleanup.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { SeedingGateway as Abstraction } from "./abstractions/SeedingGateway.js";
 import type { SeedJobsListParams, SeedJobsListResult } from "./abstractions/SeedingGateway.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class SeedingGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
   public async triggerSeed(
-    projectId: string,
+    ref: EnvironmentRef,
     input: Abstraction.TriggerInput,
   ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(triggerSeedRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input,
     });
 
@@ -27,28 +28,35 @@ class SeedingGatewayImpl implements Abstraction.Interface {
     return Result.ok(result.value.job);
   }
 
+  public async resumeSeed(ref: EnvironmentRef, seedJobId: string): Promise<Result<Job, HTTPError>> {
+    const result = await this.httpClient.request(resumeSeedRoute, {
+      params: { projectId: ref.projectId, environmentId: ref.environmentId, seedJobId },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.job);
+  }
+
   public async listSeedJobs(
-    projectId: string,
+    ref: EnvironmentRef,
     params?: SeedJobsListParams,
   ): Promise<Result<SeedJobsListResult, HTTPError>> {
-    const parts: string[] = [];
     const page = params?.page ?? 1;
     const limit = params?.limit ?? 25;
-    parts.push(`page=${page}`, `limit=${limit}`);
-    if (params?.status) {
-      parts.push(`status=${params.status}`);
-    }
-    if (params?.sortField) {
-      parts.push(`sortField=${params.sortField}`);
-    }
-    if (params?.sortDir) {
-      parts.push(`sortDir=${params.sortDir}`);
-    }
-    const qs = parts.join("&");
 
-    const result = await this.httpClient.get<{ seedJobs: { items: SeedJob[]; total: number } }>(
-      `/api/projects/${projectId}/seed-jobs?${qs}`,
-    );
+    const result = await this.httpClient.request(listSeedJobsRoute, {
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
+      query: {
+        page: String(page),
+        limit: String(limit),
+        ...(params?.status ? { status: params.status } : {}),
+        ...(params?.sortField ? { sortField: params.sortField } : {}),
+        ...(params?.sortDir ? { sortDir: params.sortDir } : {}),
+      },
+    });
 
     if (result.isFail()) {
       return Result.fail(result.error);
@@ -61,11 +69,11 @@ class SeedingGatewayImpl implements Abstraction.Interface {
   }
 
   public async importEntries(
-    projectId: string,
+    ref: EnvironmentRef,
     input: { tenant: string; models: string[] },
   ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(importEntriesRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input,
     });
 
@@ -77,11 +85,11 @@ class SeedingGatewayImpl implements Abstraction.Interface {
   }
 
   public async cleanupEntries(
-    projectId: string,
+    ref: EnvironmentRef,
     input?: { jobId?: string },
   ): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(cleanupEntriesRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input ?? {},
     });
 

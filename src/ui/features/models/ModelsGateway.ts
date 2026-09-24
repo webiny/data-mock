@@ -4,13 +4,14 @@ import { listProjectModelsRoute, syncProjectModelsRoute } from "~/shared/routes/
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { ModelsGateway as Abstraction } from "./abstractions/ModelsGateway.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class ModelsGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
-  public async listModels(projectId: string): Promise<Result<ProjectModel[], HTTPError>> {
+  public async listModels(ref: EnvironmentRef): Promise<Result<ProjectModel[], HTTPError>> {
     const result = await this.httpClient.request(listProjectModelsRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
     });
 
     if (result.isFail()) {
@@ -19,6 +20,7 @@ class ModelsGatewayImpl implements Abstraction.Interface {
 
     const models: ProjectModel[] = result.value.models.items.map((item) => ({
       ...item,
+      // Boundary cast: the shared response schema does not type `plugin`/`fields` this precisely.
       plugin: (item as Record<string, unknown>).plugin === true,
       fields: item.fields as ApiCmsModelField[],
     }));
@@ -26,9 +28,9 @@ class ModelsGatewayImpl implements Abstraction.Interface {
     return Result.ok(models);
   }
 
-  public async pullModels(projectId: string): Promise<Result<Job, HTTPError>> {
+  public async pullModels(ref: EnvironmentRef): Promise<Result<Job, HTTPError>> {
     const result = await this.httpClient.request(syncProjectModelsRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
     });
 
     if (result.isFail()) {

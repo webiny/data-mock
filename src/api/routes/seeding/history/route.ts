@@ -10,6 +10,7 @@ function isSeedJobStatus(value: string | undefined): value is SeedJobStatus {
     value === "running" ||
     value === "completed" ||
     value === "failed" ||
+    value === "cancelled" ||
     value === "dry-run"
   );
 }
@@ -20,7 +21,7 @@ export const listSeedJobs = routeFactory(
     const { limit, offset, sortField, sortDir } = parseListQuery(query);
 
     const input: ListSeedJobsRepository.Input = {
-      projectId: params.projectId,
+      environmentId: params.environmentId,
       limit,
       offset,
       sortDir,

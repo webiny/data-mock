@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createTestContainer } from "~/shared/node/testing/createTestContainer.js";
-import { CreateProjectUseCase } from "~/shared/node/features/projects/create/abstractions/CreateProjectUseCase.js";
+import { createTestProject } from "~/shared/node/testing/createTestProject.js";
 import { SyncProjectModelsRepository } from "~/shared/node/features/models/sync/abstractions/SyncProjectModelsRepository.js";
 import { CreateSeedJobRepository } from "~/shared/node/features/seeding/create/abstractions/CreateSeedJobRepository.js";
 import { CreateSeedEntryRepository } from "~/shared/node/features/seeding/entries/abstractions/CreateSeedEntryRepository.js";
@@ -49,28 +49,21 @@ function autoSucceedDelete(): HttpClient.Interface["post"] {
   });
 }
 
-async function setupProject(tc: ReturnType<typeof createTestContainer>, name = "Cleanup Project") {
-  const createUseCase = tc.container.resolve(CreateProjectUseCase);
-  const result = await createUseCase.execute({
-    name,
-    apiUrl: "https://api.example.com/cms/manage",
-    apiToken: "cleanup-token",
-    tenant: "root",
-  });
-  if (result.isFail()) {
-    throw new Error(`Failed to create project: ${result.error.message}`);
-  }
-  return result.value;
-}
-
 async function seedCreatedEntry(
   tc: ReturnType<typeof createTestContainer>,
-  input: { projectId: string; modelId: string; entryId: string; jobId?: string | null },
+  input: {
+    projectId: string;
+    environmentId: string;
+    modelId: string;
+    entryId: string;
+    jobId?: string | null;
+  },
 ) {
   const repo = tc.container.resolve(CreateSeedEntryRepository);
   const result = await repo.execute({
     jobId: input.jobId ?? null,
     projectId: input.projectId,
+    environmentId: input.environmentId,
     tenant: "root",
     modelId: input.modelId,
     entryId: input.entryId,
@@ -94,10 +87,11 @@ describe("CleanupService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const syncModels = tc.container.resolve(SyncProjectModelsRepository);
       await syncModels.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         models: [
           {
             groupSlug: "blog",
@@ -112,18 +106,20 @@ describe("CleanupService", () => {
       });
 
       const entry1 = await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "article",
         entryId: "entry-1#0001",
       });
       const entry2 = await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "article",
         entryId: "entry-2#0001",
       });
 
       const service = tc.container.resolve(CleanupService);
-      const result = await service.execute({ projectId: project.id });
+      const result = await service.execute({ environmentId: project.environmentId });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -133,7 +129,10 @@ describe("CleanupService", () => {
       }
 
       const listRepo = tc.container.resolve(ListSeedEntriesRepository);
-      const listResult = await listRepo.execute({ projectId: project.id, status: "deleted" });
+      const listResult = await listRepo.execute({
+        environmentId: project.environmentId,
+        status: "deleted",
+      });
       expect(listResult.isOk()).toBe(true);
       if (listResult.isOk()) {
         const ids = listResult.value.entries.map((e) => e.id).sort();
@@ -150,10 +149,11 @@ describe("CleanupService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const syncModels = tc.container.resolve(SyncProjectModelsRepository);
       await syncModels.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         models: [
           {
             groupSlug: "blog",
@@ -169,11 +169,13 @@ describe("CleanupService", () => {
 
       const createSeedJobRepository = tc.container.resolve(CreateSeedJobRepository);
       const job1Result = await createSeedJobRepository.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         config: { models: [{ modelId: "article", amount: 1 }] },
       });
       const job2Result = await createSeedJobRepository.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         config: { models: [{ modelId: "article", amount: 1 }] },
       });
       if (job1Result.isFail() || job2Result.isFail()) {
@@ -181,20 +183,25 @@ describe("CleanupService", () => {
       }
 
       await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "article",
         entryId: "entry-job-1#0001",
         jobId: job1Result.value.id,
       });
       await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "article",
         entryId: "entry-job-2#0001",
         jobId: job2Result.value.id,
       });
 
       const service = tc.container.resolve(CleanupService);
-      const result = await service.execute({ projectId: project.id, jobId: job1Result.value.id });
+      const result = await service.execute({
+        environmentId: project.environmentId,
+        jobId: job1Result.value.id,
+      });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -202,7 +209,10 @@ describe("CleanupService", () => {
       }
 
       const listRepo = tc.container.resolve(ListSeedEntriesRepository);
-      const remaining = await listRepo.execute({ projectId: project.id, status: "created" });
+      const remaining = await listRepo.execute({
+        environmentId: project.environmentId,
+        status: "created",
+      });
       expect(remaining.isOk()).toBe(true);
       if (remaining.isOk()) {
         expect(remaining.value.entries).toHaveLength(1);
@@ -226,10 +236,11 @@ describe("CleanupService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const syncModels = tc.container.resolve(SyncProjectModelsRepository);
       await syncModels.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         models: [
           {
             groupSlug: "blog",
@@ -256,18 +267,20 @@ describe("CleanupService", () => {
       });
 
       await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "author",
         entryId: "author-1#0001",
       });
       await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "article",
         entryId: "article-1#0001",
       });
 
       const service = tc.container.resolve(CleanupService);
-      const result = await service.execute({ projectId: project.id });
+      const result = await service.execute({ environmentId: project.environmentId });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -286,10 +299,11 @@ describe("CleanupService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const syncModels = tc.container.resolve(SyncProjectModelsRepository);
       await syncModels.execute({
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         models: [
           {
             groupSlug: "blog",
@@ -318,18 +332,20 @@ describe("CleanupService", () => {
       });
 
       await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "article",
         entryId: "entry-1#0001",
       });
       await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "article",
         entryId: "entry-2#0001",
       });
 
       const service = tc.container.resolve(CleanupService);
-      const result = await service.execute({ projectId: project.id });
+      const result = await service.execute({ environmentId: project.environmentId });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -342,15 +358,15 @@ describe("CleanupService", () => {
     }
   });
 
-  it("should return ProjectNotFoundError for a non-existent project", async () => {
+  it("should return EnvironmentNotFoundError for a non-existent environment", async () => {
     const tc = createTestContainer();
     try {
       const service = tc.container.resolve(CleanupService);
-      const result = await service.execute({ projectId: "non-existent" });
+      const result = await service.execute({ environmentId: "non-existent" });
 
       expect(result.isFail()).toBe(true);
       if (result.isFail()) {
-        expect(result.error.code).toBe("Project/NotFound");
+        expect(result.error.code).toBe("Environment/NotFound");
       }
     } finally {
       tc.cleanup();
@@ -363,10 +379,11 @@ describe("CleanupService", () => {
 
     const tc = createTestContainer({ httpClient: mockHttpClient });
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
 
       await seedCreatedEntry(tc, {
-        projectId: project.id,
+        projectId: project.projectId,
+        environmentId: project.environmentId,
         modelId: "ghost",
         entryId: "ghost-1#0001",
       });
@@ -375,7 +392,7 @@ describe("CleanupService", () => {
       vi.mocked(mockHttpClient.post).mockImplementation(autoSucceedDelete());
 
       const service = tc.container.resolve(CleanupService);
-      const result = await service.execute({ projectId: project.id });
+      const result = await service.execute({ environmentId: project.environmentId });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -392,9 +409,9 @@ describe("CleanupService", () => {
   it("should return an empty result when there are no created entries", async () => {
     const tc = createTestContainer();
     try {
-      const project = await setupProject(tc);
+      const project = await createTestProject(tc);
       const service = tc.container.resolve(CleanupService);
-      const result = await service.execute({ projectId: project.id });
+      const result = await service.execute({ environmentId: project.environmentId });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

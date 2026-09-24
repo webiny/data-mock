@@ -4,6 +4,7 @@ import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { SeedingGateway } from "~/ui/features/seeding/abstractions/SeedingGateway.js";
 import { SeedingRepository } from "~/ui/features/seeding/abstractions/SeedingRepository.js";
 import { LoadSeedHistoryUseCase as Abstraction } from "./abstractions/LoadSeedHistoryUseCase.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class LoadSeedHistoryUseCaseImpl implements Abstraction.Interface {
   public constructor(
@@ -11,8 +12,8 @@ class LoadSeedHistoryUseCaseImpl implements Abstraction.Interface {
     private readonly seedingRepository: SeedingRepository.Interface,
   ) {}
 
-  public async execute(projectId: string): Promise<Result<SeedJobsListResult, HTTPError>> {
-    const result = await this.seedingGateway.listSeedJobs(projectId);
+  public async execute(ref: EnvironmentRef): Promise<Result<SeedJobsListResult, HTTPError>> {
+    const result = await this.seedingGateway.listSeedJobs(ref);
 
     if (result.isOk()) {
       this.seedingRepository.setSeedJobs(result.value.seedJobs, result.value.total);

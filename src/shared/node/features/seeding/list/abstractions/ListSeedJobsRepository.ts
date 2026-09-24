@@ -4,7 +4,7 @@ import type { SeedJob, SeedJobStatus } from "~/shared/types.js";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListSeedJobsInput {
-  projectId: string;
+  environmentId: string;
   status?: SeedJobStatus;
   limit?: number;
   offset?: number;

@@ -29,9 +29,13 @@ class ListProjectsCommandImpl implements Command.Interface {
       return;
     }
 
-    const lines = projects.map(
-      (p) => `  ${p.name.padEnd(25)} ${p.apiUrl.padEnd(45)} tenant: ${p.tenant}`,
-    );
+    // A project is a system on disk now, so the listing shows the checkout and version rather
+    // than a single connection.
+    const lines = projects.map((p) => {
+      const version = p.webinyVersion ? `v${p.webinyVersion}` : "workspace root";
+      const location = p.rootPath ?? "remote only";
+      return `  ${p.name.padEnd(25)} ${version.padEnd(16)} ${location}`;
+    });
     this.ui.note(lines.join("\n"), `${projects.length} project(s)`);
     this.ui.outro("");
   }

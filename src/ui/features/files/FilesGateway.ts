@@ -10,13 +10,14 @@ import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClie
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { FilesGateway as Abstraction } from "./abstractions/FilesGateway.js";
 import type { IPullFilesResult } from "./abstractions/FilesGateway.js";
+import type { EnvironmentRef } from "~/shared/types.js";
 
 class FilesGatewayImpl implements Abstraction.Interface {
   public constructor(private readonly httpClient: HTTPClient.Interface) {}
 
-  public async list(projectId: string): Promise<Result<ProjectFile[], HTTPError>> {
+  public async list(ref: EnvironmentRef): Promise<Result<ProjectFile[], HTTPError>> {
     const result = await this.httpClient.request(listProjectFilesRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
     });
 
     if (result.isFail()) {
@@ -27,11 +28,11 @@ class FilesGatewayImpl implements Abstraction.Interface {
   }
 
   public async upload(
-    projectId: string,
+    ref: EnvironmentRef,
     input: Abstraction.UploadInput,
   ): Promise<Result<ProjectFile, HTTPError>> {
     const result = await this.httpClient.request(uploadProjectFileRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: input,
     });
 
@@ -42,9 +43,9 @@ class FilesGatewayImpl implements Abstraction.Interface {
     return Result.ok(result.value.file);
   }
 
-  public async remove(projectId: string, fileId: string): Promise<Result<void, HTTPError>> {
+  public async remove(ref: EnvironmentRef, fileId: string): Promise<Result<void, HTTPError>> {
     const result = await this.httpClient.request(deleteProjectFileRoute, {
-      params: { projectId, fileId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId, fileId },
     });
 
     if (result.isFail()) {
@@ -55,11 +56,11 @@ class FilesGatewayImpl implements Abstraction.Interface {
   }
 
   public async pullFiles(
-    projectId: string,
+    ref: EnvironmentRef,
     tenant: string,
   ): Promise<Result<IPullFilesResult, HTTPError>> {
     const result = await this.httpClient.request(pullProjectFilesRoute, {
-      params: { projectId },
+      params: { projectId: ref.projectId, environmentId: ref.environmentId },
       body: { tenant },
     });
 

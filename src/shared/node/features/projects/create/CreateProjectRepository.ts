@@ -1,48 +1,56 @@
 import { Result, generateId } from "@webiny/stdlib";
 import { projects } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
-import { EncryptionService } from "~/shared/node/encryption/abstractions/EncryptionService.js";
 import { CreateProjectRepository as Abstraction } from "./abstractions/CreateProjectRepository.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
+import { checkProjectIsUnique } from "../projectUniqueness.js";
+import { DEFAULT_OPERATIONS_VERSION } from "~/shared/responses/projects.js";
+import { toProject, toProjectError } from "../toProject.js";
 import type { Project } from "~/shared/types.js";
 
 class CreateProjectRepositoryImpl implements Abstraction.Interface {
-  public constructor(
-    private readonly databaseClient: DatabaseClient.Interface,
-    private readonly encryptionService: EncryptionService.Interface,
-  ) {}
+  public constructor(private readonly databaseClient: DatabaseClient.Interface) {}
 
   public async execute(input: Abstraction.Input): Promise<Result<Project, Abstraction.Error>> {
     try {
+      const clash = checkProjectIsUnique(this.databaseClient, {
+        name: input.name,
+        rootPath: input.rootPath,
+      });
+      if (clash !== null) {
+        return Result.fail(clash);
+      }
+
       const now = Date.now();
-      const id = generateId();
-      const encryptedToken = this.encryptionService.encrypt(input.apiToken);
 
       const row = {
-        id,
+        id: generateId(),
         name: input.name,
-        apiUrl: input.apiUrl,
-        apiToken: encryptedToken,
-        tenant: input.tenant,
-        webinyVersion: input.webinyVersion ?? "6.0.0",
+        rootPath: input.rootPath ?? null,
+        webinyVersion: input.webinyVersion ?? null,
+        versionSource: input.versionSource ?? null,
+        versionMajor: input.versionMajor ?? null,
+        operationsVersion: input.operationsVersion ?? DEFAULT_OPERATIONS_VERSION,
+        pulumiBackend: input.pulumiBackend ?? null,
+        awsProfile: input.awsProfile ?? null,
+        awsRegion: input.awsRegion ?? null,
+        lastSyncedAt: null,
+        lastSyncStatus: null,
+        archivedAt: null,
         createdAt: now,
         updatedAt: now,
       };
 
       this.databaseClient.db.insert(projects).values(row).run();
 
-      return Result.ok({ ...row, apiToken: input.apiToken });
+      return Result.ok(toProject(row));
     } catch (error) {
-      return Result.fail(new ProjectPersistenceError(toError(error)));
+      return Result.fail(new ProjectPersistenceError(toProjectError(error)));
     }
   }
 }
 
-function toError(value: unknown): Error {
-  return value instanceof Error ? value : new Error(String(value));
-}
-
 export const CreateProjectRepository = Abstraction.createImplementation({
   implementation: CreateProjectRepositoryImpl,
-  dependencies: [DatabaseClient, EncryptionService],
+  dependencies: [DatabaseClient],
 });

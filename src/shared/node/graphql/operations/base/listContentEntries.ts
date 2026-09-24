@@ -31,20 +31,23 @@ export const listContentEntries: IGraphQLOperation<ListEntriesInput, ListEntries
   query: "",
   getResult(json) {
     if (!json.data) {
-      const msg =
+      // "as": parsing boundary — json is the untyped GraphQL network response.
+      const message =
         json.errors && json.errors.length > 0
           ? ((json.errors[0] as { message?: string }).message ?? "GraphQL error")
           : "Unexpected response: data is null";
-      return { data: null, error: { message: msg, code: "GRAPHQL_ERROR" } };
+      return { data: null, error: { message, code: "GRAPHQL_ERROR" } };
     }
     const key = Object.keys(json.data)[0];
     if (!key) {
       return { data: null, error: { message: "Unexpected response shape", code: "UNKNOWN" } };
     }
+    // "as": parsing boundary — json is the untyped GraphQL network response.
     const result = json.data[key] as Record<string, unknown>;
     if (result["error"]) {
       return {
         data: null,
+        // "as": parsing boundary — json is the untyped GraphQL network response.
         error: result["error"] as { message: string; code: string; data?: GenericRecord | null },
       };
     }
@@ -70,7 +73,7 @@ export const listContentEntries: IGraphQLOperation<ListEntriesInput, ListEntries
     }
     return {
       data: {
-        data: parsedData.data as GenericRecord[],
+        data: parsedData.data,
         meta: parsedMeta.data,
       },
     };

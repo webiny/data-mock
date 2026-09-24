@@ -16,14 +16,14 @@ class GetProjectModelRepositoryImpl implements Abstraction.Interface {
         .from(projectModels)
         .where(
           and(
-            eq(projectModels.projectId, input.projectId),
+            eq(projectModels.environmentId, input.environmentId),
             eq(projectModels.modelId, input.modelId),
           ),
         )
         .get();
 
       if (!row) {
-        return Result.fail(new ProjectNotFoundError(`${input.projectId}/${input.modelId}`));
+        return Result.fail(new ProjectNotFoundError(`${input.environmentId}/${input.modelId}`));
       }
 
       const model: ProjectModel = {

@@ -1,13 +1,20 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { KeyRotationService } from "~/shared/node/encryption/abstractions/KeyRotationService.js";
 import { Command } from "~/cli/abstractions/Command.js";
 
-const ENV_PATH = join(process.cwd(), ".env");
+/**
+ * The .env the CLI reads and writes, resolved when the command runs rather than when the module is
+ * loaded. A constant captured at import time is the wrong file the moment the process changes
+ * directory, and it is the one file here whose contents are not recoverable.
+ */
+function envPath(): string {
+  return join(process.cwd(), ".env");
+}
 
 class RotateKeyCommandImpl implements Command.Interface {
   public readonly name = "rotate-key";
@@ -32,7 +39,7 @@ class RotateKeyCommandImpl implements Command.Interface {
       message: "Generate a new random key? (No = enter manually)",
     });
 
-    if (isCancel(generateNew)) {
+    if (isCancelled(generateNew)) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -55,7 +62,7 @@ class RotateKeyCommandImpl implements Command.Interface {
         },
       });
 
-      if (isCancel(entered)) {
+      if (isCancelled(entered)) {
         this.ui.cancel("Cancelled.");
         return;
       }
@@ -67,7 +74,7 @@ class RotateKeyCommandImpl implements Command.Interface {
       message: "This will re-encrypt all stored API tokens. Continue?",
     });
 
-    if (isCancel(confirmed) || !confirmed) {
+    if (isCancelled(confirmed) || !confirmed) {
       this.ui.cancel("Cancelled.");
       return;
     }
@@ -87,9 +94,10 @@ class RotateKeyCommandImpl implements Command.Interface {
     }
 
     try {
-      const envContent = readFileSync(ENV_PATH, "utf-8");
+      const path = envPath();
+      const envContent = readFileSync(path, "utf-8");
       const updatedContent = envContent.replace(/^ENCRYPTION_KEY=.+$/m, `ENCRYPTION_KEY=${newKey}`);
-      writeFileSync(ENV_PATH, updatedContent, "utf-8");
+      writeFileSync(path, updatedContent, "utf-8");
     } catch {
       spinner.stop("Warning.");
       this.ui.log.warn(
@@ -98,7 +106,7 @@ class RotateKeyCommandImpl implements Command.Interface {
       return;
     }
 
-    spinner.stop(`Rotated ${result.value.rotated} project(s).`);
+    spinner.stop(`Rotated ${result.value.rotated} environment(s).`);
     this.ui.outro("Encryption key rotated successfully.");
   }
 }

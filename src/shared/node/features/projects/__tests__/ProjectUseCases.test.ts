@@ -30,12 +30,13 @@ describe("Project Use Cases", () => {
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.name).toBe("Test Project");
-        expect(result.value.apiUrl).toBe("https://api.example.com");
-        expect(result.value.apiToken).toBe("secret-token-123");
-        expect(result.value.tenant).toBe("root");
-        expect(result.value.id).toBeDefined();
-        expect(result.value.webinyVersion).toBe("6.0.0");
+        expect(result.value.project.name).toBe("Test Project");
+        expect(result.value.environment.apiUrl).toBe("https://api.example.com");
+        expect(result.value.environment.apiToken).toBe("secret-token-123");
+        expect(result.value.environment.tenant).toBe("root");
+        expect(result.value.project.id).toBeDefined();
+        expect(result.value.environment.id).toBeDefined();
+        expect(result.value.project.operationsVersion).toBe("6.0.0");
       }
     });
 
@@ -51,7 +52,7 @@ describe("Project Use Cases", () => {
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         const rows = tc.databaseClient.db.all<{ api_token: string }>(
-          sql`SELECT api_token FROM projects WHERE id = ${result.value.id}`,
+          sql`SELECT api_token FROM project_environments WHERE id = ${result.value.environment.id}`,
         );
 
         expect(rows).toHaveLength(1);
@@ -67,12 +68,12 @@ describe("Project Use Cases", () => {
         name: "Versioned Project",
         apiUrl: "https://api.example.com",
         apiToken: "token",
-        webinyVersion: "6.4.9",
+        operationsVersion: "6.4.9",
       });
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
-        expect(result.value.webinyVersion).toBe("6.4.9");
+        expect(result.value.project.operationsVersion).toBe("6.4.9");
       }
     });
 
@@ -123,11 +124,10 @@ describe("Project Use Cases", () => {
         return;
       }
 
-      const getResult = await getUseCase.execute({ id: createResult.value.id });
+      const getResult = await getUseCase.execute({ id: createResult.value.project.id });
 
       expect(getResult.isOk()).toBe(true);
       if (getResult.isOk()) {
-        expect(getResult.value.apiToken).toBe("secret-get-token");
         expect(getResult.value.name).toBe("Get Me");
       }
     });
@@ -157,7 +157,7 @@ describe("Project Use Cases", () => {
       }
     });
 
-    it("should return all projects with decrypted tokens", async () => {
+    it("should return all projects", async () => {
       const createUseCase = tc.container.resolve(CreateProjectUseCase);
       const listUseCase = tc.container.resolve(ListProjectsUseCase);
 
@@ -180,9 +180,9 @@ describe("Project Use Cases", () => {
         expect(result.value.projects).toHaveLength(2);
         expect(result.value.total).toBe(2);
 
-        const tokens = result.value.projects.map((p) => p.apiToken);
-        expect(tokens).toContain("token-a");
-        expect(tokens).toContain("token-b");
+        const names = result.value.projects.map((p) => p.name);
+        expect(names).toContain("Project A");
+        expect(names).toContain("Project B");
       }
     });
   });
@@ -204,10 +204,10 @@ describe("Project Use Cases", () => {
         return;
       }
 
-      const removeResult = await removeUseCase.execute({ id: createResult.value.id });
+      const removeResult = await removeUseCase.execute({ id: createResult.value.project.id });
       expect(removeResult.isOk()).toBe(true);
 
-      const getResult = await getUseCase.execute({ id: createResult.value.id });
+      const getResult = await getUseCase.execute({ id: createResult.value.project.id });
       expect(getResult.isFail()).toBe(true);
       if (getResult.isFail()) {
         expect(getResult.error.code).toBe("Project/NotFound");

@@ -4,7 +4,7 @@ import type { ProjectTenant } from "~/shared/types.js";
 import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListProjectTenantsRepositoryInput {
-  projectId: string;
+  environmentId: string;
 }
 
 export interface IListProjectTenantsRepository {

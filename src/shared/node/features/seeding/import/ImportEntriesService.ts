@@ -1,6 +1,6 @@
 import { Result, Logger } from "@webiny/stdlib";
 import { ImportEntriesService as Abstraction } from "./abstractions/ImportEntriesService.js";
-import { GetProjectRepository } from "~/shared/node/features/projects/get/abstractions/GetProjectRepository.js";
+import { EnvironmentContextService } from "~/shared/node/features/environments/context/abstractions/EnvironmentContextService.js";
 import { GetProjectModelRepository } from "~/shared/node/features/models/get/abstractions/GetProjectModelRepository.js";
 import { CmsManageEndpointClient } from "~/shared/node/graphql/endpoints/abstractions/CmsManageEndpointClient.js";
 import { OperationRegistry } from "~/shared/node/graphql/operations/abstractions/OperationRegistry.js";
@@ -13,7 +13,7 @@ import type {
   ApiGraphQLResultJson,
   GenericRecord,
 } from "~/shared/node/graphql/abstractions/GraphQLClient.js";
-import type { Project, ProjectModel } from "~/shared/types.js";
+import type { ProjectModel } from "~/shared/types.js";
 
 const PAGE_SIZE = 100;
 
@@ -22,14 +22,23 @@ interface ListEntriesData {
   meta: { totalCount: number; hasMoreItems: boolean; cursor: string | null };
 }
 
-interface GqlOp {
+interface GraphQLOperation {
   getResult(json: ApiGraphQLResultJson): { data?: unknown; error?: { message: string } };
   getVariables?(input: unknown): GenericRecord;
 }
 
+/** Everything importModel needs to reach one environment's API. */
+interface IImportConnection {
+  projectId: string;
+  environmentId: string;
+  apiUrl: string;
+  apiToken: string;
+  operationsVersion: string;
+}
+
 class ImportEntriesServiceImpl implements Abstraction.Interface {
   public constructor(
-    private readonly getProjectRepository: GetProjectRepository.Interface,
+    private readonly environmentContextService: EnvironmentContextService.Interface,
     private readonly getProjectModelRepository: GetProjectModelRepository.Interface,
     private readonly cmsManageClient: CmsManageEndpointClient.Interface,
     private readonly operationRegistry: OperationRegistry.Interface,
@@ -40,11 +49,15 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
-    const projectResult = await this.getProjectRepository.execute({ id: input.projectId });
-    if (projectResult.isFail()) {
-      return Result.fail(projectResult.error);
+    const contextResult = await this.environmentContextService.execute({
+      environmentId: input.environmentId,
+    });
+
+    if (contextResult.isFail()) {
+      return Result.fail(contextResult.error);
     }
-    const project = projectResult.value;
+
+    const { project, environment, apiUrl, apiToken, operationsVersion } = contextResult.value;
 
     const models: Array<{ modelId: string; count: number }> = [];
     let imported = 0;
@@ -59,7 +72,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
           continue;
         }
         const modelResult = await this.getProjectModelRepository.execute({
-          projectId: project.id,
+          environmentId: environment.id,
           modelId,
         });
         if (modelResult.isFail()) {
@@ -68,7 +81,13 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 
         const currentModelIndex = modelIndex;
         const count = await this.importModel(
-          project,
+          {
+            projectId: project.id,
+            environmentId: environment.id,
+            apiUrl,
+            apiToken,
+            operationsVersion,
+          },
           modelResult.value,
           input.tenant,
           onProgress
@@ -91,30 +110,33 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
         imported += count;
         modelIndex++;
       }
-    } catch (err) {
-      if (err instanceof GraphQLRequestError) {
-        return Result.fail(err);
+    } catch (error) {
+      if (error instanceof GraphQLRequestError) {
+        return Result.fail(error);
       }
-      return Result.fail(new SeedingError(err instanceof Error ? err : new Error(String(err))));
+      return Result.fail(
+        new SeedingError(error instanceof Error ? error : new Error(String(error))),
+      );
     }
 
     return Result.ok({ imported, models });
   }
 
   private async importModel(
-    project: Project,
+    connection: IImportConnection,
     model: ProjectModel,
     tenant: string,
     onModelProgress?: (count: number, totalForModel: number) => void,
   ): Promise<number> {
+    const { projectId, environmentId, apiUrl, apiToken, operationsVersion } = connection;
     const fieldSelection = createModelFields(model.fields);
     const { pluralApiName } = model;
     const query = buildListEntriesQuery({ pluralApiName, fieldSelection }).query;
-    const listOp = this.operationRegistry.resolve("listContentEntries", project.webinyVersion);
+    const listOperation = this.operationRegistry.resolve("listContentEntries", operationsVersion);
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      authorization: `Bearer ${project.apiToken}`,
+      authorization: `Bearer ${apiToken}`,
       "x-tenant": tenant,
     };
 
@@ -125,13 +147,14 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     this.logger.info(`Importing entries for model "${model.name}"...`);
 
     while (hasMore) {
-      const page = await this.fetchPage(project.apiUrl, query, headers, listOp, cursor);
+      const page = await this.fetchPage(apiUrl, query, headers, listOperation, cursor);
 
       for (const entry of page.data) {
         const entryId = typeof entry["id"] === "string" ? entry["id"] : "";
-        await this.createSeedEntryRepository.execute({
+        const stored = await this.createSeedEntryRepository.execute({
           jobId: null,
-          projectId: project.id,
+          projectId,
+          environmentId,
           tenant,
           modelId: model.modelId,
           entryId,
@@ -142,6 +165,18 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
           status: "imported",
           error: null,
         });
+
+        /**
+         * The local row is the whole product of an import — the entry already exists in the CMS.
+         * Counting one that was not stored reports an import that did not happen.
+         */
+        if (stored.isFail()) {
+          this.logger.warn(
+            `Import: entry "${entryId}" of model "${model.modelId}" could not be stored: ${stored.error.message}`,
+          );
+          continue;
+        }
+
         count++;
       }
 
@@ -160,10 +195,12 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     apiUrl: string,
     query: string,
     headers: Record<string, string>,
-    op: GqlOp,
+    operation: GraphQLOperation,
     after: string | null,
   ): Promise<ListEntriesData> {
-    const variables = op.getVariables ? op.getVariables({ limit: PAGE_SIZE, after }) : {};
+    const variables = operation.getVariables
+      ? operation.getVariables({ limit: PAGE_SIZE, after })
+      : {};
     const body = JSON.stringify({ query, variables });
     const response = await this.cmsManageClient.post(apiUrl, body, headers);
 
@@ -173,7 +210,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
     }
 
     const json = (await response.json()) as ApiGraphQLResultJson;
-    const result = op.getResult(json);
+    const result = operation.getResult(json);
 
     if (result.error) {
       throw new GraphQLRequestError(result.error.message, 200);
@@ -191,7 +228,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
 export const ImportEntriesService = Abstraction.createImplementation({
   implementation: ImportEntriesServiceImpl,
   dependencies: [
-    GetProjectRepository,
+    EnvironmentContextService,
     GetProjectModelRepository,
     CmsManageEndpointClient,
     OperationRegistry,

@@ -21,7 +21,7 @@ See AGENTS.md for the authoritative version. This document adds detail per phase
 
 1. Extract `GraphQLApplication` → `src/graphql/` with abstraction + feature
 2. Port generators to `src/generators/` — registry as DI-scoped service (not global singleton)
-3. Port cache → register FileCache and MemoryCache via DI
+3. Port cache → register FileCache and MemoryCache via DI *(the DI cache layer was removed on 2026-09-17: neither abstraction was ever resolved. `MemoryCache` survives, constructed directly by the generator registry.)*
 4. Replace logger with `PinoLoggerFeature` from `@webiny/stdlib/node`
 5. Replace dotenv with `ProcessEnvFeature`
 

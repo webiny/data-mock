@@ -1,10 +1,10 @@
 import { createAbstraction } from "@webiny/stdlib";
-import type { Job } from "~/shared/types.js";
+import type { JobSummary } from "./JobsGateway.js";
 
 export interface IJobsRepository {
-  readonly jobs: Job[];
+  readonly jobs: JobSummary[];
   readonly totalJobs: number;
-  setJobs(jobs: Job[], total: number): void;
+  setJobs(jobs: JobSummary[], total: number): void;
 }
 
 export const JobsRepository = createAbstraction<IJobsRepository>("Ui/JobsRepository");

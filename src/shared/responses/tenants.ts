@@ -3,6 +3,7 @@ import { z } from "zod";
 export const projectTenantSchema = z.object({
   id: z.string(),
   projectId: z.string(),
+  environmentId: z.string(),
   tenantId: z.string(),
   name: z.string(),
   discoveredAt: z.number(),

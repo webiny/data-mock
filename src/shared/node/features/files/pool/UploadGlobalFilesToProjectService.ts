@@ -30,7 +30,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     const beforeResult = await this.listProjectFilesRepository.execute({
-      projectId: input.projectId,
+      environmentId: input.environmentId,
       tenant: input.tenant,
       limit: ALL_FILES_LIMIT,
     });
@@ -40,7 +40,7 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const beforeCount = beforeResult.value.total;
 
     const poolResult = await this.loadFilePoolService.execute({
-      projectId: input.projectId,
+      environmentId: input.environmentId,
       tenant: input.tenant,
       onProgress: input.onProgress,
     });
@@ -51,7 +51,9 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const files = poolResult.value.filePool;
     const uploaded = Math.max(0, files.length - beforeCount);
 
-    return Result.ok({ uploaded, files });
+    // The pool service uploads in bulk and does not say which names it could not take, so this
+    // path reports none rather than inventing them.
+    return Result.ok({ uploaded, failures: [], files });
   }
 
   private async uploadSelected(
@@ -60,14 +62,14 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     const requestedNames = new Set(input.fileNames);
 
     const dbFilesResult = await this.listProjectFilesRepository.execute({
-      projectId: input.projectId,
+      environmentId: input.environmentId,
       tenant: input.tenant,
       limit: ALL_FILES_LIMIT,
     });
     if (dbFilesResult.isFail()) {
       return Result.fail(dbFilesResult.error);
     }
-    const existingNames = new Set(dbFilesResult.value.files.map((f) => f.fileName));
+    const existingNames = new Set(dbFilesResult.value.files.map((file) => file.fileName));
 
     const localResult = await this.listLocalImagesService.execute({});
     if (localResult.isFail()) {
@@ -75,10 +77,11 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
     }
 
     const toUpload = localResult.value.files.filter(
-      (f) => requestedNames.has(f.fileName) && !existingNames.has(f.fileName),
+      (file) => requestedNames.has(file.fileName) && !existingNames.has(file.fileName),
     );
 
     const uploaded: ProjectFile[] = [];
+    const failures: Abstraction.Failure[] = [];
     let uploadIndex = 0;
     for (const localFile of toUpload) {
       uploadIndex++;
@@ -89,23 +92,25 @@ class UploadGlobalFilesToProjectServiceImpl implements Abstraction.Interface {
 
       try {
         const result = await this.fileUploadService.execute({
-          projectId: input.projectId,
+          environmentId: input.environmentId,
           tenant: input.tenant,
           filePath: localFile.filePath,
         });
         if (result.isOk()) {
           uploaded.push(result.value.file);
         } else {
+          failures.push({ fileName: localFile.fileName, error: result.error.message });
           this.logger.warn(`Failed to upload "${localFile.fileName}": ${result.error.message}`);
         }
       } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Failed to upload "${localFile.fileName}": ${msg}`);
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push({ fileName: localFile.fileName, error: message });
+        this.logger.warn(`Failed to upload "${localFile.fileName}": ${message}`);
       }
     }
 
     const allFiles = [...dbFilesResult.value.files, ...uploaded];
-    return Result.ok({ uploaded: uploaded.length, files: allFiles });
+    return Result.ok({ uploaded: uploaded.length, failures, files: allFiles });
   }
 }
 

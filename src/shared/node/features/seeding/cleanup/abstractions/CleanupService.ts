@@ -1,6 +1,8 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type {
+  EnvironmentNotFoundError,
+  EnvironmentNotConnectedError,
   ProjectNotFoundError,
   ProjectPersistenceError,
   GraphQLRequestError,
@@ -8,7 +10,7 @@ import type {
 } from "~/shared/errors.js";
 
 export interface ICleanupServiceInput {
-  projectId: string;
+  environmentId: string;
   jobId?: string;
   onProgress?: ((percent: number, label: string) => void) | undefined;
 }
@@ -39,6 +41,8 @@ export namespace CleanupService {
   export type Output = ICleanupServiceOutput;
   export type ModelResult = ICleanupServiceModelResult;
   export type Error =
+    | EnvironmentNotFoundError
+    | EnvironmentNotConnectedError
     | ProjectNotFoundError
     | ProjectPersistenceError
     | GraphQLRequestError

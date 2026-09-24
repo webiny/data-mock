@@ -1,14 +1,17 @@
-import { isCancel } from "@clack/prompts";
+import { isCancelled } from "~/cli/abstractions/isCancelled.js";
+import { selectEnvironment } from "~/cli/abstractions/selectEnvironment.js";
+import { ListEnvironmentsRepository } from "~/shared/node/features/environments/list/abstractions/ListEnvironmentsRepository.js";
 import { Prompts } from "~/cli/abstractions/Prompts.js";
 import { UI } from "~/cli/abstractions/UI.js";
 import { Command } from "~/cli/abstractions/Command.js";
 import { ListProjectsUseCase } from "~/shared/node/features/projects/list/abstractions/ListProjectsUseCase.js";
 import { ListProjectTenantsRepository } from "~/shared/node/features/tenants/list/abstractions/ListProjectTenantsRepository.js";
+import { TenantSyncService } from "~/shared/node/features/tenants/sync/abstractions/TenantSyncService.js";
 import { ListProjectModelsRepository } from "~/shared/node/features/models/list/abstractions/ListProjectModelsRepository.js";
 import { SeedService } from "~/shared/node/features/seeding/seed/abstractions/SeedService.js";
 import { ListSeedTemplatesRepository } from "~/shared/node/features/templates/list/abstractions/ListSeedTemplatesRepository.js";
 import { CreateSeedTemplateRepository } from "~/shared/node/features/templates/create/abstractions/CreateSeedTemplateRepository.js";
-import type { ProjectModel, SeedTemplateConfig } from "~/shared/types.js";
+import type { ProjectModel, ProjectTenant, SeedTemplateConfig } from "~/shared/types.js";
 
 class SeedCommandImpl implements Command.Interface {
   public readonly name = "seed";
@@ -18,7 +21,9 @@ class SeedCommandImpl implements Command.Interface {
     private readonly prompts: Prompts.Interface,
     private readonly ui: UI.Interface,
     private readonly listProjectsUseCase: ListProjectsUseCase.Interface,
+    private readonly listEnvironmentsRepository: ListEnvironmentsRepository.Interface,
     private readonly listTenantsRepository: ListProjectTenantsRepository.Interface,
+    private readonly tenantSyncService: TenantSyncService.Interface,
     private readonly listModelsRepository: ListProjectModelsRepository.Interface,
     private readonly seedService: SeedService.Interface,
     private readonly listTemplatesRepository: ListSeedTemplatesRepository.Interface,
@@ -42,27 +47,58 @@ class SeedCommandImpl implements Command.Interface {
 
     const selectedProject = await this.prompts.select({
       message: "Select project",
-      options: projects.map((p) => ({ value: p, label: `${p.name} (${p.apiUrl})` })),
+      options: projects.map((p) => ({
+        value: p,
+        label: p.name,
+        hint: p.rootPath ?? "remote only",
+      })),
     });
-    if (isCancel(selectedProject)) {
+    if (isCancelled(selectedProject)) {
       this.ui.cancel("Cancelled.");
       return;
     }
 
-    const tenantsResult = await this.listTenantsRepository.execute({
+    const environmentsResult = await this.listEnvironmentsRepository.execute({
       projectId: selectedProject.id,
+    });
+    if (environmentsResult.isFail()) {
+      this.ui.log.error(`Failed to list environments: ${environmentsResult.error.message}`);
+      return;
+    }
+
+    const { environment, cancelled } = await selectEnvironment(
+      this.prompts,
+      this.ui,
+      environmentsResult.value,
+    );
+    if (cancelled) {
+      this.ui.cancel("Cancelled.");
+      return;
+    }
+    if (!environment) {
+      return;
+    }
+
+    const tenantsResult = await this.listTenantsRepository.execute({
+      environmentId: environment.id,
     });
     if (tenantsResult.isFail()) {
       this.ui.log.error(`Failed to list tenants: ${tenantsResult.error.message}`);
       return;
     }
 
-    const tenants = tenantsResult.value;
+    let tenants = tenantsResult.value;
     if (tenants.length === 0) {
-      this.ui.log.warn(
-        "No tenants found. Run 'yarn cli sync-tenants' or add-project will auto-sync.",
-      );
-      return;
+      /**
+       * Offered here rather than as a ninth command: this is the only place the CLI notices that
+       * tenants are missing, and sending the user somewhere else and back is the dead end that
+       * used to name a `sync-tenants` command that never existed.
+       */
+      const synced = await this.syncTenants(environment.id);
+      if (synced === null) {
+        return;
+      }
+      tenants = synced;
     }
 
     const tenantOptions = [
@@ -73,13 +109,13 @@ class SeedCommandImpl implements Command.Interface {
       message: "Select tenant",
       options: tenantOptions,
     });
-    if (isCancel(selectedTenant)) {
+    if (isCancelled(selectedTenant)) {
       this.ui.cancel("Cancelled.");
       return;
     }
 
     const modelsResult = await this.listModelsRepository.execute({
-      projectId: selectedProject.id,
+      environmentId: environment.id,
     });
     if (modelsResult.isFail()) {
       this.ui.log.error(`Failed to list models: ${modelsResult.error.message}`);
@@ -110,7 +146,7 @@ class SeedCommandImpl implements Command.Interface {
       spinner.start(`${dryRun ? "[DRY RUN] " : ""}Seeding tenant "${tenantId}"...`);
 
       const result = await this.seedService.execute({
-        projectId: selectedProject.id,
+        environmentId: environment.id,
         tenant: tenantId,
         models: modelConfigs,
         dryRun,
@@ -146,13 +182,13 @@ class SeedCommandImpl implements Command.Interface {
         message: "Save this configuration as a template?",
       });
 
-      if (!isCancel(saveTemplate) && saveTemplate) {
+      if (!isCancelled(saveTemplate) && saveTemplate) {
         const nameInput = await this.prompts.text({
           message: "Template name",
           validate: (v) => (!v || v.trim().length === 0 ? "Name is required" : undefined),
         });
 
-        if (!isCancel(nameInput)) {
+        if (!isCancelled(nameInput)) {
           const config: SeedTemplateConfig = {
             tenant: selectedTenant as string,
             models: modelConfigs,
@@ -164,10 +200,52 @@ class SeedCommandImpl implements Command.Interface {
           });
           if (saveResult.isOk()) {
             this.ui.log.success(`Template "${nameInput}" saved.`);
+          } else {
+            // Template names are unique per project, so a collision lands here. Dropped, the user
+            // is told nothing and believes the configuration was kept.
+            this.ui.log.error(`Failed to save template: ${saveResult.error.message}`);
           }
         }
       }
     }
+  }
+
+  /**
+   * Discovers this environment's tenants, with the user's say-so. Returns null when they declined,
+   * cancelled, or the sync found nothing — every one of which ends the seed.
+   */
+  private async syncTenants(environmentId: string): Promise<ProjectTenant[] | null> {
+    this.ui.log.warn("No tenants found for this environment.");
+
+    const shouldSync = await this.prompts.confirm({ message: "Sync them now?" });
+    if (isCancelled(shouldSync) || !shouldSync) {
+      this.ui.cancel("Cancelled.");
+      return null;
+    }
+
+    const spinner = this.ui.spinner();
+    spinner.start("Syncing tenants...");
+
+    const result = await this.tenantSyncService.execute({ environmentId });
+    if (result.isFail()) {
+      spinner.stop(`Failed: ${result.error.message}`);
+      return null;
+    }
+
+    spinner.stop(`Synced ${result.value.synced} tenant(s).`);
+
+    const listed = await this.listTenantsRepository.execute({ environmentId });
+    if (listed.isFail()) {
+      this.ui.log.error(`Failed to list tenants: ${listed.error.message}`);
+      return null;
+    }
+
+    if (listed.value.length === 0) {
+      this.ui.log.warn("The sync found no tenants. Is this environment deployed and reachable?");
+      return null;
+    }
+
+    return listed.value;
   }
 
   private async loadTemplateOrManual(
@@ -191,7 +269,7 @@ class SeedCommandImpl implements Command.Interface {
         ],
       });
 
-      if (isCancel(source)) {
+      if (isCancelled(source)) {
         this.ui.cancel("Cancelled.");
         return null;
       }
@@ -217,7 +295,7 @@ class SeedCommandImpl implements Command.Interface {
       })),
       required: true,
     });
-    if (isCancel(selectedModels)) {
+    if (isCancelled(selectedModels)) {
       this.ui.cancel("Cancelled.");
       return null;
     }
@@ -236,7 +314,7 @@ class SeedCommandImpl implements Command.Interface {
         return undefined;
       },
     });
-    if (isCancel(amountInput)) {
+    if (isCancelled(amountInput)) {
       this.ui.cancel("Cancelled.");
       return null;
     }
@@ -258,7 +336,7 @@ class SeedCommandImpl implements Command.Interface {
       active: "Yes",
       inactive: "No",
     });
-    if (isCancel(dryRunChoice)) {
+    if (isCancelled(dryRunChoice)) {
       this.ui.cancel("Cancelled.");
       return null;
     }
@@ -272,7 +350,9 @@ export const SeedCommand = Command.createImplementation({
     Prompts,
     UI,
     ListProjectsUseCase,
+    ListEnvironmentsRepository,
     ListProjectTenantsRepository,
+    TenantSyncService,
     ListProjectModelsRepository,
     SeedService,
     ListSeedTemplatesRepository,

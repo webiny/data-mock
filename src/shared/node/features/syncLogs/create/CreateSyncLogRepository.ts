@@ -18,6 +18,7 @@ class CreateSyncLogRepositoryImpl implements Abstraction.Interface {
       const row = {
         id,
         projectId: input.projectId,
+        environmentId: input.environmentId,
         type: input.type,
         status: input.status,
         message: input.message,

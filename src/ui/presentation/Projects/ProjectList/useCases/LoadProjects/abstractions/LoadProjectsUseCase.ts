@@ -1,7 +1,9 @@
 import { createAbstraction } from "@webiny/stdlib";
+import type { Result } from "@webiny/stdlib";
+import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface ILoadProjectsUseCase {
-  execute(): Promise<void>;
+  execute(): Promise<Result<void, HTTPError>>;
 }
 
 export const LoadProjectsUseCase =
