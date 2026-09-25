@@ -263,7 +263,8 @@ describe("seed command", () => {
     });
     project = await createTestProject(tc, { name: "Blog" });
     clearTenants(tc);
-    insertModel(tc, project, "article", "Article");
+    // Models are pulled per tenant, so the seed offers acme's own.
+    insertModel(tc, project, "article", "Article", "acme");
 
     // The sync is what puts the tenant there; the seed then has something to choose from.
     tc.container.registerInstance(TenantSyncService, {
@@ -388,7 +389,12 @@ describe("sync-models command", () => {
     tc.container.registerInstance(SyncModelsService, {
       execute: async () =>
         outcome === "ok"
-          ? Result.ok({ groups: 2, models: 5, operations: [] })
+          ? Result.ok({
+              groups: 2,
+              models: 5,
+              tenants: [{ tenant: "root", groups: 2, models: 5, error: null }],
+              operations: [],
+            })
           : Result.fail(new ProjectPersistenceError(new Error("CMS unreachable"))),
     });
 

@@ -110,7 +110,8 @@ export const PullModelsTab = observer(function PullModelsTab({ context }: PullMo
         </Button>
       </Group>
       <Text size="sm" c="dimmed">
-        Pull models and groups from the Webiny instance.
+        Pull models and groups from the Webiny instance, for every tenant that has an API key. Set a
+        tenant&apos;s key in the Tenants tab.
       </Text>
 
       {vm.syncLogs.length === 0 ? (

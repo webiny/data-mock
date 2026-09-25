@@ -16,6 +16,14 @@ class TenantsRepositoryImpl implements Abstraction.Interface {
   public setTenants(environmentId: string, tenants: ProjectTenant[]): void {
     this._tenantsByEnvironment.set(environmentId, tenants);
   }
+
+  public updateTenant(tenant: ProjectTenant): void {
+    const tenants = this._tenantsByEnvironment.get(tenant.environmentId) ?? [];
+    this._tenantsByEnvironment.set(
+      tenant.environmentId,
+      tenants.map((existing) => (existing.tenantId === tenant.tenantId ? tenant : existing)),
+    );
+  }
 }
 
 export const TenantsRepository = Abstraction.createImplementation({

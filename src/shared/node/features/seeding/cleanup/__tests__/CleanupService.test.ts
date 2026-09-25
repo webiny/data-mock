@@ -92,6 +92,7 @@ describe("CleanupService", () => {
       await syncModels.execute({
         projectId: project.projectId,
         environmentId: project.environmentId,
+        tenant: "root",
         models: [
           {
             groupSlug: "blog",
@@ -154,6 +155,7 @@ describe("CleanupService", () => {
       await syncModels.execute({
         projectId: project.projectId,
         environmentId: project.environmentId,
+        tenant: "root",
         models: [
           {
             groupSlug: "blog",
@@ -241,6 +243,7 @@ describe("CleanupService", () => {
       await syncModels.execute({
         projectId: project.projectId,
         environmentId: project.environmentId,
+        tenant: "root",
         models: [
           {
             groupSlug: "blog",
@@ -304,6 +307,7 @@ describe("CleanupService", () => {
       await syncModels.execute({
         projectId: project.projectId,
         environmentId: project.environmentId,
+        tenant: "root",
         models: [
           {
             groupSlug: "blog",

@@ -100,6 +100,7 @@ class SeedServiceImpl implements Abstraction.Interface {
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     const contextResult = await this.environmentContextService.execute({
       environmentId: input.environmentId,
+      tenant: input.tenant,
     });
 
     if (contextResult.isFail()) {
@@ -475,6 +476,7 @@ class SeedServiceImpl implements Abstraction.Interface {
     for (const modelConfig of input.models) {
       const modelResult = await this.getProjectModelRepository.execute({
         environmentId,
+        tenant: input.tenant,
         modelId: modelConfig.modelId,
       });
       if (modelResult.isFail()) {

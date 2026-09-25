@@ -30,14 +30,16 @@ export function insertModel(
   project: ITestProject,
   modelId: string,
   name: string,
+  tenant = "root",
 ): void {
   const now = Date.now();
   tc.databaseClient.db
     .insert(projectModels)
     .values({
-      id: `model-${modelId}`,
+      id: `model-${tenant}-${modelId}`,
       projectId: project.projectId,
       environmentId: project.environmentId,
+      tenant,
       groupSlug: "content",
       modelId,
       name,

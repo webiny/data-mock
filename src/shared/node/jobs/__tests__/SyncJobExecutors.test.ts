@@ -112,6 +112,7 @@ describe("Sync job executors", () => {
         return Result.ok({
           groups: 2,
           models: 5,
+          tenants: [{ tenant: "root", groups: 2, models: 5, error: null }],
           operations: [operationLog("ListModels")],
         });
       });
@@ -125,15 +126,19 @@ describe("Sync job executors", () => {
         environmentId: "env-2",
         type: "models",
         status: "success",
-        message: "Synced 5 model(s)",
+        message: "Synced 5 model(s) across 1 tenant(s)",
       });
       // The operations are the request half of the log; the summary must not carry them twice.
       expect(syncLogs.calls[0]!.request).toEqual([operationLog("ListModels")]);
-      expect(syncLogs.calls[0]!.response).toEqual({ groups: 2, models: 5 });
+      expect(syncLogs.calls[0]!.response).toEqual({
+        groups: 2,
+        models: 5,
+        tenants: [{ tenant: "root", groups: 2, models: 5, error: null }],
+      });
       expect(context.progress).toEqual([{ percent: 40, label: "reading models" }]);
       expect(context.logs).toEqual([
         "Syncing models for environment env-2",
-        "Synced 5 model(s) and 2 group(s).",
+        "[root] Synced 5 model(s) and 2 group(s).",
       ]);
     });
 

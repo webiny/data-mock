@@ -118,6 +118,11 @@ export const projectTenants = sqliteTable(
       .references(() => projectEnvironments.id, { onDelete: "cascade" }),
     tenantId: text("tenant_id").notNull(),
     name: text("name").notNull(),
+    /**
+     * Encrypted. Overrides the environment's token for this tenant. The environment's token only
+     * ever stands in for its default (root) tenant, never for any other.
+     */
+    apiToken: text("api_token"),
     discoveredAt: integer("discovered_at").notNull(),
   },
   (table) => [uniqueIndex("project_tenant_unique").on(table.environmentId, table.tenantId)],
@@ -133,6 +138,8 @@ export const projectGroups = sqliteTable(
     environmentId: text("environment_id")
       .notNull()
       .references(() => projectEnvironments.id, { onDelete: "cascade" }),
+    /** Groups and models are pulled per tenant, because each tenant defines its own. */
+    tenant: text("tenant").default("root").notNull(),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
     description: text("description"),
@@ -141,7 +148,9 @@ export const projectGroups = sqliteTable(
     syncedAt: integer("synced_at"),
     createdAt: integer("created_at").notNull(),
   },
-  (table) => [uniqueIndex("project_group_unique").on(table.environmentId, table.slug)],
+  (table) => [
+    uniqueIndex("project_group_unique").on(table.environmentId, table.tenant, table.slug),
+  ],
 );
 
 export const projectModels = sqliteTable(
@@ -154,6 +163,7 @@ export const projectModels = sqliteTable(
     environmentId: text("environment_id")
       .notNull()
       .references(() => projectEnvironments.id, { onDelete: "cascade" }),
+    tenant: text("tenant").default("root").notNull(),
     groupSlug: text("group_slug").notNull(),
     modelId: text("model_id").notNull(),
     name: text("name").notNull(),
@@ -167,7 +177,9 @@ export const projectModels = sqliteTable(
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
-  (table) => [uniqueIndex("project_model_unique").on(table.environmentId, table.modelId)],
+  (table) => [
+    uniqueIndex("project_model_unique").on(table.environmentId, table.tenant, table.modelId),
+  ],
 );
 
 /**

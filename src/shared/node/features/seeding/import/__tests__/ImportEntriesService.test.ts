@@ -62,6 +62,7 @@ async function setupImportProject(tc: ReturnType<typeof createTestContainer>) {
   await syncModels.execute({
     projectId: project.projectId,
     environmentId: project.environmentId,
+    tenant: "root",
     models: [
       {
         groupSlug: "blog",

@@ -32,6 +32,15 @@ export class EnvironmentNotConnectedError extends BaseError {
   }
 }
 
+export class TenantNotFoundError extends BaseError {
+  override readonly code = "Tenant/NotFound" as const;
+  public readonly statusCode = 404;
+
+  public constructor(tenantId: string) {
+    super({ message: `Tenant "${tenantId}" not found` });
+  }
+}
+
 export class ScanRootNotFoundError extends BaseError {
   override readonly code = "ScanRoot/NotFound" as const;
   public readonly statusCode = 404;

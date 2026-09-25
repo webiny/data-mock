@@ -51,6 +51,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
     const contextResult = await this.environmentContextService.execute({
       environmentId: input.environmentId,
+      tenant: input.tenant,
     });
 
     if (contextResult.isFail()) {
@@ -73,6 +74,7 @@ class ImportEntriesServiceImpl implements Abstraction.Interface {
         }
         const modelResult = await this.getProjectModelRepository.execute({
           environmentId: environment.id,
+          tenant: input.tenant,
           modelId,
         });
         if (modelResult.isFail()) {

@@ -38,21 +38,24 @@ class CleanupServiceImpl implements Abstraction.Interface {
   public async execute(
     input: Abstraction.Input,
   ): Promise<Result<Abstraction.Output, Abstraction.Error>> {
+    const entriesResult = await this.fetchCreatedEntries(input.environmentId, input.jobId);
+    if (entriesResult.isFail()) {
+      return Result.fail(entriesResult.error);
+    }
+    const entries = entriesResult.value;
+
+    // A seed job writes to one tenant, so its entries share one — and with it one token and one
+    // set of models.
     const contextResult = await this.environmentContextService.execute({
       environmentId: input.environmentId,
+      tenant: entries[0]?.tenant,
     });
 
     if (contextResult.isFail()) {
       return Result.fail(contextResult.error);
     }
 
-    const { environment, apiUrl, apiToken, operationsVersion } = contextResult.value;
-
-    const entriesResult = await this.fetchCreatedEntries(environment.id, input.jobId);
-    if (entriesResult.isFail()) {
-      return Result.fail(entriesResult.error);
-    }
-    const entries = entriesResult.value;
+    const { environment, apiUrl, apiToken, tenant, operationsVersion } = contextResult.value;
 
     if (entries.length === 0) {
       return Result.ok({ deleted: 0, errors: 0, models: [] });
@@ -72,6 +75,7 @@ class CleanupServiceImpl implements Abstraction.Interface {
       for (const modelId of grouped.keys()) {
         const modelResult = await this.getProjectModelRepository.execute({
           environmentId: environment.id,
+          tenant,
           modelId,
         });
         if (modelResult.isFail()) {

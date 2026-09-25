@@ -9,7 +9,7 @@ import { getJobTypeDatasets } from "~/shared/jobs/descriptors.js";
 import { tabContextKey } from "../abstractions/ProjectDetailTabContext.js";
 import type { ProjectDetailTabContext } from "../abstractions/ProjectDetailTabContext.js";
 import { TenantsTabPresenter as Abstraction } from "./abstractions/TenantsTabPresenter.js";
-import type { ITenantsTabVM } from "./abstractions/TenantsTabPresenter.js";
+import type { ITenantVM, ITenantsTabVM } from "./abstractions/TenantsTabPresenter.js";
 
 /** The dataset this tab owns, as the job descriptors name it. */
 const DATASET = "tenants";
@@ -18,6 +18,7 @@ class TenantsTabPresenterImpl implements Abstraction.Interface {
   private _context: ProjectDetailTabContext | null = null;
   private _loadedKey: string | null = null;
   private _isLoading = false;
+  private _editingTenantId: string | null = null;
   private readonly disposeJobSubscription: () => void;
 
   public constructor(
@@ -36,12 +37,23 @@ class TenantsTabPresenterImpl implements Abstraction.Interface {
       ? this.tenantsRepository.getTenantsByEnvironmentId(environmentId)
       : [];
 
+    const defaultTenant = this._context?.tenant ?? "root";
+    const tenantVMs = tenants.map((tenant): ITenantVM => ({
+      tenantId: tenant.tenantId,
+      name: tenant.name,
+      apiToken: tenant.apiToken,
+      keySource:
+        tenant.apiToken !== null
+          ? "own"
+          : tenant.tenantId === defaultTenant
+            ? "environment"
+            : "none",
+      discoveredAt: tenant.discoveredAt,
+    }));
+
     return {
-      tenants: tenants.map((tenant) => ({
-        tenantId: tenant.tenantId,
-        name: tenant.name,
-        discoveredAt: tenant.discoveredAt,
-      })),
+      tenants: tenantVMs,
+      editingTenant: tenantVMs.find((tenant) => tenant.tenantId === this._editingTenantId) ?? null,
       isLoading: this._isLoading,
     };
   }
@@ -57,6 +69,39 @@ class TenantsTabPresenterImpl implements Abstraction.Interface {
       return;
     }
     await this.read(context);
+  };
+
+  public openEditToken = (tenantId: string): void => {
+    this._editingTenantId = tenantId;
+  };
+
+  public closeEditToken = (): void => {
+    this._editingTenantId = null;
+  };
+
+  public submitToken = async (apiToken: string): Promise<boolean> => {
+    const ref = this._context?.ref ?? null;
+    const tenantId = this._editingTenantId;
+    if (ref === null || tenantId === null) {
+      return false;
+    }
+
+    const result = await this.tenantsGateway.updateToken(
+      ref,
+      tenantId,
+      apiToken === "" ? null : apiToken,
+    );
+    if (result.isFail()) {
+      this.notifications.error(`Failed to update token: ${result.error.message}`);
+      return false;
+    }
+
+    runInAction(() => {
+      this.tenantsRepository.updateTenant(result.value);
+      this._editingTenantId = null;
+    });
+    this.notifications.success(`Token for "${tenantId}" updated.`);
+    return true;
   };
 
   public dispose = (): void => {

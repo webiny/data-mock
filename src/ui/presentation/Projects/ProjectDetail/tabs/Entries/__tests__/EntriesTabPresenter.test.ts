@@ -216,6 +216,7 @@ describe("EntriesTabPresenter", () => {
         id: "m1",
         projectId: PROJECT_ID,
         environmentId: ENVIRONMENT_ID,
+        tenant: "root",
         groupSlug: "content",
         modelId: "article",
         name: "Article",
@@ -237,6 +238,7 @@ describe("EntriesTabPresenter", () => {
         environmentId: ENVIRONMENT_ID,
         tenantId: "root",
         name: "Root",
+        apiToken: null,
         discoveredAt: 1,
       },
     ]);

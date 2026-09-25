@@ -73,8 +73,15 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
    * here, so "select all" cannot reach one by another route.
    */
   private get seedableStates(): ModelState[] {
-    return this._modelStates.filter(
+    return this.tenantStates.filter(
       (modelState) => !modelState.model.modelId.startsWith(SYSTEM_MODEL_PREFIX),
+    );
+  }
+
+  /** Models are pulled per tenant; only the selected tenant's can be seeded into it. */
+  private get tenantStates(): ModelState[] {
+    return this._modelStates.filter(
+      (modelState) => modelState.model.tenant === this._selectedTenant,
     );
   }
 
@@ -158,8 +165,13 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
           hasOverride: false,
         }));
 
-        if (this._tenants.length > 0) {
-          this._selectedTenant = this._tenants[0]!.tenantId;
+        // A tenant with no key of its own has no models pulled; start on one that has.
+        const withModels = this._tenants.find((tenant) =>
+          result.value.models.some((model) => model.tenant === tenant.tenantId),
+        );
+        const initial = withModels ?? this._tenants[0];
+        if (initial) {
+          this._selectedTenant = initial.tenantId;
         }
       });
     } finally {
@@ -170,14 +182,14 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   public toggleModel = (modelId: string): void => {
-    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
+    const state = this.tenantStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.selected = !state.selected;
     }
   };
 
   public toggleGroup = (groupSlug: string): void => {
-    const groupModels = this._modelStates.filter(
+    const groupModels = this.tenantStates.filter(
       (modelState) => modelState.model.groupSlug === groupSlug,
     );
     const allSelected = groupModels.every((modelState) => modelState.selected);
@@ -207,7 +219,7 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   public toggleModelOverride = (modelId: string): void => {
-    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
+    const state = this.tenantStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.hasOverride = !state.hasOverride;
       if (state.hasOverride) {
@@ -221,14 +233,14 @@ class SeedConfigPresenterImpl implements Abstraction.Interface {
   };
 
   public setAmount = (modelId: string, amount: number): void => {
-    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
+    const state = this.tenantStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.amount = Math.max(1, amount);
     }
   };
 
   public setRevisions = (modelId: string, value: string): void => {
-    const state = this._modelStates.find((modelState) => modelState.model.modelId === modelId);
+    const state = this.tenantStates.find((modelState) => modelState.model.modelId === modelId);
     if (state) {
       state.revisions = value;
     }

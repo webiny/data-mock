@@ -18,6 +18,7 @@ function makeModel(overrides: Record<string, unknown> = {}) {
   return {
     modelId: "article",
     name: "Article",
+    tenant: "root",
     groupSlug: "content",
     singularApiName: "Article",
     pluralApiName: "Articles",
@@ -227,5 +228,54 @@ describe("SeedConfigPresenter", () => {
 
     expect(p.vm.error).toContain("environment not connectable");
     expect(p.vm.seedJobStarted).toBe(false);
+  });
+
+  describe("per tenant", () => {
+    beforeEach(() => {
+      http.data.set(TENANTS_PATH, [
+        { tenantId: "root", name: "Root" },
+        { tenantId: "acme", name: "Acme" },
+      ]);
+      http.data.set(MODELS_PATH, [
+        makeModel(),
+        makeModel({ modelId: "product", name: "Product", tenant: "acme" }),
+      ]);
+    });
+
+    it("offers only the selected tenant's models", async () => {
+      const p = presenter();
+      await p.load(REF);
+
+      const offered = () => p.vm.groups.flatMap((g) => g.models.map((m) => m.modelId));
+      expect(offered()).toEqual(["article"]);
+
+      p.setTenant("acme");
+      expect(offered()).toEqual(["product"]);
+    });
+
+    it("seeds the selected tenant's models, never another tenant's", async () => {
+      const p = presenter();
+      await p.load(REF);
+      p.setTenant("acme");
+      p.setDryRun(true);
+
+      p.requestSeed();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const body = seedBody();
+      expect(body["tenant"]).toBe("acme");
+      expect((body["models"] as Array<{ modelId: string }>).map((m) => m.modelId)).toEqual([
+        "product",
+      ]);
+    });
+
+    it("starts on a tenant that has models", async () => {
+      http.data.set(MODELS_PATH, [makeModel({ tenant: "acme" })]);
+
+      const p = presenter();
+      await p.load(REF);
+
+      expect(p.vm.selectedTenant).toBe("acme");
+    });
   });
 });

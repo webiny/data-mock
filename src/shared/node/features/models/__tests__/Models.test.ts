@@ -40,7 +40,7 @@ describe("Models Feature", () => {
       const tc = createTestContainer();
       try {
         const repo = tc.container.resolve(ListProjectGroupsRepository);
-        const result = await repo.execute({ environmentId: "any-id" });
+        const result = await repo.execute({ environmentId: "any-id", tenant: "root" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toEqual([]);
@@ -58,6 +58,7 @@ describe("Models Feature", () => {
         await syncRepo.execute({
           projectId: project.projectId,
           environmentId: project.environmentId,
+          tenant: "root",
           groups: [
             { slug: "blog", name: "Blog", description: "Blog group", remoteId: "g1" },
             { slug: "cars", name: "Cars", remoteId: "g2" },
@@ -65,7 +66,10 @@ describe("Models Feature", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectGroupsRepository);
-        const result = await listRepo.execute({ environmentId: project.environmentId });
+        const result = await listRepo.execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+        });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(2);
@@ -82,7 +86,7 @@ describe("Models Feature", () => {
       const tc = createTestContainer();
       try {
         const repo = tc.container.resolve(ListProjectModelsRepository);
-        const result = await repo.execute({ environmentId: "any-id" });
+        const result = await repo.execute({ environmentId: "any-id", tenant: "root" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toEqual([]);
@@ -100,6 +104,7 @@ describe("Models Feature", () => {
         await syncRepo.execute({
           projectId: project.projectId,
           environmentId: project.environmentId,
+          tenant: "root",
           models: [
             {
               groupSlug: "blog",
@@ -114,7 +119,10 @@ describe("Models Feature", () => {
         });
 
         const listRepo = tc.container.resolve(ListProjectModelsRepository);
-        const result = await listRepo.execute({ environmentId: project.environmentId });
+        const result = await listRepo.execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+        });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(1);
@@ -140,10 +148,14 @@ describe("Models Feature", () => {
         await syncRepo.execute({
           projectId: project.projectId,
           environmentId: project.environmentId,
+          tenant: "root",
           groups: [{ slug: "old-group", name: "Old", remoteId: "g1" }],
         });
 
-        let result = await listRepo.execute({ environmentId: project.environmentId });
+        let result = await listRepo.execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+        });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(1);
@@ -153,13 +165,14 @@ describe("Models Feature", () => {
         await syncRepo.execute({
           projectId: project.projectId,
           environmentId: project.environmentId,
+          tenant: "root",
           groups: [
             { slug: "new-group-1", name: "New 1", remoteId: "g2" },
             { slug: "new-group-2", name: "New 2", remoteId: "g3" },
           ],
         });
 
-        result = await listRepo.execute({ environmentId: project.environmentId });
+        result = await listRepo.execute({ environmentId: project.environmentId, tenant: "root" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(2);
@@ -185,6 +198,7 @@ describe("Models Feature", () => {
         await syncRepo.execute({
           projectId: project.projectId,
           environmentId: project.environmentId,
+          tenant: "root",
           models: [
             {
               groupSlug: "blog",
@@ -198,7 +212,10 @@ describe("Models Feature", () => {
           ],
         });
 
-        let result = await listRepo.execute({ environmentId: project.environmentId });
+        let result = await listRepo.execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+        });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(1);
@@ -207,6 +224,7 @@ describe("Models Feature", () => {
         await syncRepo.execute({
           projectId: project.projectId,
           environmentId: project.environmentId,
+          tenant: "root",
           models: [
             {
               groupSlug: "blog",
@@ -229,7 +247,7 @@ describe("Models Feature", () => {
           ],
         });
 
-        result = await listRepo.execute({ environmentId: project.environmentId });
+        result = await listRepo.execute({ environmentId: project.environmentId, tenant: "root" });
         expect(result.isOk()).toBe(true);
         if (result.isOk()) {
           expect(result.value).toHaveLength(2);
@@ -253,6 +271,7 @@ describe("Models Feature", () => {
         await syncRepo.execute({
           projectId: project.projectId,
           environmentId: project.environmentId,
+          tenant: "root",
           models: [
             {
               groupSlug: "blog",
@@ -269,6 +288,7 @@ describe("Models Feature", () => {
         const getRepo = tc.container.resolve(GetProjectModelRepository);
         const result = await getRepo.execute({
           environmentId: project.environmentId,
+          tenant: "root",
           modelId: "article",
         });
         expect(result.isOk()).toBe(true);
@@ -288,6 +308,7 @@ describe("Models Feature", () => {
         const getRepo = tc.container.resolve(GetProjectModelRepository);
         const result = await getRepo.execute({
           environmentId: project.environmentId,
+          tenant: "root",
           modelId: "non-existent",
         });
         expect(result.isFail()).toBe(true);
@@ -358,7 +379,10 @@ describe("Models Feature", () => {
         }
 
         const listGroups = tc.container.resolve(ListProjectGroupsRepository);
-        const groupsResult = await listGroups.execute({ environmentId: project.environmentId });
+        const groupsResult = await listGroups.execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+        });
         expect(groupsResult.isOk()).toBe(true);
         if (groupsResult.isOk()) {
           expect(groupsResult.value).toHaveLength(1);
@@ -366,7 +390,10 @@ describe("Models Feature", () => {
         }
 
         const listModels = tc.container.resolve(ListProjectModelsRepository);
-        const modelsResult = await listModels.execute({ environmentId: project.environmentId });
+        const modelsResult = await listModels.execute({
+          environmentId: project.environmentId,
+          tenant: "root",
+        });
         expect(modelsResult.isOk()).toBe(true);
         if (modelsResult.isOk()) {
           expect(modelsResult.value).toHaveLength(1);

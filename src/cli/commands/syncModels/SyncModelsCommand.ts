@@ -84,6 +84,13 @@ class SyncModelsCommandImpl implements Command.Interface {
     spinner.stop(
       `Synced ${result.value.groups} group(s) and ${result.value.models} model(s) from "${project.name}".`,
     );
+    for (const tenant of result.value.tenants) {
+      if (tenant.error === null) {
+        this.ui.log.info(`${tenant.tenant}: ${tenant.models} model(s), ${tenant.groups} group(s)`);
+      } else {
+        this.ui.log.warn(`${tenant.tenant}: ${tenant.error}`);
+      }
+    }
 
     this.ui.outro("Done.");
   }

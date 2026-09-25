@@ -58,6 +58,7 @@ describe("SyncProjectModelsRepository", () => {
     return repository().execute({
       projectId: project.projectId,
       environmentId: project.environmentId,
+      tenant: "root",
       models,
     });
   }
@@ -65,7 +66,7 @@ describe("SyncProjectModelsRepository", () => {
   async function stored() {
     const listed = await testContainer.container
       .resolve(ListProjectModelsRepository)
-      .execute({ environmentId: project.environmentId });
+      .execute({ environmentId: project.environmentId, tenant: "root" });
     return listed.isOk() ? listed.value : [];
   }
 
@@ -91,6 +92,7 @@ describe("SyncProjectModelsRepository", () => {
     await repository().execute({
       projectId: other.projectId,
       environmentId: other.environmentId,
+      tenant: "root",
       models: [model("product")],
     });
 

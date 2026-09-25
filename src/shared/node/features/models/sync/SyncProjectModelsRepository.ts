@@ -1,5 +1,5 @@
 import { Result, generateId } from "@webiny/stdlib";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { projectModels } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { SyncProjectModelsRepository as Abstraction } from "./abstractions/SyncProjectModelsRepository.js";
@@ -60,6 +60,7 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
         id: generateId(),
         projectId: input.projectId,
         environmentId: input.environmentId,
+        tenant: input.tenant,
         groupSlug: model.groupSlug,
         modelId: model.modelId,
         name: model.name,
@@ -80,7 +81,14 @@ class SyncProjectModelsRepositoryImpl implements Abstraction.Interface {
        * the inserts that replace them have not.
        */
       db.transaction((tx) => {
-        tx.delete(projectModels).where(eq(projectModels.environmentId, input.environmentId)).run();
+        tx.delete(projectModels)
+          .where(
+            and(
+              eq(projectModels.environmentId, input.environmentId),
+              eq(projectModels.tenant, input.tenant),
+            ),
+          )
+          .run();
 
         for (const row of rows) {
           tx.insert(projectModels)

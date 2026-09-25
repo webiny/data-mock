@@ -192,6 +192,8 @@ export interface ProjectTenant {
   environmentId: string;
   tenantId: string;
   name: string;
+  /** Decrypted. Null when the tenant has no token of its own. */
+  apiToken: string | null;
   discoveredAt: number;
 }
 
@@ -199,6 +201,7 @@ export interface ProjectGroup {
   id: string;
   projectId: string;
   environmentId: string;
+  tenant: string;
   slug: string;
   name: string;
   description: string | null;
@@ -212,6 +215,7 @@ export interface ProjectModel {
   id: string;
   projectId: string;
   environmentId: string;
+  tenant: string;
   groupSlug: string;
   modelId: string;
   name: string;

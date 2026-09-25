@@ -8,6 +8,13 @@
       "when": 1789652096338,
       "tag": "0000_volatile_blob",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790334535076,
+      "tag": "0001_tenant_tokens_and_models",
+      "breakpoints": true
     }
   ]
 }

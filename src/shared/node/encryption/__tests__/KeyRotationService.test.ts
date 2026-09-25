@@ -6,7 +6,7 @@ import { createDatabaseClient } from "~/shared/node/db/client.js";
 import { runMigrations } from "~/shared/node/db/migrate.js";
 import { DatabaseFeature } from "~/shared/node/db/feature.js";
 import { PinoLoggerFeature } from "@webiny/stdlib/node";
-import { projectEnvironments, projects } from "~/shared/node/db/schema.js";
+import { projectEnvironments, projectTenants, projects } from "~/shared/node/db/schema.js";
 import { EncryptionKey } from "../abstractions/EncryptionKey.js";
 import { EncryptionService as EncryptionServiceAbstraction } from "../abstractions/EncryptionService.js";
 import { EncryptionService } from "../EncryptionService.js";
@@ -120,6 +120,43 @@ describe("KeyRotationService", () => {
     expect(result.isOk() && result.value.rotated).toBe(2);
     expect(decryptWith(NEW_KEY, storedToken("env-1")!)).toBe("token-dev");
     expect(decryptWith(NEW_KEY, storedToken("env-2")!)).toBe("token-prod");
+  });
+
+  it("re-encrypts tenant tokens in the same pass", async () => {
+    addEnvironment("env-1", "dev", encryptWith(OLD_KEY, "token-dev"));
+    databaseClient.db
+      .insert(projectTenants)
+      .values([
+        {
+          id: "tenant-1",
+          projectId: "project-1",
+          environmentId: "env-1",
+          tenantId: "acme",
+          name: "Acme",
+          apiToken: encryptWith(OLD_KEY, "token-acme"),
+          discoveredAt: Date.now(),
+        },
+        {
+          id: "tenant-2",
+          projectId: "project-1",
+          environmentId: "env-1",
+          tenantId: "root",
+          name: "Root",
+          apiToken: null,
+          discoveredAt: Date.now(),
+        },
+      ])
+      .run();
+
+    const result = await service().execute({ oldKey: OLD_KEY, newKey: NEW_KEY });
+
+    expect(result.isOk() && result.value.rotated).toBe(2);
+    const tenant = databaseClient.db
+      .select({ apiToken: projectTenants.apiToken })
+      .from(projectTenants)
+      .where(eq(projectTenants.id, "tenant-1"))
+      .get();
+    expect(decryptWith(NEW_KEY, tenant!.apiToken!)).toBe("token-acme");
   });
 
   it("leaves the old key unable to read what it rotated", async () => {

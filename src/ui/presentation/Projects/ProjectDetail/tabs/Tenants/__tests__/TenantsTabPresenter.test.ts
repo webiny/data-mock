@@ -20,12 +20,13 @@ const CONTEXT: ProjectDetailTabContext = {
   tenant: "root",
 };
 
-function tenant(tenantId: string) {
+function tenant(tenantId: string, apiToken: string | null = null) {
   return {
     id: tenantId,
     environmentId: ENVIRONMENT_ID,
     tenantId,
     name: `Tenant ${tenantId}`,
+    apiToken,
     discoveredAt: 1,
     createdAt: 1,
     updatedAt: 1,
@@ -146,5 +147,55 @@ describe("TenantsTabPresenter", () => {
     await Promise.resolve();
 
     expect(http.calls).toHaveLength(before);
+  });
+
+  describe("API tokens", () => {
+    const UPDATE_PATH = "/api/projects/:projectId/environments/:environmentId/tenants/:tenantId";
+
+    beforeEach(() => {
+      http.data.set(TENANTS_PATH, [tenant("root"), tenant("acme", "acme-token"), tenant("beta")]);
+    });
+
+    it("says which key each tenant talks with", async () => {
+      await presenter.activate(CONTEXT);
+
+      expect(presenter.vm.tenants.map((t) => [t.tenantId, t.keySource])).toEqual([
+        ["root", "environment"],
+        ["acme", "own"],
+        ["beta", "none"],
+      ]);
+    });
+
+    it("saves a token and shows it without reading the list again", async () => {
+      http.data.set(UPDATE_PATH, tenant("beta", "beta-token"));
+      await presenter.activate(CONTEXT);
+      presenter.openEditToken("beta");
+
+      const saved = await presenter.submitToken("beta-token");
+
+      expect(saved).toBe(true);
+      expect(http.callsTo(UPDATE_PATH, "PUT")[0]?.body).toEqual({ apiToken: "beta-token" });
+      expect(presenter.vm.tenants.find((t) => t.tenantId === "beta")?.keySource).toBe("own");
+      expect(presenter.vm.editingTenant).toBeNull();
+    });
+
+    it("removes the tenant's own token when the field is emptied", async () => {
+      http.data.set(UPDATE_PATH, tenant("acme"));
+      await presenter.activate(CONTEXT);
+      presenter.openEditToken("acme");
+
+      await presenter.submitToken("");
+
+      expect(http.callsTo(UPDATE_PATH, "PUT")[0]?.body).toEqual({ apiToken: null });
+    });
+
+    it("keeps the dialog open when the save fails", async () => {
+      http.failures.set(UPDATE_PATH, "refused");
+      await presenter.activate(CONTEXT);
+      presenter.openEditToken("beta");
+
+      expect(await presenter.submitToken("x")).toBe(false);
+      expect(presenter.vm.editingTenant?.tenantId).toBe("beta");
+    });
   });
 });

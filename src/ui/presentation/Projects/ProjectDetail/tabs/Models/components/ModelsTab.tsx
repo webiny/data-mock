@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { observer } from "mobx-react-lite";
-import { Accordion, Badge, Group, Pagination, Stack, Text } from "@mantine/core";
+import { Accordion, Badge, Group, Pagination, Select, Stack, Text } from "@mantine/core";
 import { CodeViewerModal } from "~/ui/components/CodeViewerModal.js";
 import { usePagination } from "~/ui/components/usePagination.js";
 import { useFeature } from "~/ui/di/useFeature.js";
@@ -32,16 +32,38 @@ export const ModelsTab = observer(function ModelsTab({ context }: ModelsTabProps
   const vm = presenter.vm;
   const { page, totalPages, pageItems: pageGroups, setPage } = usePagination(vm.groups);
 
+  const tenantPicker = vm.tenants.length > 0 && (
+    <Select
+      label="Tenant"
+      data={vm.tenants.map((tenant) => ({
+        value: tenant.tenantId,
+        label: `${tenant.name} (${tenant.tenantId}) — ${tenant.modelCount} models`,
+      }))}
+      value={vm.selectedTenant}
+      onChange={(value) => {
+        if (value) {
+          presenter.selectTenant(value);
+        }
+      }}
+      allowDeselect={false}
+      w={320}
+    />
+  );
+
   if (vm.models.length === 0) {
     return (
-      <Text c="dimmed" fs="italic">
-        No models synced. Click &quot;Sync All&quot; to fetch them from Webiny.
-      </Text>
+      <Stack gap="sm">
+        {tenantPicker}
+        <Text c="dimmed" fs="italic">
+          No models pulled for this tenant. Set its API token in the Tenants tab, then pull models.
+        </Text>
+      </Stack>
     );
   }
 
   return (
     <Stack gap="sm">
+      {tenantPicker}
       <Accordion variant="separated">
         {pageGroups.map((group) => {
           const groupModels = vm.models.filter((model) => model.groupSlug === group.slug);

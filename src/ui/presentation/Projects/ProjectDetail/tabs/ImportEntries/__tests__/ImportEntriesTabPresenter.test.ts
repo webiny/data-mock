@@ -30,6 +30,7 @@ function tenant(tenantId: string) {
     environmentId: ENVIRONMENT_ID,
     tenantId,
     name: `Tenant ${tenantId}`,
+    apiToken: null,
     discoveredAt: 1,
   };
 }
@@ -39,6 +40,7 @@ function model(modelId: string) {
     id: modelId,
     projectId: PROJECT_ID,
     environmentId: ENVIRONMENT_ID,
+    tenant: "root",
     groupSlug: "blog",
     modelId,
     name: `Model ${modelId}`,

@@ -1,5 +1,5 @@
 import { Result } from "@webiny/stdlib";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { projectGroups } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { ListProjectGroupsRepository as Abstraction } from "./abstractions/ListProjectGroupsRepository.js";
@@ -16,7 +16,12 @@ class ListProjectGroupsRepositoryImpl implements Abstraction.Interface {
       const rows = this.databaseClient.db
         .select()
         .from(projectGroups)
-        .where(eq(projectGroups.environmentId, input.environmentId))
+        .where(
+          and(
+            eq(projectGroups.environmentId, input.environmentId),
+            eq(projectGroups.tenant, input.tenant),
+          ),
+        )
         .all();
 
       return Result.ok(rows);

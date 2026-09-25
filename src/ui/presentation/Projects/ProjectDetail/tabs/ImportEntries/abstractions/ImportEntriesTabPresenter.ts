@@ -14,6 +14,9 @@ export interface IImportModelVM {
 
 export interface IImportEntriesTabVM {
   tenants: IImportTenantVM[];
+  /** Empty only while there are no tenants. */
+  selectedTenant: string;
+  /** The selected tenant's models: each tenant has its own. */
   models: IImportModelVM[];
   isLoading: boolean;
   /** True while an import job is being started, after the confirmation was accepted. */
@@ -33,6 +36,7 @@ export interface IImportEntriesTabPresenter {
    */
   activate(context: ProjectDetailTabContext): Promise<void>;
   dispose(): void;
+  selectTenant(tenant: string): void;
   /** Opens the confirmation dialog; the import job starts only once it is accepted. */
   importEntries(tenant: string, modelIds: string[]): void;
   confirmImport(): Promise<void>;

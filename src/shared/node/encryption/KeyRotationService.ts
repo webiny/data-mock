@@ -2,7 +2,7 @@ import { Result, Logger } from "@webiny/stdlib";
 import { eq } from "drizzle-orm";
 import { KeyRotationService as Abstraction } from "./abstractions/KeyRotationService.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
-import { projectEnvironments } from "~/shared/node/db/schema.js";
+import { projectEnvironments, projectTenants } from "~/shared/node/db/schema.js";
 import { ProjectPersistenceError } from "~/shared/errors.js";
 import { decryptWithKey, encryptWithKey, toKeyBuffer } from "./aesGcm.js";
 
@@ -36,12 +36,17 @@ class KeyRotationServiceImpl implements Abstraction.Interface {
       }
 
       /**
-       * Tokens live on environments now, not projects. Rows with no token (an environment that is
-       * discovered but not yet connected) have nothing to rotate.
+       * Tokens live on environments and on tenants. Rows with no token (an environment that is
+       * discovered but not yet connected, a tenant that uses none of its own) have nothing to
+       * rotate.
        */
       const allEnvironments = this.databaseClient.db
         .select({ id: projectEnvironments.id, apiToken: projectEnvironments.apiToken })
         .from(projectEnvironments)
+        .all();
+      const allTenants = this.databaseClient.db
+        .select({ id: projectTenants.id, apiToken: projectTenants.apiToken })
+        .from(projectTenants)
         .all();
 
       /**
@@ -82,10 +87,34 @@ class KeyRotationServiceImpl implements Abstraction.Interface {
           }
         }
 
+        for (const tenant of allTenants) {
+          if (tenant.apiToken === null) {
+            continue;
+          }
+
+          try {
+            const plaintext = decryptWithKey(tenant.apiToken, oldKeyBuffer);
+
+            tx.update(projectTenants)
+              .set({ apiToken: encryptWithKey(plaintext, newKeyBuffer) })
+              .where(eq(projectTenants.id, tenant.id))
+              .run();
+
+            count++;
+          } catch (error) {
+            this.logger.error(
+              `Failed to rotate key for tenant row "${tenant.id}": ${error instanceof Error ? error.message : String(error)}`,
+            );
+            throw new Error(
+              `Key rotation failed at tenant row "${tenant.id}". Nothing was changed.`,
+            );
+          }
+        }
+
         return count;
       });
 
-      this.logger.info(`Rotated the encryption key for ${rotated} environment(s).`);
+      this.logger.info(`Rotated the encryption key for ${rotated} token(s).`);
       return Result.ok({ rotated });
     } catch (error) {
       return Result.fail(

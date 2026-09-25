@@ -1,5 +1,6 @@
 import { createFeature } from "~/ui/di/createFeature.js";
 import { ModelsFeature } from "~/ui/features/models/feature.js";
+import { TenantsFeature } from "~/ui/features/tenants/feature.js";
 import { NotificationsFeature } from "~/ui/features/notifications/feature.js";
 import { EventsFeature } from "~/ui/infrastructure/events/feature.js";
 import { ModelsTabPresenter as Abstraction } from "./abstractions/ModelsTabPresenter.js";
@@ -11,7 +12,7 @@ interface ModelsTabExports {
 
 export const ModelsTabFeature = createFeature<void, ModelsTabExports>({
   name: "Ui/ModelsTabFeature",
-  dependencies: [ModelsFeature, NotificationsFeature, EventsFeature],
+  dependencies: [ModelsFeature, TenantsFeature, NotificationsFeature, EventsFeature],
   register(container) {
     container.register(ModelsTabPresenter);
   },

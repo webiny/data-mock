@@ -6,6 +6,8 @@ import { SyncProjectGroupsRepository } from "./abstractions/SyncProjectGroupsRep
 import { SyncProjectModelsRepository } from "./abstractions/SyncProjectModelsRepository.js";
 import { SyncModelsService as Abstraction } from "./abstractions/SyncModelsService.js";
 import { GraphQLRequestError } from "~/shared/errors.js";
+import type { ProjectPersistenceError } from "~/shared/errors.js";
+import { ListProjectTenantsRepository } from "~/shared/node/features/tenants/list/abstractions/ListProjectTenantsRepository.js";
 import { isExcludedModel } from "~/shared/node/models/excludedModels.js";
 import type { ApiCmsModelField, OperationLog } from "~/shared/types.js";
 
@@ -41,6 +43,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     private readonly operationRegistry: OperationRegistry.Interface,
     private readonly syncProjectGroupsRepository: SyncProjectGroupsRepository.Interface,
     private readonly syncProjectModelsRepository: SyncProjectModelsRepository.Interface,
+    private readonly listProjectTenantsRepository: ListProjectTenantsRepository.Interface,
     private readonly logger: Logger.Interface,
   ) {}
 
@@ -55,8 +58,80 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(contextResult.error);
     }
 
-    const { project, environment, apiUrl, apiToken, tenant, operationsVersion } =
-      contextResult.value;
+    const context = contextResult.value;
+    const { project, environment } = context;
+
+    const tenantsResult = await this.listProjectTenantsRepository.execute({
+      environmentId: environment.id,
+    });
+    if (tenantsResult.isFail()) {
+      return Result.fail(tenantsResult.error);
+    }
+
+    /**
+     * Every tenant that has a key: its own, or the environment's for the default (root) tenant.
+     * The default tenant is always first, and is there even before tenants have been pulled —
+     * the context above already proved it has a token.
+     */
+    const tenantIds = [
+      context.tenant,
+      ...tenantsResult.value
+        .map((tenant) => tenant.tenantId)
+        .filter((tenantId) => tenantId !== context.tenant),
+    ];
+    const pullable = tenantIds.flatMap((tenantId) => {
+      const apiToken = context.apiTokenFor(tenantId);
+      return apiToken === null ? [] : [{ tenantId, apiToken }];
+    });
+
+    const operations: OperationLog[] = [];
+    const tenants: Abstraction.TenantResult[] = [];
+    const onProgress = input.onProgress;
+    let firstError: GraphQLRequestError | ProjectPersistenceError | null = null;
+
+    for (const [index, { tenantId, apiToken }] of pullable.entries()) {
+      // The tenant is named only when there is more than one to tell apart.
+      const report = (percent: number, label: string): void =>
+        onProgress?.(
+          Math.round(((index + percent / 100) / pullable.length) * 100),
+          pullable.length > 1 ? `[${tenantId}] ${label}` : label,
+        );
+
+      const result = await this.pullTenant(context, tenantId, apiToken, operations, report);
+      if (result.isFail()) {
+        // One tenant refusing does not stop the others; the job reports which failed.
+        this.logger.warn(`Could not pull models for tenant "${tenantId}": ${result.error.message}`);
+        firstError ??= result.error;
+        tenants.push({ tenant: tenantId, groups: 0, models: 0, error: result.error.message });
+        continue;
+      }
+      tenants.push({ tenant: tenantId, ...result.value, error: null });
+    }
+
+    if (firstError !== null && tenants.every((tenant) => tenant.error !== null)) {
+      return Result.fail(firstError);
+    }
+
+    const groups = tenants.reduce((sum, tenant) => sum + tenant.groups, 0);
+    const models = tenants.reduce((sum, tenant) => sum + tenant.models, 0);
+
+    this.logger.info(
+      `Synced ${groups} group(s) and ${models} model(s) across ${tenants.length} tenant(s) for project "${project.name}".`,
+    );
+
+    return Result.ok({ groups, models, tenants, operations });
+  }
+
+  private async pullTenant(
+    context: EnvironmentContextService.Output,
+    tenant: string,
+    apiToken: string,
+    operations: OperationLog[],
+    onProgress: (percent: number, label: string) => void,
+  ): Promise<
+    Result<{ groups: number; models: number }, GraphQLRequestError | ProjectPersistenceError>
+  > {
+    const { project, environment, apiUrl, operationsVersion } = context;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -64,10 +139,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       "x-tenant": tenant,
     };
 
-    const operations: OperationLog[] = [];
-    const onProgress = input.onProgress;
-
-    onProgress?.(10, "Fetching content model groups...");
+    onProgress(10, "Fetching content model groups...");
 
     const groupsResult = await this.fetchWithOperation<RemoteGroup[]>(
       "listContentModelGroups",
@@ -80,7 +152,7 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
       return Result.fail(groupsResult.error);
     }
 
-    onProgress?.(35, "Fetching content models...");
+    onProgress(35, "Fetching content models...");
 
     const modelsResult = await this.fetchWithOperation<RemoteModel[]>(
       "listContentModels",
@@ -96,11 +168,12 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
     const groups = groupsResult.value;
     const models = modelsResult.value;
 
-    onProgress?.(60, "Syncing groups...");
+    onProgress(60, "Syncing groups...");
 
     const syncGroupsResult = await this.syncProjectGroupsRepository.execute({
       projectId: project.id,
       environmentId: environment.id,
+      tenant,
       groups: groups.map((group) => ({
         slug: group.slug,
         name: group.name,
@@ -116,11 +189,12 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
     const userModels = models.filter((model) => !isExcludedModel(model.modelId));
 
-    onProgress?.(85, "Syncing models...");
+    onProgress(85, "Syncing models...");
 
     const syncModelsResult = await this.syncProjectModelsRepository.execute({
       projectId: project.id,
       environmentId: environment.id,
+      tenant,
       models: userModels.map((model) => ({
         groupSlug: model.group,
         modelId: model.modelId,
@@ -140,13 +214,12 @@ class SyncModelsServiceImpl implements Abstraction.Interface {
 
     const skipped = models.length - userModels.length;
     if (skipped > 0) {
-      this.logger.info(`Excluded ${skipped} system/plugin model(s) from sync.`);
+      this.logger.info(
+        `Excluded ${skipped} system/plugin model(s) from sync for tenant "${tenant}".`,
+      );
     }
-    this.logger.info(
-      `Synced ${groups.length} group(s) and ${userModels.length} model(s) for project "${project.name}".`,
-    );
 
-    return Result.ok({ groups: groups.length, models: userModels.length, operations });
+    return Result.ok({ groups: groups.length, models: userModels.length });
   }
 
   private async fetchWithOperation<T>(
@@ -227,6 +300,7 @@ export const SyncModelsService = Abstraction.createImplementation({
     OperationRegistry,
     SyncProjectGroupsRepository,
     SyncProjectModelsRepository,
+    ListProjectTenantsRepository,
     Logger,
   ],
 });

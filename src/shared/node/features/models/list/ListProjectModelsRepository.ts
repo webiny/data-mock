@@ -1,5 +1,5 @@
 import { Result } from "@webiny/stdlib";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { projectModels } from "~/shared/node/db/schema.js";
 import { DatabaseClient } from "~/shared/node/db/abstractions/DatabaseClient.js";
 import { ListProjectModelsRepository as Abstraction } from "./abstractions/ListProjectModelsRepository.js";
@@ -16,7 +16,12 @@ class ListProjectModelsRepositoryImpl implements Abstraction.Interface {
       const rows = this.databaseClient.db
         .select()
         .from(projectModels)
-        .where(eq(projectModels.environmentId, input.environmentId))
+        .where(
+          and(
+            eq(projectModels.environmentId, input.environmentId),
+            input.tenant === undefined ? undefined : eq(projectModels.tenant, input.tenant),
+          ),
+        )
         .all();
 
       const models: ProjectModel[] = rows.map((row) => ({

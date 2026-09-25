@@ -23,6 +23,7 @@ class ImportEntriesTabPresenterImpl implements Abstraction.Interface {
   private _context: ProjectDetailTabContext | null = null;
   private _loadedKey: string | null = null;
   private _isLoading = false;
+  private _selectedTenant: string | null = null;
   private _isImporting = false;
   private _showCleanupDialog = false;
   private _isCleaningUp = false;
@@ -47,8 +48,9 @@ class ImportEntriesTabPresenterImpl implements Abstraction.Interface {
     const tenants = environmentId
       ? this.tenantsRepository.getTenantsByEnvironmentId(environmentId)
       : [];
+    const selectedTenant = this.resolveTenant(tenants.map((tenant) => tenant.tenantId));
     const models = environmentId
-      ? this.modelsRepository.getModelsByEnvironmentId(environmentId)
+      ? this.modelsRepository.getModelsByEnvironmentId(environmentId, selectedTenant)
       : [];
 
     return {
@@ -56,6 +58,7 @@ class ImportEntriesTabPresenterImpl implements Abstraction.Interface {
         tenantId: tenant.tenantId,
         name: tenant.name,
       })),
+      selectedTenant,
       models: models.map((model) => ({
         modelId: model.modelId,
         name: model.name,
@@ -80,6 +83,19 @@ class ImportEntriesTabPresenterImpl implements Abstraction.Interface {
     }
     await this.read(context);
   };
+
+  public selectTenant = (tenant: string): void => {
+    this._selectedTenant = tenant;
+  };
+
+  /** The picked tenant while it still exists, else the environment's own, else the first. */
+  private resolveTenant(tenantIds: string[]): string {
+    if (this._selectedTenant !== null && tenantIds.includes(this._selectedTenant)) {
+      return this._selectedTenant;
+    }
+    const defaultTenant = this._context?.tenant ?? "root";
+    return tenantIds.includes(defaultTenant) ? defaultTenant : (tenantIds[0] ?? "");
+  }
 
   public dispose = (): void => {
     this.disposeJobSubscription();

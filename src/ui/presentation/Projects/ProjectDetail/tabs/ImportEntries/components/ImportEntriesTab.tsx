@@ -30,9 +30,6 @@ export const ImportEntriesTab = observer(function ImportEntriesTab({
 
   const vm = presenter.vm;
 
-  const [selectedTenant, setSelectedTenant] = useState(
-    vm.tenants.length > 0 ? vm.tenants[0]!.tenantId : "",
-  );
   const [selectedModels, setSelectedModels] = useState<Set<string>>(
     new Set(vm.models.map((model) => model.modelId)),
   );
@@ -58,7 +55,7 @@ export const ImportEntriesTab = observer(function ImportEntriesTab({
   };
 
   const handleImport = () => {
-    presenter.importEntries(selectedTenant, Array.from(selectedModels));
+    presenter.importEntries(vm.selectedTenant, Array.from(selectedModels));
   };
 
   return (
@@ -75,10 +72,12 @@ export const ImportEntriesTab = observer(function ImportEntriesTab({
             value: tenant.tenantId,
             label: `${tenant.name} (${tenant.tenantId})`,
           }))}
-          value={selectedTenant}
+          value={vm.selectedTenant}
           onChange={(value) => {
             if (value) {
-              setSelectedTenant(value);
+              presenter.selectTenant(value);
+              // Each tenant has its own models; a selection made for another means nothing here.
+              setSelectedModels(new Set(presenter.vm.models.map((model) => model.modelId)));
             }
           }}
         />
@@ -118,7 +117,7 @@ export const ImportEntriesTab = observer(function ImportEntriesTab({
       <Button
         onClick={handleImport}
         loading={vm.isImporting}
-        disabled={selectedModels.size === 0 || !selectedTenant}
+        disabled={selectedModels.size === 0 || !vm.selectedTenant}
         size="lg"
       >
         Import Entries ({selectedModels.size} models)

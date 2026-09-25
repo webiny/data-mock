@@ -5,6 +5,8 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListProjectModelsRepositoryInput {
   environmentId: string;
+  /** Omitted: every tenant's models. */
+  tenant?: string | undefined;
 }
 
 export interface IListProjectModelsRepository {

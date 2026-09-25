@@ -6,6 +6,8 @@ import { ListProjectGroupsRepository } from "../../list/abstractions/ListProject
 import { ListProjectModelsRepository } from "../../list/abstractions/ListProjectModelsRepository.js";
 import { SyncProjectGroupsRepository } from "../abstractions/SyncProjectGroupsRepository.js";
 import { SyncProjectModelsRepository } from "../abstractions/SyncProjectModelsRepository.js";
+import { SyncProjectTenantsRepository } from "~/shared/node/features/tenants/sync/abstractions/SyncProjectTenantsRepository.js";
+import { UpdateProjectTenantRepository } from "~/shared/node/features/tenants/update/abstractions/UpdateProjectTenantRepository.js";
 import type { HttpClient } from "~/shared/abstractions/HttpClient.js";
 import type { ApiCmsModelField } from "~/shared/types.js";
 
@@ -149,6 +151,121 @@ describe("SyncModelsService", () => {
     } finally {
       tc.cleanup();
     }
+  });
+
+  describe("per tenant", () => {
+    /** Answers with a model named after the tenant the request was sent as. */
+    function perTenantHttpClient(): HttpClient.Interface {
+      const client = createMockHttpClient();
+      vi.mocked(client.post).mockImplementation(async (_url, body, headers) => {
+        const tenant = headers?.["x-tenant"] ?? "?";
+        const parsed = JSON.parse(body) as { query: string };
+        if (parsed.query.includes("ListContentModelGroups")) {
+          return groupsResponse([remoteGroup()]);
+        }
+        if (tenant === "broken") {
+          return createMockResponse(403, "Forbidden");
+        }
+        return modelsResponse([remoteModel({ modelId: `${tenant}Model`, name: tenant })]);
+      });
+      return client;
+    }
+
+    async function setUp(client: HttpClient.Interface) {
+      const tc = createTestContainer({ httpClient: client });
+      const project = await createTestProject(tc, { apiToken: "main-token" });
+      await tc.container.resolve(SyncProjectTenantsRepository).execute({
+        projectId: project.projectId,
+        environmentId: project.environmentId,
+        tenants: [
+          { tenantId: "root", name: "Root" },
+          { tenantId: "acme", name: "Acme" },
+          { tenantId: "nokey", name: "No Key" },
+          { tenantId: "broken", name: "Broken" },
+        ],
+      });
+      const update = tc.container.resolve(UpdateProjectTenantRepository);
+      await update.execute({
+        environmentId: project.environmentId,
+        tenantId: "acme",
+        apiToken: "acme-token",
+      });
+      await update.execute({
+        environmentId: project.environmentId,
+        tenantId: "broken",
+        apiToken: "broken-token",
+      });
+      return { tc, project };
+    }
+
+    async function modelIds(
+      tc: ReturnType<typeof createTestContainer>,
+      environmentId: string,
+      tenant: string,
+    ) {
+      const listed = await tc.container
+        .resolve(ListProjectModelsRepository)
+        .execute({ environmentId, tenant });
+      return listed.isOk() ? listed.value.map((model) => model.modelId) : [];
+    }
+
+    it("pulls every tenant that has a key, each with its own token, and stores them apart", async () => {
+      const client = perTenantHttpClient();
+      const { tc, project } = await setUp(client);
+      try {
+        const result = await tc.container
+          .resolve(SyncModelsService)
+          .execute({ environmentId: project.environmentId });
+
+        expect(result.isOk()).toBe(true);
+        expect(await modelIds(tc, project.environmentId, "root")).toEqual(["rootModel"]);
+        expect(await modelIds(tc, project.environmentId, "acme")).toEqual(["acmeModel"]);
+
+        const sent = vi
+          .mocked(client.post)
+          .mock.calls.map(([, , headers]) => [headers?.["x-tenant"], headers?.["authorization"]]);
+        expect(sent).toContainEqual(["root", "Bearer main-token"]);
+        expect(sent).toContainEqual(["acme", "Bearer acme-token"]);
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("skips a tenant with no key rather than lending it the environment's", async () => {
+      const client = perTenantHttpClient();
+      const { tc, project } = await setUp(client);
+      try {
+        await tc.container
+          .resolve(SyncModelsService)
+          .execute({ environmentId: project.environmentId });
+
+        const tenantsSent = vi.mocked(client.post).mock.calls.map(([, , h]) => h?.["x-tenant"]);
+        expect(tenantsSent).not.toContain("nokey");
+      } finally {
+        tc.cleanup();
+      }
+    });
+
+    it("reports a tenant that fails and still pulls the others", async () => {
+      const { tc, project } = await setUp(perTenantHttpClient());
+      try {
+        const result = await tc.container
+          .resolve(SyncModelsService)
+          .execute({ environmentId: project.environmentId });
+
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) {
+          expect(result.value.tenants.map((t) => [t.tenant, t.error === null])).toEqual([
+            ["root", true],
+            ["acme", true],
+            ["broken", false],
+          ]);
+          expect(result.value.models).toBe(2);
+        }
+      } finally {
+        tc.cleanup();
+      }
+    });
   });
 
   it("fails when fetching content model groups returns a non-200 status", async () => {
@@ -321,7 +438,10 @@ describe("SyncModelsService", () => {
 
       // The groups fetch that ran first must not have been stored on a later failure.
       const listGroups = tc.container.resolve(ListProjectGroupsRepository);
-      const groupsResult = await listGroups.execute({ environmentId: project.environmentId });
+      const groupsResult = await listGroups.execute({
+        environmentId: project.environmentId,
+        tenant: "root",
+      });
       expect(groupsResult.isOk()).toBe(true);
       if (groupsResult.isOk()) {
         expect(groupsResult.value).toHaveLength(0);
@@ -358,7 +478,10 @@ describe("SyncModelsService", () => {
       }
 
       const listGroups = tc.container.resolve(ListProjectGroupsRepository);
-      const groupsResult = await listGroups.execute({ environmentId: project.environmentId });
+      const groupsResult = await listGroups.execute({
+        environmentId: project.environmentId,
+        tenant: "root",
+      });
       expect(groupsResult.isOk()).toBe(true);
       if (groupsResult.isOk()) {
         const byslug = new Map(groupsResult.value.map((g) => [g.slug, g]));
@@ -382,6 +505,7 @@ describe("SyncModelsService", () => {
       await syncGroups.execute({
         projectId: project.projectId,
         environmentId: project.environmentId,
+        tenant: "root",
         groups: [{ slug: "existing", name: "Existing", remoteId: "g0" }],
       });
 
@@ -404,7 +528,10 @@ describe("SyncModelsService", () => {
       }
 
       const listGroups = tc.container.resolve(ListProjectGroupsRepository);
-      const groupsResult = await listGroups.execute({ environmentId: project.environmentId });
+      const groupsResult = await listGroups.execute({
+        environmentId: project.environmentId,
+        tenant: "root",
+      });
       expect(groupsResult.isOk()).toBe(true);
       if (groupsResult.isOk()) {
         // The failed write rolled back inside its transaction rather than emptying the table first.
@@ -426,6 +553,7 @@ describe("SyncModelsService", () => {
       await syncModels.execute({
         projectId: project.projectId,
         environmentId: project.environmentId,
+        tenant: "root",
         models: [
           {
             groupSlug: "blog",
@@ -458,7 +586,10 @@ describe("SyncModelsService", () => {
       }
 
       const listModels = tc.container.resolve(ListProjectModelsRepository);
-      const modelsResult = await listModels.execute({ environmentId: project.environmentId });
+      const modelsResult = await listModels.execute({
+        environmentId: project.environmentId,
+        tenant: "root",
+      });
       expect(modelsResult.isOk()).toBe(true);
       if (modelsResult.isOk()) {
         // The failed write rolled back inside its transaction rather than emptying the table first.
@@ -467,7 +598,10 @@ describe("SyncModelsService", () => {
 
       // The groups fetched in the same run were already committed before the model sync failed.
       const listGroups = tc.container.resolve(ListProjectGroupsRepository);
-      const groupsResult = await listGroups.execute({ environmentId: project.environmentId });
+      const groupsResult = await listGroups.execute({
+        environmentId: project.environmentId,
+        tenant: "root",
+      });
       expect(groupsResult.isOk()).toBe(true);
       if (groupsResult.isOk()) {
         expect(groupsResult.value).toHaveLength(1);
@@ -501,7 +635,10 @@ describe("SyncModelsService", () => {
       }
 
       const listModels = tc.container.resolve(ListProjectModelsRepository);
-      const modelsResult = await listModels.execute({ environmentId: project.environmentId });
+      const modelsResult = await listModels.execute({
+        environmentId: project.environmentId,
+        tenant: "root",
+      });
       expect(modelsResult.isOk()).toBe(true);
       if (modelsResult.isOk()) {
         expect(modelsResult.value.map((m) => m.modelId)).toEqual(["article"]);

@@ -16,7 +16,19 @@ export interface IGroupVM {
   modelCount: number;
 }
 
+export interface IModelTenantVM {
+  tenantId: string;
+  name: string;
+  modelCount: number;
+}
+
 export interface IModelsTabVM {
+  /**
+   * Every pulled tenant, whether or not it has models: one with none is a tenant with no key, or
+   * one not pulled yet. Plus any tenant that has models but was not pulled.
+   */
+  tenants: IModelTenantVM[];
+  selectedTenant: string;
   models: IModelVM[];
   groups: IGroupVM[];
   isLoading: boolean;
@@ -30,6 +42,7 @@ export interface IModelsTabPresenter {
    * environment asynchronously, so the first call on a fresh page usually has none.
    */
   activate(context: ProjectDetailTabContext): Promise<void>;
+  selectTenant(tenant: string): void;
   dispose(): void;
 }
 

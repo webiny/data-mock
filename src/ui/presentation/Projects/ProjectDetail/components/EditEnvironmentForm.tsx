@@ -55,13 +55,14 @@ export function EditEnvironmentForm({ environment, onSubmit, onCancel }: EditEnv
           onChange={(event) => setApiUrl(event.currentTarget.value)}
         />
         <TextInput
-          label="API token"
+          label="Main API token"
+          description="Used by the default tenant below. Other tenants need their own, set in the Tenants tab."
           value={apiToken}
           onChange={(event) => setApiToken(event.currentTarget.value)}
           autoComplete="off"
         />
         <TextInput
-          label="Tenant"
+          label="Default tenant"
           value={tenant}
           onChange={(event) => setTenant(event.currentTarget.value)}
           required

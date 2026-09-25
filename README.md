@@ -77,9 +77,10 @@ Before seeding or importing, the project needs tenants and models pulled from We
 
 1. Open the project
 2. Go to **Pull Tenants** — click **Pull Tenants** to discover tenants from the Webiny instance
-3. Go to **Pull Models** — click **Pull Models** to pull CMS model definitions and groups
+3. For each tenant other than the default one, set its API token in the **Tenants** tab (**Edit token**). The environment's API token is the main key and only works for the default (root) tenant.
+4. Go to **Pull Models** — click **Pull Models** to pull CMS model definitions and groups for every tenant that has a key. Models are stored per tenant.
 
-These must be done in order — tenants first, then models. After pulling, the tenants and models tabs show what was discovered.
+These must be done in order — tenants first, then tokens, then models. After pulling, the tenants and models tabs show what was discovered.
 
 ### 7. Seed data or import existing entries
 

@@ -47,14 +47,18 @@ class SyncModelsJobExecutorImpl implements Abstraction.Interface {
       environmentId,
       type: "models",
       status: "success",
-      message: `Synced ${summary.models} model(s)`,
+      message: `Synced ${summary.models} model(s) across ${summary.tenants.length} tenant(s)`,
       request: operations,
       response: summary,
     });
 
-    context.appendLog(
-      `Synced ${result.value.models} model(s) and ${result.value.groups} group(s).`,
-    );
+    for (const tenant of result.value.tenants) {
+      context.appendLog(
+        tenant.error === null
+          ? `[${tenant.tenant}] Synced ${tenant.models} model(s) and ${tenant.groups} group(s).`
+          : `[${tenant.tenant}] Failed: ${tenant.error}`,
+      );
+    }
   }
 }
 

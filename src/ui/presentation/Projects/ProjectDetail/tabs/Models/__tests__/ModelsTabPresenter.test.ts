@@ -10,6 +10,7 @@ import { ModelsTabFeature } from "../feature.js";
 import { ModelsTabPresenter } from "../abstractions/ModelsTabPresenter.js";
 
 const MODELS_PATH = "/api/projects/:projectId/environments/:environmentId/models";
+const TENANTS_PATH = "/api/projects/:projectId/environments/:environmentId/tenants";
 const PROJECT_ID = "p1";
 const ENVIRONMENT_ID = "e1";
 
@@ -20,11 +21,12 @@ const CONTEXT: ProjectDetailTabContext = {
   tenant: "root",
 };
 
-function model(modelId: string, groupSlug = "content") {
+function model(modelId: string, groupSlug = "content", tenant = "root") {
   return {
-    id: modelId,
+    id: `${tenant}-${modelId}`,
     projectId: PROJECT_ID,
     environmentId: ENVIRONMENT_ID,
+    tenant,
     groupSlug,
     modelId,
     name: `Model ${modelId}`,
@@ -123,8 +125,8 @@ describe("ModelsTabPresenter", () => {
       type: "pull-models",
       status: "completed",
     });
-    await Promise.resolve();
-    await Promise.resolve();
+    // The re-read asks for models and tenants together; let both settle.
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(presenter.vm.models).toHaveLength(2);
   });
@@ -173,5 +175,52 @@ describe("ModelsTabPresenter", () => {
     await Promise.resolve();
 
     expect(http.calls).toHaveLength(before);
+  });
+
+  describe("per tenant", () => {
+    beforeEach(() => {
+      http.data.set(MODELS_PATH, [
+        model("article"),
+        model("page"),
+        model("product", "shop", "acme"),
+      ]);
+    });
+
+    it("starts on the environment's own tenant and lists only its models", async () => {
+      await presenter.activate(CONTEXT);
+
+      expect(presenter.vm.tenants.map((t) => [t.tenantId, t.modelCount])).toEqual([
+        ["root", 2],
+        ["acme", 1],
+      ]);
+      expect(presenter.vm.selectedTenant).toBe("root");
+      expect(presenter.vm.models.map((m) => m.modelId)).toEqual(["article", "page"]);
+    });
+
+    it("switches to another tenant's models", async () => {
+      await presenter.activate(CONTEXT);
+
+      presenter.selectTenant("acme");
+
+      expect(presenter.vm.models.map((m) => m.modelId)).toEqual(["product"]);
+      expect(presenter.vm.groups.map((g) => g.slug)).toEqual(["shop"]);
+    });
+
+    it("offers a pulled tenant that has no models yet", async () => {
+      http.data.set(TENANTS_PATH, [
+        { tenantId: "root", name: "Root" },
+        { tenantId: "acme", name: "Acme" },
+        { tenantId: "beta", name: "Beta" },
+      ]);
+      await presenter.activate(CONTEXT);
+
+      expect(presenter.vm.tenants.map((t) => [t.tenantId, t.modelCount])).toEqual([
+        ["root", 2],
+        ["acme", 1],
+        ["beta", 0],
+      ]);
+      presenter.selectTenant("beta");
+      expect(presenter.vm.models).toEqual([]);
+    });
   });
 });

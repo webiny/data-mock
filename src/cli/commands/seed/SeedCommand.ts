@@ -114,8 +114,13 @@ class SeedCommandImpl implements Command.Interface {
       return;
     }
 
+    /**
+     * Models are pulled per tenant. "All tenants" picks from the default tenant's; a tenant that
+     * lacks one of them reports it as a per-model error rather than stopping the run.
+     */
     const modelsResult = await this.listModelsRepository.execute({
       environmentId: environment.id,
+      tenant: selectedTenant === "__all__" ? environment.tenant : selectedTenant,
     });
     if (modelsResult.isFail()) {
       this.ui.log.error(`Failed to list models: ${modelsResult.error.message}`);

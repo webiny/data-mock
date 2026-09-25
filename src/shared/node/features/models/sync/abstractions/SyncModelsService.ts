@@ -14,9 +14,22 @@ export interface ISyncModelsServiceInput {
   onProgress?: ((percent: number, label: string) => void) | undefined;
 }
 
+/** One tenant's pull. `error` is set, and the counts are 0, when that tenant failed. */
+export interface ISyncModelsTenantResult {
+  tenant: string;
+  groups: number;
+  models: number;
+  error: string | null;
+}
+
+/**
+ * Pulls every tenant that has a key. The totals add up the tenants that succeeded; the service
+ * fails only when every tenant did.
+ */
 export interface ISyncModelsServiceOutput {
   groups: number;
   models: number;
+  tenants: ISyncModelsTenantResult[];
   operations: OperationLog[];
 }
 
@@ -32,6 +45,7 @@ export namespace SyncModelsService {
   export type Interface = ISyncModelsService;
   export type Input = ISyncModelsServiceInput;
   export type Output = ISyncModelsServiceOutput;
+  export type TenantResult = ISyncModelsTenantResult;
   export type Error =
     | EnvironmentNotFoundError
     | EnvironmentNotConnectedError

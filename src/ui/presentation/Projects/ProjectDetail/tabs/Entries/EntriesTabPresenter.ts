@@ -72,8 +72,17 @@ class EntriesTabPresenterImpl implements Abstraction.Interface {
     const entries = environmentId
       ? this.entriesRepository.getEntriesByEnvironmentId(environmentId)
       : [];
+    // Models are pulled per tenant. With a tenant filter the model filter offers that tenant's;
+    // without one, every tenant's, each model once.
+    const tenantFilter = this.entriesListState.get("tenant") || undefined;
     const models = environmentId
-      ? this.modelsRepository.getModelsByEnvironmentId(environmentId)
+      ? Array.from(
+          new Map(
+            this.modelsRepository
+              .getModelsByEnvironmentId(environmentId, tenantFilter)
+              .map((model) => [model.modelId, model]),
+          ).values(),
+        )
       : [];
     const tenants = environmentId
       ? this.tenantsRepository.getTenantsByEnvironmentId(environmentId)

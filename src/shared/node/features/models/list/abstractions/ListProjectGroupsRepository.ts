@@ -5,6 +5,7 @@ import type { ProjectPersistenceError } from "~/shared/errors.js";
 
 export interface IListProjectGroupsRepositoryInput {
   environmentId: string;
+  tenant: string;
 }
 
 export interface IListProjectGroupsRepository {

@@ -1,6 +1,10 @@
 import { Result } from "@webiny/stdlib";
 import type { ProjectTenant, Job } from "~/shared/types.js";
-import { listProjectTenantsRoute, syncProjectTenantsRoute } from "~/shared/routes/tenants.js";
+import {
+  listProjectTenantsRoute,
+  syncProjectTenantsRoute,
+  updateProjectTenantRoute,
+} from "~/shared/routes/tenants.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { TenantsGateway as Abstraction } from "./abstractions/TenantsGateway.js";
@@ -31,6 +35,23 @@ class TenantsGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(result.value.job);
+  }
+
+  public async updateToken(
+    ref: EnvironmentRef,
+    tenantId: string,
+    apiToken: string | null,
+  ): Promise<Result<ProjectTenant, HTTPError>> {
+    const result = await this.httpClient.request(updateProjectTenantRoute, {
+      params: { projectId: ref.projectId, environmentId: ref.environmentId, tenantId },
+      body: { apiToken },
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.tenant);
   }
 }
 

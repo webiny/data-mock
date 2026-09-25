@@ -5,6 +5,7 @@ import type { ProjectNotFoundError, ProjectPersistenceError } from "~/shared/err
 
 export interface IGetProjectModelRepositoryInput {
   environmentId: string;
+  tenant: string;
   modelId: string;
 }
 
