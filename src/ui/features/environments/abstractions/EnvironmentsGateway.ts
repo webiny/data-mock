@@ -1,6 +1,7 @@
 import { createAbstraction } from "@webiny/stdlib";
 import type { Result } from "@webiny/stdlib";
 import type { DeletionImpact, Job, ProjectEnvironment, ProjectStack } from "~/shared/types.js";
+import type { UpdateEnvironmentBody } from "~/shared/responses/environments.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 
 export interface IEnvironmentsGateway {
@@ -16,6 +17,12 @@ export interface IEnvironmentsGateway {
    * job's `result`.
    */
   previewSync(projectIds: string[]): Promise<Result<Job, HTTPError>>;
+  /** Connection details only. A field left out keeps its stored value. */
+  update(
+    projectId: string,
+    environmentId: string,
+    input: UpdateEnvironmentBody,
+  ): Promise<Result<ProjectEnvironment, HTTPError>>;
   /** Soft delete — keeps every child row and can be undone with `restore`. */
   archive(projectId: string, environmentId: string): Promise<Result<ProjectEnvironment, HTTPError>>;
   restore(projectId: string, environmentId: string): Promise<Result<ProjectEnvironment, HTTPError>>;

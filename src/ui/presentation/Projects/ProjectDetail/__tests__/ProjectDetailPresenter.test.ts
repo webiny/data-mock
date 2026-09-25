@@ -452,4 +452,54 @@ describe("ProjectDetailPresenter", () => {
       expect(p.vm.archivedEnvironments).toEqual([]);
     });
   });
+
+  describe("editing an environment", () => {
+    it("shows the stored token for editing", async () => {
+      http.data.set(ENVIRONMENTS_PATH, [makeEnvironment({ apiToken: "secret" })]);
+
+      const p = await loaded();
+      p.openEditEnvironment(ENVIRONMENT_ID);
+
+      expect(p.vm.editingEnvironment?.apiToken).toBe("secret");
+    });
+
+    it("sends only the changed fields and closes the dialog", async () => {
+      http.data.set(ARCHIVE_PATH, makeEnvironment({ apiToken: "new-token" }));
+
+      const p = await loaded();
+      p.openEditEnvironment(ENVIRONMENT_ID);
+
+      const saved = await p.submitEditEnvironment({ apiToken: "new-token" });
+
+      expect(saved).toBe(true);
+      // Same path as archiving, so the method is what distinguishes it.
+      const calls = http.callsTo(ARCHIVE_PATH, "PUT");
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.body).toEqual({ apiToken: "new-token" });
+      expect(p.vm.editingEnvironment).toBeNull();
+    });
+
+    it("asks health again for the selected environment after its details change", async () => {
+      const p = await loaded();
+      await p.checkHealth();
+      const before = http.callsTo(HEALTH_PATH).length;
+
+      p.openEditEnvironment(ENVIRONMENT_ID);
+      await p.submitEditEnvironment({ tenant: "other" });
+
+      expect(http.callsTo(HEALTH_PATH).length).toBe(before + 1);
+    });
+
+    it("keeps the dialog open when the update fails", async () => {
+      http.failures.set(ARCHIVE_PATH, "invalid url");
+
+      const p = await loaded();
+      p.openEditEnvironment(ENVIRONMENT_ID);
+
+      const saved = await p.submitEditEnvironment({ apiUrl: "nope" });
+
+      expect(saved).toBe(false);
+      expect(p.vm.editingEnvironment?.id).toBe(ENVIRONMENT_ID);
+    });
+  });
 });

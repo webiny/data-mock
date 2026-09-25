@@ -5,6 +5,7 @@ import type {
   IDeploymentDialogVM,
   IEnvironmentVM,
   IProjectDetailVM,
+  IEditEnvironmentInput,
   IEditProjectInput,
   IStackVM,
 } from "./abstractions/ProjectDetailPresenter.js";
@@ -62,6 +63,7 @@ function toEnvironmentVM(environment: ProjectEnvironment): IEnvironmentVM {
     connectable: environment.apiUrl !== null,
     apiUrl: environment.apiUrl,
     adminUrl: environment.adminUrl,
+    apiToken: environment.apiToken,
     tenant: environment.tenant,
     lastSyncedAt: environment.lastSyncedAt,
   };
@@ -91,6 +93,7 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
   private _isSubmittingDeployment = false;
   private _deploymentError: string | null = null;
   private _showEditDialog = false;
+  private _editEnvironmentId: string | null = null;
   private _loadingProjectId: string | null = null;
   /**
    * The project and stack name that actually loaded, as one key. Separate from `_projectId` and
@@ -178,6 +181,8 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
       isLoading: this._isLoading,
       isSyncing: this._isSyncing,
       showEditDialog: this._showEditDialog,
+      editingEnvironment:
+        allEnvironmentVMs.find((environment) => environment.id === this._editEnvironmentId) ?? null,
       syncPreview: this.syncPreviewState.vm,
     };
   }
@@ -560,6 +565,39 @@ class ProjectDetailPresenterImpl implements Abstraction.Interface {
     }
     this.notifications.error("Failed to update project.");
     return false;
+  };
+
+  public openEditEnvironment = (environmentId: string): void => {
+    this._editEnvironmentId = environmentId;
+  };
+
+  public closeEditEnvironment = (): void => {
+    this._editEnvironmentId = null;
+  };
+
+  public submitEditEnvironment = async (input: IEditEnvironmentInput): Promise<boolean> => {
+    const projectId = this._projectId;
+    const environmentId = this._editEnvironmentId;
+    if (projectId === null || environmentId === null) {
+      return false;
+    }
+
+    const result = await this.environmentsGateway.update(projectId, environmentId, input);
+    if (result.isFail()) {
+      this.notifications.error(`Failed to update environment: ${result.error.message}`);
+      return false;
+    }
+
+    runInAction(() => {
+      this._editEnvironmentId = null;
+    });
+    this.notifications.success("Environment updated.");
+    await this.reloadEnvironments();
+    // The health verdict on screen was reached with the old url, token and tenant.
+    if (environmentId === this._environmentId) {
+      await this.checkHealth();
+    }
+    return true;
   };
 
   public dispose = (): void => {

@@ -34,6 +34,7 @@ interface EnvironmentsTabProps {
   onDeploy: () => void;
   onDestroy: () => void;
   onSelectEnvironment: (stackName: string) => void;
+  onEdit: (environmentId: string) => void;
   onConfirmRemove: (environmentId: string, stackName: string) => void;
   onCancelRemove: () => void;
   onRequestPurge: () => void;
@@ -90,6 +91,7 @@ export const EnvironmentsTab = observer(function EnvironmentsTab({
   onDeploy,
   onDestroy,
   onSelectEnvironment,
+  onEdit,
   onConfirmRemove,
   onCancelRemove,
   onRequestPurge,
@@ -192,6 +194,13 @@ export const EnvironmentsTab = observer(function EnvironmentsTab({
                           Select
                         </Button>
                       )}
+                      <Button
+                        size="compact-xs"
+                        variant="subtle"
+                        onClick={() => onEdit(environment.id)}
+                      >
+                        Edit
+                      </Button>
                       <Button
                         size="compact-xs"
                         variant="subtle"

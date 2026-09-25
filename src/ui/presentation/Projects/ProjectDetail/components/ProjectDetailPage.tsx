@@ -25,6 +25,7 @@ import { EnvironmentsTab } from "./EnvironmentsTab.js";
 import { DeploymentDialog } from "./DeploymentDialog.js";
 import { SystemInfoTab } from "./SystemInfoTab.js";
 import { EditProjectForm } from "./EditProjectForm.js";
+import { EditEnvironmentForm } from "./EditEnvironmentForm.js";
 import type { ProjectDetailTabContext } from "../tabs/abstractions/ProjectDetailTabContext.js";
 import { TenantsTab } from "../tabs/Tenants/components/TenantsTab.js";
 import { ModelsTab } from "../tabs/Models/components/ModelsTab.js";
@@ -330,6 +331,7 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
                 onSelectEnvironment={(stackName) =>
                   navigate(AppRoutes.environmentTab(projectId, stackName, "environments"))
                 }
+                onEdit={(id) => presenter.openEditEnvironment(id)}
                 onConfirmRemove={(id, stackName) =>
                   presenter.confirmRemoveEnvironment(id, stackName)
                 }
@@ -390,6 +392,22 @@ export const ProjectDetailPage = observer(function ProjectDetailPage({
           onSubmit={(input) => presenter.submitEdit(input)}
           onCancel={() => presenter.closeEditDialog()}
         />
+      </Modal>
+
+      <Modal
+        opened={vm.editingEnvironment !== null}
+        onClose={() => presenter.closeEditEnvironment()}
+        title={`Edit environment ${vm.editingEnvironment?.stackName ?? ""}`}
+        centered
+      >
+        {vm.editingEnvironment !== null && (
+          <EditEnvironmentForm
+            key={vm.editingEnvironment.id}
+            environment={vm.editingEnvironment}
+            onSubmit={(input) => presenter.submitEditEnvironment(input)}
+            onCancel={() => presenter.closeEditEnvironment()}
+          />
+        )}
       </Modal>
     </>
   );

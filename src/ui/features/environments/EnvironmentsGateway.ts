@@ -5,6 +5,7 @@ import {
   listEnvironmentStacksRoute,
   syncProjectRoute,
   previewProjectSyncRoute,
+  updateProjectEnvironmentRoute,
   archiveProjectEnvironmentRoute,
   restoreProjectEnvironmentRoute,
   purgeProjectEnvironmentRoute,
@@ -13,6 +14,7 @@ import {
   destroyEnvironmentRoute,
   listDeployableAppsRoute,
 } from "~/shared/routes/environments.js";
+import type { UpdateEnvironmentBody } from "~/shared/responses/environments.js";
 import { HTTPClient } from "~/ui/infrastructure/httpClient/abstractions/HTTPClient.js";
 import type { HTTPError } from "~/ui/infrastructure/httpClient/HTTPError.js";
 import { EnvironmentsGateway as Abstraction } from "./abstractions/EnvironmentsGateway.js";
@@ -74,6 +76,23 @@ class EnvironmentsGatewayImpl implements Abstraction.Interface {
     }
 
     return Result.ok(result.value.job);
+  }
+
+  public async update(
+    projectId: string,
+    environmentId: string,
+    input: UpdateEnvironmentBody,
+  ): Promise<Result<ProjectEnvironment, HTTPError>> {
+    const result = await this.httpClient.request(updateProjectEnvironmentRoute, {
+      params: { projectId, environmentId },
+      body: input,
+    });
+
+    if (result.isFail()) {
+      return Result.fail(result.error);
+    }
+
+    return Result.ok(result.value.environment);
   }
 
   public async archive(

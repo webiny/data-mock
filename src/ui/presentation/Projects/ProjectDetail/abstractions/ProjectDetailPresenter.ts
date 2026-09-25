@@ -27,6 +27,7 @@ export interface IEnvironmentVM {
   connectable: boolean;
   apiUrl: string | null;
   adminUrl: string | null;
+  apiToken: string | null;
   tenant: string;
   lastSyncedAt: number | null;
 }
@@ -104,6 +105,13 @@ export interface IEditProjectInput {
   operationsVersion?: string;
 }
 
+/** Connection details of one environment. A field left out keeps its stored value. */
+export interface IEditEnvironmentInput {
+  apiUrl?: string | null;
+  apiToken?: string | null;
+  tenant?: string;
+}
+
 /**
  * What the page frame around the tabs shows. Every tab owns its own presenter and its own data;
  * this one owns the project, the environment the page is pointed at, and the actions that change
@@ -131,6 +139,8 @@ export interface IProjectDetailVM {
   isLoading: boolean;
   isSyncing: boolean;
   showEditDialog: boolean;
+  /** The environment whose connection details are being edited, or null when the dialog is shut. */
+  editingEnvironment: IEnvironmentVM | null;
   /** What a sync from disk would change. Shown before anything is stored. */
   syncPreview: ISyncPreviewVM;
 }
@@ -169,6 +179,9 @@ export interface IProjectDetailPresenter {
   openEditDialog(): void;
   closeEditDialog(): void;
   submitEdit(input: IEditProjectInput): Promise<boolean>;
+  openEditEnvironment(environmentId: string): void;
+  closeEditEnvironment(): void;
+  submitEditEnvironment(input: IEditEnvironmentInput): Promise<boolean>;
   dispose(): void;
 }
 
