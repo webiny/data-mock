@@ -106,8 +106,8 @@ describe("GraphQL Operations", () => {
         makeJson({
           listTenants: {
             data: [
-              { id: "root", values: { name: "Root" } },
-              { id: "t1", values: { name: "Tenant 1" } },
+              { id: "root#0001", entryId: "root", values: { name: "Root" } },
+              { id: "t1#0003", entryId: "t1", values: { name: "Tenant 1" } },
             ],
           },
         }),
@@ -116,6 +116,24 @@ describe("GraphQL Operations", () => {
       const tenants = result.data as Array<{ id: string; name: string }>;
       expect(tenants).toHaveLength(2);
       expect(tenants[0]).toEqual({ id: "root", name: "Root" });
+    });
+
+    it("uses the entry id as the tenant id, never the revision id", () => {
+      const result = listTenants.getResult(
+        makeJson({
+          listTenants: {
+            data: [
+              {
+                id: "6ab652666bad8d000251943a#0001",
+                entryId: "6ab652666bad8d000251943a",
+                values: { name: "Machinery" },
+              },
+            ],
+          },
+        }),
+      );
+      const tenants = result.data as Array<{ id: string; name: string }>;
+      expect(tenants[0]?.id).toBe("6ab652666bad8d000251943a");
     });
 
     it("should return error for missing response key", () => {

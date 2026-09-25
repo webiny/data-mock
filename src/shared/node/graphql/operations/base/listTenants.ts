@@ -1,9 +1,15 @@
 import { z } from "zod";
 import { defineOperation } from "../defineOperation.js";
 
+/**
+ * Tenants are entries of the `wbyTenant` CMS model. `id` is the entry's revision id
+ * (`6ab6…#0001`); the tenant id — what `x-tenant` must carry — is `entryId`. Sending the revision
+ * id as `x-tenant` answers every request with a 500.
+ */
 export const tenantSchema = z
   .object({
     id: z.string(),
+    entryId: z.string(),
     values: z.object({ name: z.string() }).strict(),
   })
   .strict();
@@ -27,6 +33,7 @@ export const listTenants = defineOperation<void, z.infer<typeof dataSchema>, Ten
       listTenants {
         data {
           id
+          entryId
           values {
             name
           }
@@ -39,5 +46,5 @@ export const listTenants = defineOperation<void, z.infer<typeof dataSchema>, Ten
       }
     }
   `,
-  transform: (data) => data.map((tenant) => ({ id: tenant.id, name: tenant.values.name })),
+  transform: (data) => data.map((tenant) => ({ id: tenant.entryId, name: tenant.values.name })),
 });
